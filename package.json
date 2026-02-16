@@ -1,0 +1,9 @@
+{
+  "name": "viagen-sdk-root",
+  "private": true,
+  "workspaces": ["api", "sdk"],
+  "scripts": {
+    "test": "npm test --workspaces",
+    "build": "npm run build --workspaces"
+  }
+}
