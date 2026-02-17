@@ -11,50 +11,77 @@ API server and client SDK for viagen platform services.
 
 ```bash
 npm install
+cp api/.env.example api/.env  # fill in values
+npm run db:push -w api        # push schema to Neon
 ```
 
 ## Development
 
 ```bash
-# Start API server locally
-npm run dev -w api
-
-# Build SDK
-npm run build -w sdk
-
-# Run all tests
-npm test
+npm run dev -w api     # Start API server locally
+npm run build -w sdk   # Build SDK
+npm test               # Run all tests
 ```
 
 ## Auth
 
-Auth is powered by [WorkOS AuthKit](https://workos.com/docs/user-management/authkit). The API handles the OAuth redirect flow and sealed session management. The SDK provides a typed client.
+OAuth via [Arctic](https://arcticjs.dev/) with our own DB sessions. Providers: GitHub, Google, Microsoft.
 
 ### API Routes
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| GET | `/auth/login` | Redirect to WorkOS AuthKit login |
-| GET | `/auth/callback` | Exchange code for session, set cookie |
-| GET | `/auth/me` | Return current user from session |
-| POST | `/auth/logout` | Clear session cookie |
+| GET | `/api/auth/login/:provider` | Redirect to OAuth provider (github, google, microsoft) |
+| GET | `/api/auth/callback/:provider` | Exchange code, upsert user, create session |
+| GET | `/api/auth/me` | Return current user + org memberships |
+| POST | `/api/auth/logout` | Delete session, clear cookie |
+| GET | `/api/orgs` | List user's organizations |
+| POST | `/api/orgs` | Create organization (user becomes admin) |
+| POST | `/api/orgs/members` | Add member by email (admin only) |
+| GET | `/api/projects` | List projects (org-scoped) |
+| POST | `/api/projects` | Create project (admin only) |
+| GET | `/api/projects/:id` | Get project (org-scoped) |
+| DELETE | `/api/projects/:id` | Delete project (admin only) |
 
 ### SDK Usage
 
 ```ts
 import { createViagen } from 'viagen-sdk'
 
-const viagen = createViagen({ baseUrl: 'https://sdk.viagen.dev' })
+const viagen = createViagen({ baseUrl: 'https://api.viagen.dev/api' })
 
-viagen.auth.login()
+viagen.auth.login('github')
 const user = await viagen.auth.me()
 await viagen.auth.logout()
+
+const orgs = await viagen.orgs.list()
+await viagen.orgs.create({ name: 'My Team' })
+
+const projects = await viagen.projects.list()
+await viagen.projects.create({ name: 'My App' })
 ```
 
 ### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `WORKOS_API_KEY` | WorkOS API key |
-| `WORKOS_CLIENT_ID` | WorkOS client ID |
-| `WORKOS_COOKIE_PASSWORD` | 32+ char secret for sealing sessions |
+| `DATABASE_URL` | Neon Postgres connection string |
+| `GITHUB_CLIENT_ID` | GitHub OAuth app client ID |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth app client secret |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `MICROSOFT_CLIENT_ID` | Microsoft Entra app client ID |
+| `MICROSOFT_CLIENT_SECRET` | Microsoft Entra app client secret |
+| `MICROSOFT_TENANT_ID` | Microsoft tenant ID (default: `common`) |
+| `AUTH_REDIRECT_BASE` | Callback base URL (default: `http://localhost:3000`) |
+
+## TODO
+
+- [ ] Set up OAuth providers:
+  - [ ] **GitHub**: https://github.com/settings/developers → New OAuth App (callback: `{base}/api/auth/callback/github`)
+  - [ ] **Google**: https://console.cloud.google.com/apis/credentials → OAuth client ID (callback: `{base}/api/auth/callback/google`)
+  - [ ] **Microsoft**: https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade → New registration (callback: `{base}/api/auth/callback/microsoft`)
+- [ ] Test full auth flow end-to-end
+- [ ] Add `app/` workspace — Vite SPA that dogfoods the SDK
+- [ ] Deploy API to Vercel (api.viagen.dev)
+- [ ] Publish SDK to npm

@@ -1,94 +1,136 @@
 import { Hono } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
-import { WorkOS } from '@workos-inc/node'
+import {
+  isValidProvider,
+  createAuthUrl,
+  exchangeCode,
+  fetchProviderUser,
+  upsertUser,
+  createSession,
+  validateSession,
+  deleteSession,
+  type ProviderName,
+} from '../lib/auth.js'
+import { db } from '../db/index.js'
+import { orgMembers, organizations } from '../db/schema.js'
+import { eq } from 'drizzle-orm'
 
 const auth = new Hono()
 
-const workos = new WorkOS(process.env.WORKOS_API_KEY, {
-  clientId: process.env.WORKOS_CLIENT_ID,
-})
+const SESSION_COOKIE = 'viagen-session'
+const afterLoginUrl = process.env.AFTER_LOGIN_URL ?? '/'
 
-const clientId = process.env.WORKOS_CLIENT_ID!
-const cookiePassword = process.env.WORKOS_COOKIE_PASSWORD!
-const redirectUri = process.env.WORKOS_REDIRECT_URI ?? 'http://localhost:3000/auth/callback'
-const afterLoginUrl = process.env.WORKOS_AFTER_LOGIN_URL ?? '/'
-
-auth.get('/login', (c) => {
-  const authorizationUrl = workos.userManagement.getAuthorizationUrl({
-    provider: 'authkit',
-    redirectUri,
-    clientId,
-  })
-
-  return c.redirect(authorizationUrl)
-})
-
-auth.get('/callback', async (c) => {
-  const code = c.req.query('code')
-  if (!code) {
-    return c.json({ error: 'Missing code parameter' }, 400)
+auth.get('/login/:provider', (c) => {
+  const provider = c.req.param('provider')
+  if (!isValidProvider(provider)) {
+    return c.json({ error: `Unknown provider: ${provider}` }, 400)
   }
 
-  const { user, sealedSession } = await workos.userManagement.authenticateWithCode({
-    clientId,
-    code,
-    session: {
-      sealSession: true,
-      cookiePassword,
-    },
-  })
+  const { url, state, codeVerifier } = createAuthUrl(provider)
 
-  setCookie(c, 'wos-session', sealedSession!, {
+  // Store state + verifier in short-lived cookies for CSRF + PKCE validation
+  setCookie(c, 'oauth-state', state, {
     path: '/',
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'Lax',
+    maxAge: 600, // 10 minutes
+  })
+
+  if (codeVerifier) {
+    setCookie(c, 'oauth-verifier', codeVerifier, {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Lax',
+      maxAge: 600,
+    })
+  }
+
+  return c.redirect(url.toString())
+})
+
+auth.get('/callback/:provider', async (c) => {
+  const provider = c.req.param('provider')
+  if (!isValidProvider(provider)) {
+    return c.json({ error: `Unknown provider: ${provider}` }, 400)
+  }
+
+  const code = c.req.query('code')
+  const state = c.req.query('state')
+  const storedState = getCookie(c, 'oauth-state')
+  const codeVerifier = getCookie(c, 'oauth-verifier')
+
+  // Clean up OAuth cookies
+  deleteCookie(c, 'oauth-state', { path: '/' })
+  deleteCookie(c, 'oauth-verifier', { path: '/' })
+
+  if (!code || !state || state !== storedState) {
+    return c.json({ error: 'Invalid OAuth callback' }, 400)
+  }
+
+  const tokens = await exchangeCode(provider, code, codeVerifier)
+  const providerUser = await fetchProviderUser(provider, tokens.accessToken())
+  const user = await upsertUser(provider, providerUser)
+  const { token, expiresAt } = await createSession(user.id)
+
+  setCookie(c, SESSION_COOKIE, token, {
+    path: '/',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Lax',
+    expires: expiresAt,
   })
 
   return c.redirect(afterLoginUrl)
 })
 
 auth.get('/me', async (c) => {
-  const sessionData = getCookie(c, 'wos-session')
-  if (!sessionData) {
+  const token = getCookie(c, SESSION_COOKIE)
+  if (!token) {
     return c.json({ authenticated: false }, 401)
   }
 
-  const session = workos.userManagement.loadSealedSession({
-    sessionData,
-    cookiePassword,
+  const result = await validateSession(token)
+  if (!result) {
+    deleteCookie(c, SESSION_COOKIE, { path: '/' })
+    return c.json({ authenticated: false }, 401)
+  }
+
+  // Check org membership
+  const memberships = await db
+    .select({
+      organizationId: orgMembers.organizationId,
+      role: orgMembers.role,
+      organizationName: organizations.name,
+    })
+    .from(orgMembers)
+    .innerJoin(organizations, eq(orgMembers.organizationId, organizations.id))
+    .where(eq(orgMembers.userId, result.user.id))
+
+  return c.json({
+    authenticated: true,
+    user: {
+      id: result.user.id,
+      email: result.user.email,
+      name: result.user.name,
+      avatarUrl: result.user.avatarUrl,
+    },
+    organizations: memberships.map((m) => ({
+      id: m.organizationId,
+      name: m.organizationName,
+      role: m.role,
+    })),
   })
-
-  const authResult = await session.authenticate()
-
-  if (authResult.authenticated) {
-    return c.json(authResult)
-  }
-
-  if (authResult.reason === 'no_session_cookie_provided') {
-    return c.json({ authenticated: false }, 401)
-  }
-
-  // Session expired or invalid — clear it
-  deleteCookie(c, 'wos-session', { path: '/' })
-  return c.json({ authenticated: false }, 401)
 })
 
 auth.post('/logout', async (c) => {
-  const sessionData = getCookie(c, 'wos-session')
-  if (!sessionData) {
-    return c.json({ success: true })
+  const token = getCookie(c, SESSION_COOKIE)
+  if (token) {
+    await deleteSession(token)
   }
-
-  const session = workos.userManagement.loadSealedSession({
-    sessionData,
-    cookiePassword,
-  })
-
-  const url = await session.getLogoutUrl()
-  deleteCookie(c, 'wos-session', { path: '/' })
-
-  return c.json({ success: true, url })
+  deleteCookie(c, SESSION_COOKIE, { path: '/' })
+  return c.json({ success: true })
 })
 
 export { auth }

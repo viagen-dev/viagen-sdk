@@ -1,31 +1,35 @@
 export interface ViagenUser {
   id: string
   email: string
-  firstName: string | null
-  lastName: string | null
-  profilePictureUrl: string | null
+  name: string | null
+  avatarUrl: string | null
+}
+
+export interface OrgInfo {
+  id: string
+  name: string
+  role: string
 }
 
 export interface AuthResult {
   authenticated: true
   user: ViagenUser
-  sessionId: string
-  organizationId?: string
+  organizations: OrgInfo[]
 }
 
 export interface AuthClient {
-  /** Redirect the browser to the login page. */
-  login(): void
+  /** Redirect the browser to a provider login page. */
+  login(provider?: 'google' | 'github' | 'microsoft'): void
   /** Get the current authenticated user. Returns null if not authenticated. */
-  me(): Promise<ViagenUser | null>
-  /** Log out the current user. Optionally redirects to WorkOS logout. */
-  logout(options?: { redirect?: boolean }): Promise<void>
+  me(): Promise<(ViagenUser & { organizations: OrgInfo[] }) | null>
+  /** Log out the current user. */
+  logout(): Promise<void>
 }
 
 export function createAuthClient(baseUrl: string): AuthClient {
   return {
-    login() {
-      window.location.href = `${baseUrl}/auth/login`
+    login(provider = 'github') {
+      window.location.href = `${baseUrl}/auth/login/${provider}`
     },
 
     async me() {
@@ -36,19 +40,17 @@ export function createAuthClient(baseUrl: string): AuthClient {
       if (!res.ok) return null
 
       const data: AuthResult = await res.json()
-      return data.authenticated ? data.user : null
+      if (!data.authenticated) return null
+
+      return { ...data.user, organizations: data.organizations }
     },
 
-    async logout({ redirect = true } = {}) {
-      const res = await fetch(`${baseUrl}/auth/logout`, {
+    async logout() {
+      await fetch(`${baseUrl}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       })
-
-      if (redirect && res.ok) {
-        const { url } = await res.json()
-        if (url) window.location.href = url
-      }
+      window.location.reload()
     },
   }
 }
