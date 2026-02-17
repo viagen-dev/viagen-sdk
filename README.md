@@ -75,10 +75,32 @@ await viagen.projects.create({ name: 'My App' })
 | `MICROSOFT_TENANT_ID` | Microsoft tenant ID (default: `common`) |
 | `AUTH_REDIRECT_BASE` | Callback base URL (default: `http://localhost:3000`) |
 
+## Front end
+
+`ui/` — Vite + React SPA using Vercel's [Geist](https://vercel.com/geist/introduction) design language.
+
+```bash
+npm run dev          # starts api + ui concurrently
+npm run dev -w ui    # ui only (port 5173)
+```
+
+### Design system
+
+Geist's component library is internal to Vercel and not published to npm. We use the open pieces:
+
+- **Fonts** — `@fontsource-variable/geist` (sans) and `@fontsource-variable/geist-mono` (mono), imported in `main.tsx`. The official `geist` npm package is Next.js-only.
+- **Color tokens** — CSS custom properties following Geist's `--ds-` naming convention (`--ds-gray-100` through `--ds-gray-1000`, `--ds-background-100/200`, `--ds-blue-700/800`). Light and dark mode via `prefers-color-scheme`.
+- **Typography** — System scale: 0.75rem (xs), 0.8125rem (sm), 0.875rem (base), 1.5rem (heading). Weight 500 for headings, 400 for body.
+- **Components** — Built from scratch following Geist conventions: 6px border radius, `--ds-gray-1000` primary buttons with `--ds-background-100` text, subtle `--ds-gray-200` borders for secondary actions.
+
+### Proxy
+
+Vite proxies `/api` → `http://localhost:3000` so the SPA and API share cookies on `localhost` during development. OAuth callbacks hit the API directly (port 3000), then `AFTER_LOGIN_URL` redirects back to the UI.
+
 ## TODO
 
-- [ ] Set up OAuth providers:
-  - [ ] **GitHub**: https://github.com/settings/developers → New OAuth App (callback: `{base}/api/auth/callback/github`)
+- [X] Set up OAuth providers:
+  - [X] **GitHub**: https://github.com/settings/developers → New OAuth App (callback: `{base}/api/auth/callback/github`)
   - [ ] **Google**: https://console.cloud.google.com/apis/credentials → OAuth client ID (callback: `{base}/api/auth/callback/google`)
   - [ ] **Microsoft**: https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade → New registration (callback: `{base}/api/auth/callback/microsoft`)
 - [ ] Test full auth flow end-to-end
