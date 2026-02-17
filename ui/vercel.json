@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://api.viagen.dev/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
