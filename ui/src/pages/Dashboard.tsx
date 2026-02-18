@@ -1,8 +1,12 @@
+import { useAuth } from '../context/auth'
+
 export function Dashboard() {
+  const { currentOrg } = useAuth()
+
   return (
     <div>
       <h1 style={styles.title}>Dashboard</h1>
-      <p style={styles.description}>Welcome to your viagen SDK dashboard</p>
+      <p style={styles.description}>Welcome to {currentOrg.name}</p>
 
       <div style={styles.grid}>
         <div style={styles.card}>

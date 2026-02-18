@@ -7,7 +7,7 @@
     "ui"
   ],
   "scripts": {
-    "dev": "concurrently -n api,ui -c blue,magenta \"npm run dev -w api\" \"npm run dev -w ui\"",
+    "dev": "concurrently --kill-others -n api,ui -c blue,magenta \"npm run dev -w api\" \"npm run dev -w ui\"",
     "test": "npm test --workspaces",
     "build": "npm run build --workspaces"
   },

@@ -37,6 +37,7 @@ export const projects = pgTable('projects', {
   organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 255 }).notNull(),
   vercelProjectId: varchar('vercel_project_id', { length: 255 }),
+  githubRepo: varchar('github_repo', { length: 255 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull().$onUpdate(() => new Date()),
 })

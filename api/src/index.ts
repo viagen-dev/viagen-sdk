@@ -6,6 +6,9 @@ import { handle } from 'hono/vercel'
 import { auth } from './routes/auth.js'
 import { orgs } from './routes/orgs.js'
 import { projectRoutes } from './routes/projects.js'
+import { vercelRoutes } from './routes/vercel.js'
+import { integrationRoutes } from './routes/integrations.js'
+import { githubRoutes } from './routes/github.js'
 
 const app = new Hono()
 
@@ -53,6 +56,9 @@ api.use(
 api.route('/auth', auth)
 api.route('/orgs', orgs)
 api.route('/projects', projectRoutes)
+api.route('/vercel', vercelRoutes)
+api.route('/integrations', integrationRoutes)
+api.route('/github', githubRoutes)
 
 api.get('/health', (c) => c.json({ ok: true }))
 

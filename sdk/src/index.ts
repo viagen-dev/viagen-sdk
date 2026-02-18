@@ -1,10 +1,14 @@
 import { createAuthClient, type AuthClient } from './auth.js'
 import { createOrgsClient, type OrgsClient } from './orgs.js'
 import { createProjectsClient, type ProjectsClient } from './projects.js'
+import { createVercelClient, type VercelClient } from './vercel.js'
+import { createGitHubClient, type GitHubClient } from './github.js'
 
 export type { ViagenUser, OrgInfo, AuthResult, AuthClient } from './auth.js'
 export type { OrgMembership, Org, OrgsClient } from './orgs.js'
-export type { Project, CreateProjectInput, ProjectsClient } from './projects.js'
+export type { Project, CreateProjectInput, UpdateProjectInput, ProjectsClient } from './projects.js'
+export type { VercelProject, VercelListProjectsParams, VercelCreateProjectInput, VercelClient } from './vercel.js'
+export type { GitHubRepo, GitHubListReposParams, GitHubClient } from './github.js'
 
 export interface ViagenConfig {
   baseUrl: string
@@ -14,6 +18,8 @@ export interface ViagenClient {
   auth: AuthClient
   orgs: OrgsClient
   projects: ProjectsClient
+  vercel: VercelClient
+  github: GitHubClient
 }
 
 export class ViagenApiError extends Error {
@@ -52,5 +58,7 @@ export function createViagen(config: ViagenConfig): ViagenClient {
     auth: createAuthClient(baseUrl),
     orgs: createOrgsClient(baseUrl, request),
     projects: createProjectsClient(baseUrl, request),
+    vercel: createVercelClient(baseUrl, request),
+    github: createGitHubClient(baseUrl, request),
   }
 }

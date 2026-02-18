@@ -3,6 +3,7 @@ export interface Project {
   organizationId: string
   name: string
   vercelProjectId: string | null
+  githubRepo: string | null
   createdAt: string
   updatedAt: string
 }
@@ -10,6 +11,12 @@ export interface Project {
 export interface CreateProjectInput {
   name: string
   vercelProjectId?: string
+  githubRepo?: string
+}
+
+export interface UpdateProjectInput {
+  vercelProjectId?: string | null
+  githubRepo?: string | null
 }
 
 export interface ProjectsClient {
@@ -19,6 +26,8 @@ export interface ProjectsClient {
   create(input: CreateProjectInput): Promise<Project>
   /** Get a single project by ID. */
   get(id: string): Promise<Project>
+  /** Update a project (e.g., link/unlink Vercel project). Admin only. */
+  update(id: string, input: UpdateProjectInput): Promise<Project>
   /** Delete a project by ID. Admin only. */
   delete(id: string): Promise<void>
 }
@@ -40,6 +49,14 @@ export function createProjectsClient(baseUrl: string, request: RequestFn): Proje
 
     async get(id) {
       const data = await request<{ project: Project }>(`/projects/${id}`)
+      return data.project
+    },
+
+    async update(id, input) {
+      const data = await request<{ project: Project }>(`/projects/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      })
       return data.project
     },
 

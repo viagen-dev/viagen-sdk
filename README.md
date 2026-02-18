@@ -103,7 +103,7 @@ Vite proxies `/api` → `http://localhost:3000` so the SPA and API share cookies
   - [X] **GitHub**: https://github.com/settings/developers → New OAuth App (callback: `{base}/api/auth/callback/github`)
   - [ ] **Google**: https://console.cloud.google.com/apis/credentials → OAuth client ID (callback: `{base}/api/auth/callback/google`)
   - [ ] **Microsoft**: https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade → New registration (callback: `{base}/api/auth/callback/microsoft`)
-- [ ] Test full auth flow end-to-end
+- [X] Test full auth flow end-to-end
 - [ ] Add `app/` workspace — Vite SPA that dogfoods the SDK
 - [ ] Deploy API to Vercel (api.viagen.dev)
 - [ ] Publish SDK to npm

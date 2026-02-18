@@ -1,32 +1,29 @@
+import { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/auth'
+import { apiFetch } from '../lib/api'
 
-interface User {
-  id: string
-  email: string
-  name: string
-  avatarUrl: string | null
-}
-
-interface LayoutProps {
-  user: User | null
-  onLogout: () => void
-}
-
-export function Layout({ user, onLogout }: LayoutProps) {
+export function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { user, currentOrg, organizations, setCurrentOrg, logout } = useAuth()
 
-  const handleLogout = () => {
-    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
-      .then(() => {
-        onLogout()
-        navigate('/')
+  const [integrations, setIntegrations] = useState<{ github: boolean; vercel: boolean } | null>(null)
+
+  useEffect(() => {
+    apiFetch('/api/integrations/status', currentOrg.id)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setIntegrations(data)
       })
+  }, [currentOrg.id])
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/')
   }
 
-  if (!user) {
-    return <Outlet />
-  }
+  const missingIntegrations = integrations && (!integrations.github || !integrations.vercel)
 
   return (
     <div style={styles.wrapper}>
@@ -36,6 +33,25 @@ export function Layout({ user, onLogout }: LayoutProps) {
             <Link to="/" style={styles.logo}>
               viagen
             </Link>
+            <span style={styles.separator}>/</span>
+            {organizations.length > 1 ? (
+              <select
+                value={currentOrg.id}
+                onChange={(e) => {
+                  const org = organizations.find((o) => o.id === e.target.value)
+                  if (org) setCurrentOrg(org)
+                }}
+                style={styles.orgSelect}
+              >
+                {organizations.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span style={styles.orgName}>{currentOrg.name}</span>
+            )}
             <nav style={styles.nav}>
               <Link
                 to="/"
@@ -86,6 +102,22 @@ export function Layout({ user, onLogout }: LayoutProps) {
           </div>
         </div>
       </header>
+
+      {missingIntegrations && (
+        <div style={styles.banner}>
+          <span>
+            {!integrations.github && !integrations.vercel
+              ? 'Connect your GitHub and Vercel accounts to save sandbox changes.'
+              : !integrations.github
+                ? 'Connect your GitHub account to save sandbox changes.'
+                : 'Connect your Vercel account to deploy projects.'}
+          </span>
+          <Link to="/settings" style={styles.bannerLink}>
+            Go to Settings
+          </Link>
+        </div>
+      )}
+
       <main style={styles.main}>
         <Outlet />
       </main>
@@ -115,7 +147,7 @@ const styles: Record<string, React.CSSProperties> = {
   headerLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: '2rem',
+    gap: '0.75rem',
   },
   logo: {
     fontSize: '1.125rem',
@@ -123,9 +155,31 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--ds-gray-1000)',
     textDecoration: 'none',
   },
+  separator: {
+    color: 'var(--ds-gray-300)',
+    fontSize: '1.125rem',
+    fontWeight: 300,
+  },
+  orgName: {
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    color: 'var(--ds-gray-1000)',
+  },
+  orgSelect: {
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    color: 'var(--ds-gray-1000)',
+    background: 'none',
+    border: '1px solid var(--ds-gray-200)',
+    borderRadius: 6,
+    padding: '0.25rem 0.5rem',
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+  },
   nav: {
     display: 'flex',
     gap: '0.25rem',
+    marginLeft: '1rem',
   },
   navLink: {
     padding: '0.5rem 0.75rem',
@@ -178,6 +232,23 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: 'inherit',
     cursor: 'pointer',
     transition: 'border-color 0.15s ease, color 0.15s ease',
+  },
+  banner: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.75rem',
+    padding: '0.625rem 1rem',
+    background: '#fef3c7',
+    borderBottom: '1px solid #fcd34d',
+    fontSize: '0.8125rem',
+    color: '#92400e',
+  },
+  bannerLink: {
+    color: '#92400e',
+    fontWeight: 600,
+    textDecoration: 'underline',
+    fontSize: '0.8125rem',
   },
   main: {
     flex: 1,

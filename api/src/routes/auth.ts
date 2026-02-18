@@ -11,9 +11,10 @@ import {
   deleteSession,
   type ProviderName,
 } from '../lib/auth.js'
+import { setSecret } from '../lib/infisical.js'
 import { db } from '../db/index.js'
 import { orgMembers, organizations } from '../db/schema.js'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 
 const auth = new Hono()
 
@@ -70,6 +71,36 @@ auth.get('/callback/:provider', async (c) => {
   }
 
   const tokens = await exchangeCode(provider, code, codeVerifier)
+
+  // Check if this is a GitHub connect flow (not a login)
+  const connectOrgId = getCookie(c, 'github-connect-org')
+  if (connectOrgId && provider === 'github') {
+    const returnTo = getCookie(c, 'connect-return-to') ?? '/onboarding'
+    deleteCookie(c, 'github-connect-org', { path: '/' })
+    deleteCookie(c, 'connect-return-to', { path: '/' })
+
+    // Validate the user has an active session and belongs to this org
+    const sessionToken = getCookie(c, SESSION_COOKIE)
+    if (sessionToken) {
+      const result = await validateSession(sessionToken)
+      if (result) {
+        const [membership] = await db
+          .select()
+          .from(orgMembers)
+          .where(and(eq(orgMembers.userId, result.user.id), eq(orgMembers.organizationId, connectOrgId)))
+
+        if (membership) {
+          await setSecret(connectOrgId, 'GITHUB_ACCESS_TOKEN', tokens.accessToken())
+          return c.redirect(`${afterLoginUrl}${returnTo}?connected=github`)
+        }
+      }
+    }
+
+    // Fallback: if session/membership validation failed, redirect with error
+    return c.redirect(`${afterLoginUrl}${returnTo}?error=github`)
+  }
+
+  // Normal login flow
   const providerUser = await fetchProviderUser(provider, tokens.accessToken())
   const user = await upsertUser(provider, providerUser)
   const { token, expiresAt } = await createSession(user.id)
