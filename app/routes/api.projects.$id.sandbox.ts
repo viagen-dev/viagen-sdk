@@ -3,7 +3,6 @@ import { db } from '~/lib/db/index.server'
 import { projects } from '~/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { listProjectSecrets, getSecret, getProjectSecret } from '~/lib/infisical.server'
-import { deploySandbox } from 'viagen'
 
 export async function action({ request, params }: { request: Request; params: { id: string } }) {
   if (request.method !== 'POST') {
@@ -73,8 +72,13 @@ export async function action({ request, params }: { request: Request; params: { 
     envVars['VERCEL_TEAM_ID'] = vercelTeamId
   }
 
+  // Dynamic import — viagen is a devDependency, only available in dev
+  const { deploySandbox } = await import('viagen').catch(() => {
+    throw new Error('Sandbox launching is only available in development')
+  })
+
   // Build deploySandbox options
-  const opts: Parameters<typeof deploySandbox>[0] = {
+  const opts: any = {
     cwd: process.cwd(),
     envVars,
   }
