@@ -38,6 +38,7 @@ export async function action({ request }: { request: Request }) {
       name: body.name.trim(),
       vercelProjectId: body.vercelProjectId ?? null,
       githubRepo: body.githubRepo ?? null,
+      gitBranch: body.gitBranch ?? 'main',
       templateId: body.templateId ?? null,
     })
     .returning()

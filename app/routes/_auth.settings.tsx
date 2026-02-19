@@ -1,20 +1,37 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouteLoaderData, useSearchParams } from 'react-router'
-import { useEffect } from 'react'
 
 interface ParentData {
   user: { id: string; email: string; name: string | null; avatarUrl: string | null }
   currentOrg: { id: string; name: string }
+  organizations: { id: string; name: string; role: string }[]
   integrations: { github: boolean; vercel: boolean }
+}
+
+interface KeyStatus {
+  connected: boolean
+  scope: string
+  keyPrefix?: string
 }
 
 export default function Settings() {
   const parentData = useRouteLoaderData('routes/_auth') as ParentData
-  const { user, integrations } = parentData
+  const { user, currentOrg, organizations, integrations } = parentData
   const [searchParams, setSearchParams] = useSearchParams()
+
+  const currentRole = organizations.find(o => o.id === currentOrg.id)?.role ?? 'member'
+  const isAdmin = currentRole === 'admin'
 
   const [githubConnected, setGithubConnected] = useState(integrations.github)
   const [vercelConnected, setVercelConnected] = useState(integrations.vercel)
+
+  // Claude key state
+  const [userKey, setUserKey] = useState<KeyStatus | null>(null)
+  const [orgKey, setOrgKey] = useState<KeyStatus | null>(null)
+  const [userKeyInput, setUserKeyInput] = useState('')
+  const [orgKeyInput, setOrgKeyInput] = useState('')
+  const [savingUserKey, setSavingUserKey] = useState(false)
+  const [savingOrgKey, setSavingOrgKey] = useState(false)
 
   // Clean up OAuth redirect params from URL
   useEffect(() => {
@@ -22,6 +39,14 @@ export default function Settings() {
       setSearchParams({}, { replace: true })
     }
   }, [searchParams, setSearchParams])
+
+  // Fetch Claude key status
+  useEffect(() => {
+    fetch('/api/claude-key?scope=user', { credentials: 'include' })
+      .then(r => r.json()).then(setUserKey).catch(() => {})
+    fetch('/api/claude-key?scope=org', { credentials: 'include' })
+      .then(r => r.json()).then(setOrgKey).catch(() => {})
+  }, [])
 
   const disconnectGithub = async () => {
     await fetch('/api/integrations/github', { method: 'DELETE', credentials: 'include' })
@@ -31,6 +56,50 @@ export default function Settings() {
   const disconnectVercel = async () => {
     await fetch('/api/integrations/vercel', { method: 'DELETE', credentials: 'include' })
     setVercelConnected(false)
+  }
+
+  const saveUserKey = async () => {
+    if (!userKeyInput.trim()) return
+    setSavingUserKey(true)
+    await fetch('/api/claude-key', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: userKeyInput.trim(), scope: 'user' }),
+    })
+    const res = await fetch('/api/claude-key?scope=user', { credentials: 'include' })
+    setUserKey(await res.json())
+    setUserKeyInput('')
+    setSavingUserKey(false)
+  }
+
+  const removeUserKey = async () => {
+    setSavingUserKey(true)
+    await fetch('/api/claude-key?scope=user', { method: 'DELETE', credentials: 'include' })
+    setUserKey({ connected: false, scope: 'user' })
+    setSavingUserKey(false)
+  }
+
+  const saveOrgKey = async () => {
+    if (!orgKeyInput.trim()) return
+    setSavingOrgKey(true)
+    await fetch('/api/claude-key', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: orgKeyInput.trim(), scope: 'org' }),
+    })
+    const res = await fetch('/api/claude-key?scope=org', { credentials: 'include' })
+    setOrgKey(await res.json())
+    setOrgKeyInput('')
+    setSavingOrgKey(false)
+  }
+
+  const removeOrgKey = async () => {
+    setSavingOrgKey(true)
+    await fetch('/api/claude-key?scope=org', { method: 'DELETE', credentials: 'include' })
+    setOrgKey({ connected: false, scope: 'org' })
+    setSavingOrgKey(false)
   }
 
   return (
@@ -114,6 +183,98 @@ export default function Settings() {
               </a>
             )}
           </div>
+        </div>
+      </div>
+
+      <div style={styles.section}>
+        <h2 style={styles.sectionTitle}>Claude / Anthropic</h2>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--ds-gray-600)', marginBottom: '1rem', marginTop: '-0.5rem' }}>
+          API keys are resolved per project in priority order: project &gt; organization &gt; personal.
+        </p>
+
+        {/* Personal key */}
+        <div style={{ ...styles.card, marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: userKey?.connected ? '0.75rem' : 0 }}>
+            <div>
+              <p style={{ fontSize: '0.9375rem', fontWeight: 500 }}>Personal Key</p>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--ds-gray-600)' }}>
+                Your personal Anthropic API key. Used as fallback when no org or project key is set.
+              </p>
+            </div>
+            {userKey?.connected && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={styles.connectedBadge}>{userKey.keyPrefix}</span>
+                <button onClick={removeUserKey} disabled={savingUserKey} style={styles.secondaryButton}>
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+          {!userKey?.connected && (
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <input
+                type="password"
+                value={userKeyInput}
+                onChange={(e) => setUserKeyInput(e.target.value)}
+                placeholder="sk-ant-api..."
+                style={{ ...styles.input, flex: 1 }}
+                onKeyDown={(e) => e.key === 'Enter' && saveUserKey()}
+              />
+              <button
+                onClick={saveUserKey}
+                disabled={!userKeyInput.trim() || savingUserKey}
+                style={{ ...styles.saveButton, opacity: !userKeyInput.trim() || savingUserKey ? 0.5 : 1 }}
+              >
+                {savingUserKey ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Organization key */}
+        <div style={styles.card}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: orgKey?.connected ? '0.75rem' : 0 }}>
+            <div>
+              <p style={{ fontSize: '0.9375rem', fontWeight: 500 }}>Organization Key</p>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--ds-gray-600)' }}>
+                Shared key for all projects in {currentOrg.name}. Overrides personal keys.
+              </p>
+            </div>
+            {orgKey?.connected && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={styles.connectedBadge}>{orgKey.keyPrefix}</span>
+                {isAdmin && (
+                  <button onClick={removeOrgKey} disabled={savingOrgKey} style={styles.secondaryButton}>
+                    Remove
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {!orgKey?.connected && isAdmin && (
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <input
+                type="password"
+                value={orgKeyInput}
+                onChange={(e) => setOrgKeyInput(e.target.value)}
+                placeholder="sk-ant-api..."
+                style={{ ...styles.input, flex: 1 }}
+                onKeyDown={(e) => e.key === 'Enter' && saveOrgKey()}
+              />
+              <button
+                onClick={saveOrgKey}
+                disabled={!orgKeyInput.trim() || savingOrgKey}
+                style={{ ...styles.saveButton, opacity: !orgKeyInput.trim() || savingOrgKey ? 0.5 : 1 }}
+              >
+                {savingOrgKey ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          )}
+          {!orgKey?.connected && !isAdmin && (
+            <p style={{ fontSize: '0.8125rem', color: 'var(--ds-gray-600)', marginTop: '0.75rem', fontStyle: 'italic' }}>
+              Only admins can set the organization key.
+            </p>
+          )}
         </div>
       </div>
 

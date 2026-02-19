@@ -1,0 +1,97 @@
+import { requireAuth } from '~/lib/session.server'
+import { db } from '~/lib/db/index.server'
+import { projects } from '~/lib/db/schema'
+import { eq, and } from 'drizzle-orm'
+import { getProjectSecret, setProjectSecret, deleteProjectSecret, getSecret } from '~/lib/infisical.server'
+
+const KEY = 'ANTHROPIC_API_KEY'
+
+export async function loader({ request, params }: { request: Request; params: { id: string } }) {
+  const { user, org } = await requireAuth(request)
+  const id = params.id
+
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, id), eq(projects.organizationId, org.id)))
+
+  if (!project) {
+    return Response.json({ error: 'Project not found' }, { status: 404 })
+  }
+
+  // Check in priority order: project > org > user
+  const projectKey = await getProjectSecret(org.id, id, KEY).catch(() => null)
+  if (projectKey) {
+    return Response.json({
+      connected: true,
+      source: 'project',
+      keyPrefix: projectKey.slice(0, 12) + '...',
+    })
+  }
+
+  const orgKey = await getSecret(org.id, KEY).catch(() => null)
+  if (orgKey) {
+    return Response.json({
+      connected: true,
+      source: 'org',
+      keyPrefix: orgKey.slice(0, 12) + '...',
+    })
+  }
+
+  const userKey = await getSecret(`user/${user.id}`, KEY).catch(() => null)
+  if (userKey) {
+    return Response.json({
+      connected: true,
+      source: 'user',
+      keyPrefix: userKey.slice(0, 12) + '...',
+    })
+  }
+
+  return Response.json({ connected: false })
+}
+
+export async function action({ request, params }: { request: Request; params: { id: string } }) {
+  const { role, user, org } = await requireAuth(request)
+  const id = params.id
+
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, id), eq(projects.organizationId, org.id)))
+
+  if (!project) {
+    return Response.json({ error: 'Project not found' }, { status: 404 })
+  }
+
+  // DELETE — remove project-level key
+  if (request.method === 'DELETE') {
+    if (role !== 'admin') {
+      return Response.json({ error: 'Admin role required' }, { status: 403 })
+    }
+    await deleteProjectSecret(org.id, id, KEY).catch(() => {})
+    return Response.json({ success: true })
+  }
+
+  // PUT — set API key at specified scope
+  if (request.method === 'PUT') {
+    const body = await request.json()
+    if (!body.apiKey) {
+      return Response.json({ error: 'apiKey is required' }, { status: 400 })
+    }
+
+    const scope = body.scope ?? 'project'
+
+    if (scope === 'project') {
+      if (role !== 'admin') {
+        return Response.json({ error: 'Admin role required' }, { status: 403 })
+      }
+      await setProjectSecret(org.id, id, KEY, body.apiKey)
+    } else {
+      return Response.json({ error: 'Use /api/claude-key for org/user scope' }, { status: 400 })
+    }
+
+    return Response.json({ success: true })
+  }
+
+  return Response.json({ error: 'Method not allowed' }, { status: 405 })
+}

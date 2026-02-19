@@ -5,9 +5,9 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
-} from "react-router"
+} from "react-router";
 
-import "./app.css"
+import "./app.css";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,6 +16,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>viagen</title>
+        <script src="/via/client.js" defer></script>
         <Meta />
         <Links />
       </head>
@@ -25,38 +26,53 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Scripts />
       </body>
     </html>
-  )
+  );
 }
 
 export default function App() {
-  return <Outlet />
+  return <Outlet />;
 }
 
 export function ErrorBoundary({ error }: { error: unknown }) {
-  let message = "Oops!"
-  let details = "An unexpected error occurred."
-  let stack: string | undefined
+  let message = "Oops!";
+  let details = "An unexpected error occurred.";
+  let stack: string | undefined;
 
   if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "404" : "Error"
+    message = error.status === 404 ? "404" : "Error";
     details =
       error.status === 404
         ? "The requested page could not be found."
-        : error.statusText || details
+        : error.statusText || details;
   } else if (import.meta.env.DEV && error && error instanceof Error) {
-    details = error.message
-    stack = error.stack
+    details = error.message;
+    stack = error.stack;
   }
 
   return (
-    <main style={{ padding: '4rem 1rem', maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
+    <main
+      style={{
+        padding: "4rem 1rem",
+        maxWidth: 600,
+        margin: "0 auto",
+        textAlign: "center",
+      }}
+    >
       <h1>{message}</h1>
       <p>{details}</p>
       {stack && (
-        <pre style={{ width: '100%', padding: '1rem', overflow: 'auto', textAlign: 'left', marginTop: '1rem' }}>
+        <pre
+          style={{
+            width: "100%",
+            padding: "1rem",
+            overflow: "auto",
+            textAlign: "left",
+            marginTop: "1rem",
+          }}
+        >
           <code>{stack}</code>
         </pre>
       )}
     </main>
-  )
+  );
 }

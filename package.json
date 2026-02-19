@@ -10,7 +10,14 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test:db:up": "docker compose up -d",
+    "test:db:down": "docker compose down -v",
+    "test:db:push": "DATABASE_URL=postgresql://viagen:viagen@localhost:5433/viagen_test drizzle-kit push",
+    "test:db:seed": "DATABASE_URL=postgresql://viagen:viagen@localhost:5433/viagen_test node scripts/seed-test-db.js",
+    "test:dev": "DATABASE_URL=postgresql://viagen:viagen@localhost:5433/viagen_test npm run dev",
+    "test:sdk": "cd sdk && npm test",
+    "test": "docker compose run --build --rm test"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.0.0",
@@ -24,8 +31,7 @@
     "isbot": "^5.1.31",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router": "^7.12.0",
-    "viagen": "^0.0.16"
+    "react-router": "^7.12.0"
   },
   "devDependencies": {
     "@react-router/dev": "^7.12.0",
@@ -33,7 +39,9 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.31.9",
+    "pg": "^8.18.0",
     "typescript": "^5.9.2",
+    "viagen": "^0.0.18",
     "vite": "^7.1.7",
     "vite-tsconfig-paths": "^5.1.4"
   }

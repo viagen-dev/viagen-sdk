@@ -1,7 +1,8 @@
 node_modules/
+sdk/node_modules/
 dist/
 build/
-.vercel
+.git
 .env
 .env.test
-*.tsbuildinfo
+.vercel

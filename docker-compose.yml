@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: viagen
+      POSTGRES_PASSWORD: viagen
+      POSTGRES_DB: viagen_test
+    healthcheck:
+      test: pg_isready -U viagen -d viagen_test
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+  server:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://viagen:viagen@postgres:5432/viagen_test
+      GITHUB_CLIENT_ID: test
+      GITHUB_CLIENT_SECRET: test
+      GOOGLE_CLIENT_ID: test
+      GOOGLE_CLIENT_SECRET: test
+      MICROSOFT_CLIENT_ID: test
+      MICROSOFT_CLIENT_SECRET: test
+    command: sh -c "npx drizzle-kit push && npm run dev -- --host"
+    healthcheck:
+      test: wget -qO- http://localhost:5173/ || exit 1
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+
+  test:
+    build: .
+    depends_on:
+      server:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://viagen:viagen@postgres:5432/viagen_test
+      VIAGEN_TEST_URL: http://server:5173
+    command: sh -c "node scripts/seed-test-db.js && cd sdk && npm test"

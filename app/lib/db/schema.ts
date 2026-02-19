@@ -38,6 +38,7 @@ export const projects = pgTable('projects', {
   name: varchar('name', { length: 255 }).notNull(),
   vercelProjectId: varchar('vercel_project_id', { length: 255 }),
   githubRepo: varchar('github_repo', { length: 255 }),
+  gitBranch: varchar('git_branch', { length: 255 }).default('main'),
   templateId: varchar('template_id', { length: 64 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull().$onUpdate(() => new Date()),

@@ -34,6 +34,18 @@ async function getAccessToken(): Promise<string> {
 const projectId = () => process.env.INFISICAL_PROJECT_ID!
 const environment = 'dev'
 
+export async function getProjectSecret(orgId: string, viagenProjectId: string, key: string): Promise<string | null> {
+  return getSecret(`${orgId}/${viagenProjectId}`, key)
+}
+
+export async function setProjectSecret(orgId: string, viagenProjectId: string, key: string, value: string): Promise<void> {
+  return setSecret(`${orgId}/${viagenProjectId}`, key, value)
+}
+
+export async function deleteProjectSecret(orgId: string, viagenProjectId: string, key: string): Promise<void> {
+  return deleteSecret(`${orgId}/${viagenProjectId}`, key)
+}
+
 export async function getSecret(orgId: string, key: string): Promise<string | null> {
   const token = await getAccessToken()
   const url = new URL(`${INFISICAL_API}/api/v3/secrets/raw/${key}`)

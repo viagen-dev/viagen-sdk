@@ -33,6 +33,7 @@ export async function action({ request, params }: { request: Request; params: { 
     if ('name' in body) updates.name = body.name
     if ('vercelProjectId' in body) updates.vercelProjectId = body.vercelProjectId ?? null
     if ('githubRepo' in body) updates.githubRepo = body.githubRepo ?? null
+    if ('gitBranch' in body) updates.gitBranch = body.gitBranch ?? 'main'
 
     if (Object.keys(updates).length === 0) {
       return Response.json({ error: 'No updates provided' }, { status: 400 })

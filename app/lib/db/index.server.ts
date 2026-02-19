@@ -1,7 +1,17 @@
-import { neon } from '@neondatabase/serverless'
-import { drizzle } from 'drizzle-orm/neon-http'
 import * as schema from './schema'
 
-const sql = neon(process.env.DATABASE_URL!)
+const url = process.env.DATABASE_URL!
 
-export const db = drizzle(sql, { schema })
+async function createDb() {
+  if (url.includes('neon.tech')) {
+    const { neon } = await import('@neondatabase/serverless')
+    const { drizzle } = await import('drizzle-orm/neon-http')
+    return drizzle(neon(url), { schema })
+  }
+
+  // Local/test: use standard node-postgres driver
+  const { drizzle } = await import(/* @vite-ignore */ 'drizzle-orm/node-postgres')
+  return drizzle(url, { schema })
+}
+
+export const db = await createDb()

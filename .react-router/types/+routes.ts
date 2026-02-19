@@ -65,6 +65,11 @@ type Pages = {
       "id": string;
     };
   };
+  "/api/projects/:id/claude": {
+    params: {
+      "id": string;
+    };
+  };
   "/api/vercel/projects": {
     params: {};
   };
@@ -89,12 +94,15 @@ type Pages = {
   "/api/integrations/status": {
     params: {};
   };
+  "/api/claude-key": {
+    params: {};
+  };
 };
 
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/onboarding" | "/cli/authorize" | "/projects" | "/projects/new" | "/settings" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/:id" | "/api/vercel/projects" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status";
+    page: "/" | "/login" | "/onboarding" | "/cli/authorize" | "/projects" | "/projects/new" | "/settings" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/:id" | "/api/projects/:id/claude" | "/api/vercel/projects" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
   };
   "routes/login.tsx": {
     id: "routes/login";
@@ -164,6 +172,10 @@ type RouteFiles = {
     id: "routes/api.projects.$id";
     page: "/api/projects/:id";
   };
+  "routes/api.projects.$id.claude.ts": {
+    id: "routes/api.projects.$id.claude";
+    page: "/api/projects/:id/claude";
+  };
   "routes/api.vercel.projects.ts": {
     id: "routes/api.vercel.projects";
     page: "/api/vercel/projects";
@@ -196,6 +208,10 @@ type RouteFiles = {
     id: "routes/api.integrations.status";
     page: "/api/integrations/status";
   };
+  "routes/api.claude-key.ts": {
+    id: "routes/api.claude-key";
+    page: "/api/claude-key";
+  };
 };
 
 type RouteModules = {
@@ -217,6 +233,7 @@ type RouteModules = {
   "routes/api.orgs.members": typeof import("./app/routes/api.orgs.members.ts");
   "routes/api.projects": typeof import("./app/routes/api.projects.ts");
   "routes/api.projects.$id": typeof import("./app/routes/api.projects.$id.ts");
+  "routes/api.projects.$id.claude": typeof import("./app/routes/api.projects.$id.claude.ts");
   "routes/api.vercel.projects": typeof import("./app/routes/api.vercel.projects.ts");
   "routes/api.github.repos": typeof import("./app/routes/api.github.repos.ts");
   "routes/api.integrations.github.start": typeof import("./app/routes/api.integrations.github.start.ts");
@@ -225,4 +242,5 @@ type RouteModules = {
   "routes/api.integrations.vercel.callback": typeof import("./app/routes/api.integrations.vercel.callback.ts");
   "routes/api.integrations.vercel": typeof import("./app/routes/api.integrations.vercel.ts");
   "routes/api.integrations.status": typeof import("./app/routes/api.integrations.status.ts");
+  "routes/api.claude-key": typeof import("./app/routes/api.claude-key.ts");
 };

@@ -25,11 +25,6 @@ export default function Dashboard() {
           <p style={styles.cardValue}>0%</p>
           <p style={styles.cardDescription}>Of quota used</p>
         </div>
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Status</h3>
-          <p style={{ ...styles.cardValue, color: '#22c55e' }}>&#9679;</p>
-          <p style={styles.cardDescription}>All systems operational</p>
-        </div>
       </div>
     </div>
   )

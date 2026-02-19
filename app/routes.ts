@@ -24,6 +24,7 @@ export default [
   route("api/orgs/members", "routes/api.orgs.members.ts"),
   route("api/projects", "routes/api.projects.ts"),
   route("api/projects/:id", "routes/api.projects.$id.ts"),
+  route("api/projects/:id/claude", "routes/api.projects.$id.claude.ts"),
   route("api/vercel/projects", "routes/api.vercel.projects.ts"),
   route("api/github/repos", "routes/api.github.repos.ts"),
   route("api/integrations/github/start", "routes/api.integrations.github.start.ts"),
@@ -32,4 +33,5 @@ export default [
   route("api/integrations/vercel/callback", "routes/api.integrations.vercel.callback.ts"),
   route("api/integrations/vercel", "routes/api.integrations.vercel.ts"),
   route("api/integrations/status", "routes/api.integrations.status.ts"),
+  route("api/claude-key", "routes/api.claude-key.ts"),
 ] satisfies RouteConfig

@@ -44,6 +44,7 @@ export function createViagen(config: ViagenConfig): ViagenClient {
   async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       ...(options?.headers as Record<string, string>),
     }
 
