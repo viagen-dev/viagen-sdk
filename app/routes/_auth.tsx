@@ -3,7 +3,6 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { redirect } from 'react-router'
 import { requireAuth } from '~/lib/session.server'
 import { getSecret } from '~/lib/infisical.server'
-import { serializeCookie } from '~/lib/session.server'
 
 export async function loader({ request }: { request: Request }) {
   const auth = await requireAuth(request)

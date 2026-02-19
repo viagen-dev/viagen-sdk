@@ -1,8 +1,8 @@
 import { redirect } from 'react-router'
-import { validateSession } from './auth.server'
+import { validateSession, validateApiToken } from './auth.server'
 import { db } from './db/index.server'
 import { orgMembers, organizations } from './db/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import type { User } from './db/schema'
 
 const SESSION_COOKIE = 'viagen-session'
@@ -43,17 +43,9 @@ export function deleteCookieHeader(name: string, path = '/'): string {
   return `${name}=; Path=${path}; Max-Age=0`
 }
 
-/** Get the session user from the request cookie. Returns null if not authenticated. */
-export async function getSessionUser(request: Request): Promise<{ user: User; memberships: { organizationId: string; role: string; organizationName: string }[] } | null> {
-  const cookieHeader = request.headers.get('Cookie')
-  const token = parseCookie(cookieHeader, SESSION_COOKIE)
-
-  if (!token) return null
-
-  const result = await validateSession(token)
-  if (!result) return null
-
-  const memberships = await db
+/** Fetch org memberships for a user. */
+async function fetchMemberships(userId: string) {
+  return db
     .select({
       organizationId: orgMembers.organizationId,
       role: orgMembers.role,
@@ -61,15 +53,52 @@ export async function getSessionUser(request: Request): Promise<{ user: User; me
     })
     .from(orgMembers)
     .innerJoin(organizations, eq(orgMembers.organizationId, organizations.id))
-    .where(eq(orgMembers.userId, result.user.id))
+    .where(eq(orgMembers.userId, userId))
+}
 
+/** Check if this request comes from an API client (Bearer token or JSON accept). */
+function isApiRequest(request: Request): boolean {
+  return (
+    request.headers.has('Authorization') ||
+    request.headers.get('Accept')?.includes('application/json') === true
+  )
+}
+
+/** Get the session user from cookie or Bearer token. Returns null if not authenticated. */
+export async function getSessionUser(request: Request): Promise<{ user: User; memberships: { organizationId: string; role: string; organizationName: string }[] } | null> {
+  // 1. Try Bearer token (API token from CLI/SDK)
+  const authHeader = request.headers.get('Authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7)
+    const result = await validateApiToken(token)
+    if (result) {
+      const memberships = await fetchMemberships(result.user.id)
+      return { user: result.user, memberships }
+    }
+  }
+
+  // 2. Fall back to session cookie (web)
+  const cookieHeader = request.headers.get('Cookie')
+  const sessionToken = parseCookie(cookieHeader, SESSION_COOKIE)
+
+  if (!sessionToken) return null
+
+  const result = await validateSession(sessionToken)
+  if (!result) return null
+
+  const memberships = await fetchMemberships(result.user.id)
   return { user: result.user, memberships }
 }
 
-/** Require an authenticated user. Throws redirect to /login if not authenticated. */
+/** Require an authenticated user. Throws redirect to /login (web) or 401 JSON (API). */
 export async function requireUser(request: Request) {
   const session = await getSessionUser(request)
-  if (!session) throw redirect('/login')
+  if (!session) {
+    if (isApiRequest(request)) {
+      throw Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    throw redirect('/login')
+  }
   return session
 }
 
@@ -78,6 +107,9 @@ export async function requireAuth(request: Request) {
   const session = await requireUser(request)
 
   if (session.memberships.length === 0) {
+    if (isApiRequest(request)) {
+      throw Response.json({ error: 'No organization membership' }, { status: 403 })
+    }
     throw redirect('/onboarding')
   }
 

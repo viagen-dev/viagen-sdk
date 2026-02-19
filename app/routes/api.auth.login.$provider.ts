@@ -2,7 +2,7 @@ import { redirect } from 'react-router'
 import { isValidProvider, createAuthUrl } from '~/lib/auth.server'
 import { serializeCookie } from '~/lib/session.server'
 
-export async function loader({ params }: { params: { provider: string } }) {
+export async function loader({ params, request }: { params: { provider: string }; request: Request }) {
   const provider = params.provider
   if (!isValidProvider(provider)) {
     return Response.json({ error: `Unknown provider: ${provider}` }, { status: 400 })
@@ -22,6 +22,19 @@ export async function loader({ params }: { params: { provider: string } }) {
 
   if (codeVerifier) {
     headers.append('Set-Cookie', serializeCookie('oauth-verifier', codeVerifier, {
+      path: '/',
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'Lax',
+      maxAge: 600,
+    }))
+  }
+
+  // Store returnTo so the callback can redirect back after login
+  const reqUrl = new URL(request.url)
+  const returnTo = reqUrl.searchParams.get('returnTo')
+  if (returnTo) {
+    headers.append('Set-Cookie', serializeCookie('auth-return-to', returnTo, {
       path: '/',
       httpOnly: true,
       secure: isProd,

@@ -1,9 +1,9 @@
 import 'dotenv/config'
 import { Google, GitHub, MicrosoftEntraId, generateState, generateCodeVerifier } from 'arctic'
-import { randomBytes } from 'crypto'
+import { randomBytes, createHash } from 'crypto'
 import { db } from './db/index.server'
-import { users, sessions } from './db/schema'
-import { eq } from 'drizzle-orm'
+import { users, sessions, apiTokens } from './db/schema'
+import { eq, and } from 'drizzle-orm'
 
 // --- Providers ---
 
@@ -167,6 +167,81 @@ export async function validateSession(token: string) {
 
 export async function deleteSession(token: string) {
   await db.delete(sessions).where(eq(sessions.id, token))
+}
+
+// --- API Tokens ---
+
+const API_TOKEN_DURATION_MS = 90 * 24 * 60 * 60 * 1000 // 90 days
+
+function hashToken(plaintext: string): string {
+  return createHash('sha256').update(plaintext).digest('hex')
+}
+
+export async function createApiToken(userId: string, name: string) {
+  const plaintext = randomBytes(32).toString('hex')
+  const hashed = hashToken(plaintext)
+  const prefix = plaintext.slice(0, 8)
+  const expiresAt = new Date(Date.now() + API_TOKEN_DURATION_MS)
+
+  await db.insert(apiTokens).values({
+    id: hashed,
+    userId,
+    name,
+    tokenPrefix: prefix,
+    expiresAt,
+  })
+
+  return { token: plaintext, expiresAt }
+}
+
+export async function validateApiToken(plaintext: string) {
+  const hashed = hashToken(plaintext)
+
+  const [row] = await db
+    .select()
+    .from(apiTokens)
+    .where(eq(apiTokens.id, hashed))
+
+  if (!row || row.expiresAt < new Date()) {
+    if (row) await db.delete(apiTokens).where(eq(apiTokens.id, hashed))
+    return null
+  }
+
+  // Update lastUsedAt (fire-and-forget)
+  db.update(apiTokens)
+    .set({ lastUsedAt: new Date() })
+    .where(eq(apiTokens.id, hashed))
+    .then(() => {})
+
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, row.userId))
+
+  if (!user) return null
+
+  return { apiToken: row, user }
+}
+
+export async function listApiTokens(userId: string) {
+  return db
+    .select({
+      id: apiTokens.id,
+      name: apiTokens.name,
+      tokenPrefix: apiTokens.tokenPrefix,
+      expiresAt: apiTokens.expiresAt,
+      lastUsedAt: apiTokens.lastUsedAt,
+      createdAt: apiTokens.createdAt,
+    })
+    .from(apiTokens)
+    .where(eq(apiTokens.userId, userId))
+    .orderBy(apiTokens.createdAt)
+}
+
+export async function revokeApiToken(hashedId: string, userId: string) {
+  await db
+    .delete(apiTokens)
+    .where(and(eq(apiTokens.id, hashedId), eq(apiTokens.userId, userId)))
 }
 
 // --- User Upsert ---

@@ -1,9 +1,7 @@
 export interface OrgMembership {
   id: string
-  organizationId: string
-  organizationName: string
-  role: string | undefined
-  status: string
+  name: string
+  role: string
 }
 
 export interface Org {
@@ -23,8 +21,8 @@ export interface OrgsClient {
 export function createOrgsClient(_baseUrl: string, request: RequestFn): OrgsClient {
   return {
     async list() {
-      const data = await request<{ memberships: OrgMembership[] }>('/api/orgs')
-      return data.memberships
+      const data = await request<{ organizations: OrgMembership[] }>('/api/orgs')
+      return data.organizations
     },
 
     async create(input) {

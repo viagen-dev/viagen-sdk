@@ -20,6 +20,9 @@ type Pages = {
   "/onboarding": {
     params: {};
   };
+  "/cli/authorize": {
+    params: {};
+  };
   "/projects": {
     params: {};
   };
@@ -43,6 +46,9 @@ type Pages = {
     params: {};
   };
   "/api/auth/logout": {
+    params: {};
+  };
+  "/api/auth/tokens": {
     params: {};
   };
   "/api/orgs": {
@@ -88,7 +94,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/onboarding" | "/projects" | "/projects/new" | "/settings" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/logout" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/:id" | "/api/vercel/projects" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status";
+    page: "/" | "/login" | "/onboarding" | "/cli/authorize" | "/projects" | "/projects/new" | "/settings" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/:id" | "/api/vercel/projects" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status";
   };
   "routes/login.tsx": {
     id: "routes/login";
@@ -97,6 +103,10 @@ type RouteFiles = {
   "routes/onboarding.tsx": {
     id: "routes/onboarding";
     page: "/onboarding";
+  };
+  "routes/cli.authorize.tsx": {
+    id: "routes/cli.authorize";
+    page: "/cli/authorize";
   };
   "routes/_auth.tsx": {
     id: "routes/_auth";
@@ -133,6 +143,10 @@ type RouteFiles = {
   "routes/api.auth.logout.ts": {
     id: "routes/api.auth.logout";
     page: "/api/auth/logout";
+  };
+  "routes/api.auth.tokens.ts": {
+    id: "routes/api.auth.tokens";
+    page: "/api/auth/tokens";
   };
   "routes/api.orgs.ts": {
     id: "routes/api.orgs";
@@ -188,6 +202,7 @@ type RouteModules = {
   "root": typeof import("./app/root.tsx");
   "routes/login": typeof import("./app/routes/login.tsx");
   "routes/onboarding": typeof import("./app/routes/onboarding.tsx");
+  "routes/cli.authorize": typeof import("./app/routes/cli.authorize.tsx");
   "routes/_auth": typeof import("./app/routes/_auth.tsx");
   "routes/_auth.dashboard": typeof import("./app/routes/_auth.dashboard.tsx");
   "routes/_auth.projects": typeof import("./app/routes/_auth.projects.tsx");
@@ -197,6 +212,7 @@ type RouteModules = {
   "routes/api.auth.callback.$provider": typeof import("./app/routes/api.auth.callback.$provider.ts");
   "routes/api.auth.me": typeof import("./app/routes/api.auth.me.ts");
   "routes/api.auth.logout": typeof import("./app/routes/api.auth.logout.ts");
+  "routes/api.auth.tokens": typeof import("./app/routes/api.auth.tokens.ts");
   "routes/api.orgs": typeof import("./app/routes/api.orgs.ts");
   "routes/api.orgs.members": typeof import("./app/routes/api.orgs.members.ts");
   "routes/api.projects": typeof import("./app/routes/api.projects.ts");

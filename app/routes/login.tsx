@@ -1,23 +1,31 @@
-import { redirect } from 'react-router'
+import { redirect, useLoaderData } from 'react-router'
 import { getSessionUser } from '~/lib/session.server'
 
 export async function loader({ request }: { request: Request }) {
+  const url = new URL(request.url)
+  const returnTo = url.searchParams.get('returnTo')
+
   const session = await getSessionUser(request)
   if (session && session.memberships.length > 0) {
-    return redirect('/')
+    return redirect(returnTo ?? '/')
   }
   if (session) {
-    return redirect('/onboarding')
+    return redirect(returnTo ?? '/onboarding')
   }
-  return {}
+  return { returnTo }
 }
 
 export default function Login() {
+  const { returnTo } = useLoaderData<typeof loader>()
+  const loginUrl = returnTo
+    ? `/api/auth/login/github?returnTo=${encodeURIComponent(returnTo)}`
+    : '/api/auth/login/github'
+
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>viagen</h1>
       <p style={{ ...styles.muted, marginBottom: '1.5rem' }}>Sign in to continue</p>
-      <a href="/api/auth/login/github" style={styles.button}>
+      <a href={loginUrl} style={styles.button}>
         <GitHubIcon />
         Continue with GitHub
       </a>

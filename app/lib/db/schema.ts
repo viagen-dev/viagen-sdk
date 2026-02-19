@@ -43,8 +43,19 @@ export const projects = pgTable('projects', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull().$onUpdate(() => new Date()),
 })
 
+export const apiTokens = pgTable('api_tokens', {
+  id: varchar('id', { length: 64 }).primaryKey(), // SHA-256 hash of plaintext token
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  tokenPrefix: varchar('token_prefix', { length: 8 }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
 export type User = typeof users.$inferSelect
 export type Session = typeof sessions.$inferSelect
 export type Organization = typeof organizations.$inferSelect
 export type OrgMember = typeof orgMembers.$inferSelect
 export type Project = typeof projects.$inferSelect
+export type ApiToken = typeof apiTokens.$inferSelect

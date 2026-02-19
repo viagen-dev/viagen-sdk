@@ -78,5 +78,12 @@ export async function loader({ params, request }: { params: { provider: string }
     expires: expiresAt,
   }))
 
+  // Check for returnTo cookie (e.g., CLI authorize flow)
+  const returnTo = parseCookie(cookieHeader, 'auth-return-to')
+  if (returnTo) {
+    cleanupHeaders.append('Set-Cookie', deleteCookieHeader('auth-return-to'))
+    return redirect(returnTo, { headers: cleanupHeaders })
+  }
+
   return redirect('/', { headers: cleanupHeaders })
 }

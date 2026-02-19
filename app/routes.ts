@@ -4,6 +4,7 @@ export default [
   // Public pages
   route("login", "routes/login.tsx"),
   route("onboarding", "routes/onboarding.tsx"),
+  route("cli/authorize", "routes/cli.authorize.tsx"),
 
   // Authenticated layout
   layout("routes/_auth.tsx", [
@@ -18,6 +19,7 @@ export default [
   route("api/auth/callback/:provider", "routes/api.auth.callback.$provider.ts"),
   route("api/auth/me", "routes/api.auth.me.ts"),
   route("api/auth/logout", "routes/api.auth.logout.ts"),
+  route("api/auth/tokens", "routes/api.auth.tokens.ts"),
   route("api/orgs", "routes/api.orgs.ts"),
   route("api/orgs/members", "routes/api.orgs.members.ts"),
   route("api/projects", "routes/api.projects.ts"),

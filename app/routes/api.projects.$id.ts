@@ -30,6 +30,7 @@ export async function action({ request, params }: { request: Request; params: { 
 
     const body = await request.json()
     const updates: Record<string, unknown> = {}
+    if ('name' in body) updates.name = body.name
     if ('vercelProjectId' in body) updates.vercelProjectId = body.vercelProjectId ?? null
     if ('githubRepo' in body) updates.githubRepo = body.githubRepo ?? null
 

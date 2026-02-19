@@ -10,27 +10,59 @@ npm install viagen-sdk
 
 ## Quick Start
 
+### Web (cookie-based)
+
 ```ts
 import { createViagen } from 'viagen-sdk'
 
 const viagen = createViagen({ baseUrl: 'https://app.viagen.dev' })
 
-// Get current user
-const user = await viagen.auth.me()
+// Redirect to login
+viagen.auth.login('github')
 
-// List projects
-const projects = await viagen.projects.list()
+// Get current user (uses session cookie)
+const user = await viagen.auth.me()
+```
+
+### CLI / Node.js (token-based)
+
+```ts
+import { createViagen, saveCredentials, createViagenFromCredentials } from 'viagen-sdk'
+
+// First time: open browser to authorize
+const viagen = createViagen({ baseUrl: 'https://app.viagen.dev' })
+const { token } = await viagen.auth.loginCli()
+
+// Save token for future sessions
+await saveCredentials({ token, baseUrl: 'https://app.viagen.dev' })
+
+// Later: create client from stored credentials
+const client = await createViagenFromCredentials()
+const projects = await client.projects.list()
 ```
 
 ## API Reference
 
 ### `createViagen(config)`
 
-Creates a client instance. All methods use `credentials: 'include'` for cookie-based auth.
+Creates a client instance.
 
 ```ts
+// Web: uses cookies
 const viagen = createViagen({ baseUrl: 'http://localhost:5173' })
+
+// CLI: uses Bearer token
+const viagen = createViagen({ baseUrl: 'https://app.viagen.dev', token: 'your-api-token' })
 ```
+
+| Option | Type | Description |
+|---|---|---|
+| `baseUrl` | `string` | Platform URL |
+| `token` | `string?` | API token. When set, uses `Authorization: Bearer` instead of cookies |
+
+### `createViagenFromCredentials(overrides?)`
+
+Creates a client from stored credentials (`~/.config/viagen/credentials.json`). Returns `null` if no credentials found.
 
 ---
 
@@ -38,9 +70,21 @@ const viagen = createViagen({ baseUrl: 'http://localhost:5173' })
 
 | Method | Description |
 |---|---|
-| `login(provider?)` | Redirects the browser to OAuth login. Default: `'github'`. Options: `'github'`, `'google'`, `'microsoft'` |
+| `login(provider?)` | Redirects the browser to OAuth login. Default: `'github'`. Options: `'github'`, `'google'`, `'microsoft'`. Web only |
+| `loginCli(options?)` | Opens browser to authorize, starts localhost server, captures API token. Node.js only |
 | `me()` | Returns the current user + orgs, or `null` if not authenticated |
-| `logout()` | Ends the session and reloads the page |
+| `logout()` | Ends the session. In a browser, reloads the page |
+| `listTokens()` | List the current user's API tokens |
+| `revokeToken(tokenId)` | Revoke an API token by ID |
+
+**`loginCli` options:**
+
+```ts
+{
+  port?: number                      // Preferred localhost port (default: random)
+  onOpenUrl?: (url: string) => void  // Custom handler to open the URL (default: system browser)
+}
+```
 
 ---
 
@@ -109,6 +153,20 @@ const viagen = createViagen({ baseUrl: 'http://localhost:5173' })
 
 ---
 
+## Credentials
+
+Utilities for managing stored CLI credentials (`~/.config/viagen/credentials.json`):
+
+```ts
+import { saveCredentials, loadCredentials, clearCredentials } from 'viagen-sdk'
+
+await saveCredentials({ token: '...', baseUrl: 'https://app.viagen.dev' })
+const creds = await loadCredentials()   // { token, baseUrl } | null
+await clearCredentials()                // deletes the file
+```
+
+---
+
 ## Error Handling
 
 All methods throw `ViagenApiError` on failure:
@@ -132,8 +190,11 @@ The SDK maps to these platform resource routes:
 | SDK | Method | Route |
 |---|---|---|
 | `auth.login` | GET (redirect) | `/api/auth/login/:provider` |
+| `auth.loginCli` | GET (browser) | `/cli/authorize?port=...` |
 | `auth.me` | GET | `/api/auth/me` |
 | `auth.logout` | POST | `/api/auth/logout` |
+| `auth.listTokens` | GET | `/api/auth/tokens` |
+| `auth.revokeToken` | DELETE | `/api/auth/tokens` |
 | `orgs.list` | GET | `/api/orgs` |
 | `orgs.create` | POST | `/api/orgs` |
 | `orgs.addMember` | POST | `/api/orgs/members` |
