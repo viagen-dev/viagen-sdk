@@ -4,7 +4,8 @@ import { projects } from '~/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { getProjectSecret, setProjectSecret, deleteProjectSecret, getSecret } from '~/lib/infisical.server'
 
-const KEY = 'ANTHROPIC_API_KEY'
+// Check these keys in order — sandboxes use CLAUDE_ACCESS_TOKEN, manual setup uses ANTHROPIC_API_KEY
+const CLAUDE_KEYS = ['CLAUDE_ACCESS_TOKEN', 'ANTHROPIC_API_KEY']
 
 export async function loader({ request, params }: { request: Request; params: { id: string } }) {
   const { user, org } = await requireAuth(request)
@@ -20,31 +21,37 @@ export async function loader({ request, params }: { request: Request; params: { 
   }
 
   // Check in priority order: project > org > user
-  const projectKey = await getProjectSecret(org.id, id, KEY).catch(() => null)
-  if (projectKey) {
-    return Response.json({
-      connected: true,
-      source: 'project',
-      keyPrefix: projectKey.slice(0, 12) + '...',
-    })
+  for (const key of CLAUDE_KEYS) {
+    const projectKey = await getProjectSecret(org.id, id, key).catch(() => null)
+    if (projectKey) {
+      return Response.json({
+        connected: true,
+        source: 'project',
+        keyPrefix: projectKey.slice(0, 12) + '...',
+      })
+    }
   }
 
-  const orgKey = await getSecret(org.id, KEY).catch(() => null)
-  if (orgKey) {
-    return Response.json({
-      connected: true,
-      source: 'org',
-      keyPrefix: orgKey.slice(0, 12) + '...',
-    })
+  for (const key of CLAUDE_KEYS) {
+    const orgKey = await getSecret(org.id, key).catch(() => null)
+    if (orgKey) {
+      return Response.json({
+        connected: true,
+        source: 'org',
+        keyPrefix: orgKey.slice(0, 12) + '...',
+      })
+    }
   }
 
-  const userKey = await getSecret(`user/${user.id}`, KEY).catch(() => null)
-  if (userKey) {
-    return Response.json({
-      connected: true,
-      source: 'user',
-      keyPrefix: userKey.slice(0, 12) + '...',
-    })
+  for (const key of CLAUDE_KEYS) {
+    const userKey = await getSecret(`user/${user.id}`, key).catch(() => null)
+    if (userKey) {
+      return Response.json({
+        connected: true,
+        source: 'user',
+        keyPrefix: userKey.slice(0, 12) + '...',
+      })
+    }
   }
 
   return Response.json({ connected: false })

@@ -107,6 +107,13 @@ Creates a client from stored credentials (`~/.config/viagen/credentials.json`). 
 | `get(id)` | Get a single project by ID |
 | `update(id, input)` | Update a project. Admin only |
 | `delete(id)` | Delete a project. Admin only |
+| `sync(input)` | Upsert a project with optional secrets. Admin only |
+| `listSecrets(id)` | List all secrets for a project (project + inherited org) |
+| `setSecret(id, key, value)` | Set a project secret. Syncs to Vercel if linked. Admin only |
+| `deleteSecret(id, key)` | Delete a project secret. Removes from Vercel if linked. Admin only |
+| `getClaudeStatus(id)` | Get Claude API key status (resolves project > org > user) |
+| `setClaudeKey(id, apiKey)` | Set a project-level Anthropic API key. Admin only |
+| `removeClaudeKey(id)` | Remove a project-level Anthropic API key. Admin only |
 
 **`CreateProjectInput`**
 
@@ -116,6 +123,7 @@ Creates a client from stored credentials (`~/.config/viagen/credentials.json`). 
   templateId?: string        // e.g. 'react-router'
   vercelProjectId?: string   // link to existing Vercel project
   githubRepo?: string        // 'owner/repo'
+  gitBranch?: string         // default: 'main'
 }
 ```
 
@@ -126,6 +134,20 @@ Creates a client from stored credentials (`~/.config/viagen/credentials.json`). 
   name?: string
   vercelProjectId?: string | null
   githubRepo?: string | null
+  gitBranch?: string
+}
+```
+
+**`SyncProjectInput`**
+
+```ts
+{
+  id?: string                          // optional — upserts by ID if provided
+  name: string
+  templateId?: string
+  githubRepo?: string
+  gitBranch?: string
+  secrets?: Record<string, string>     // key-value env vars to store
 }
 ```
 
@@ -203,6 +225,13 @@ The SDK maps to these platform resource routes:
 | `projects.get` | GET | `/api/projects/:id` |
 | `projects.update` | PATCH | `/api/projects/:id` |
 | `projects.delete` | DELETE | `/api/projects/:id` |
+| `projects.sync` | POST | `/api/projects/sync` |
+| `projects.listSecrets` | GET | `/api/projects/:id/secrets` |
+| `projects.setSecret` | POST | `/api/projects/:id/secrets` |
+| `projects.deleteSecret` | DELETE | `/api/projects/:id/secrets` |
+| `projects.getClaudeStatus` | GET | `/api/projects/:id/claude` |
+| `projects.setClaudeKey` | PUT | `/api/projects/:id/claude` |
+| `projects.removeClaudeKey` | DELETE | `/api/projects/:id/claude` |
 | `vercel.integrationStatus` | GET | `/api/integrations/status` |
 | `vercel.disconnect` | DELETE | `/api/integrations/vercel` |
 | `vercel.listProjects` | GET | `/api/vercel/projects` |

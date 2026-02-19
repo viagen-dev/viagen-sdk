@@ -25,6 +25,26 @@ export interface UpdateProjectInput {
   gitBranch?: string
 }
 
+export interface SyncProjectInput {
+  id?: string
+  name: string
+  templateId?: string
+  githubRepo?: string
+  gitBranch?: string
+  secrets?: Record<string, string>
+}
+
+export interface SyncResult {
+  project: Project
+  secrets: { stored: number }
+}
+
+export interface ProjectSecret {
+  key: string
+  value: string
+  source: 'project' | 'org'
+}
+
 export interface ClaudeStatus {
   connected: boolean
   source?: 'project' | 'org' | 'user'
@@ -48,6 +68,14 @@ export interface ProjectsClient {
   setClaudeKey(id: string, apiKey: string): Promise<void>
   /** Remove project-level Anthropic API key. Admin only. */
   removeClaudeKey(id: string): Promise<void>
+  /** Sync a project (upsert) with optional secrets. Admin only. */
+  sync(input: SyncProjectInput): Promise<SyncResult>
+  /** List all secrets for a project (project + inherited org). */
+  listSecrets(id: string): Promise<ProjectSecret[]>
+  /** Set a project secret. Admin only. */
+  setSecret(id: string, key: string, value: string): Promise<void>
+  /** Delete a project secret. Admin only. */
+  deleteSecret(id: string, key: string): Promise<void>
 }
 
 export function createProjectsClient(_baseUrl: string, request: RequestFn): ProjectsClient {
@@ -96,6 +124,32 @@ export function createProjectsClient(_baseUrl: string, request: RequestFn): Proj
     async removeClaudeKey(id) {
       await request<{ success: boolean }>(`/api/projects/${id}/claude`, {
         method: 'DELETE',
+      })
+    },
+
+    async sync(input) {
+      return request<SyncResult>('/api/projects/sync', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      })
+    },
+
+    async listSecrets(id) {
+      const data = await request<{ secrets: ProjectSecret[] }>(`/api/projects/${id}/secrets`)
+      return data.secrets
+    },
+
+    async setSecret(id, key, value) {
+      await request<{ success: boolean }>(`/api/projects/${id}/secrets`, {
+        method: 'POST',
+        body: JSON.stringify({ key, value }),
+      })
+    },
+
+    async deleteSecret(id, key) {
+      await request<{ success: boolean }>(`/api/projects/${id}/secrets`, {
+        method: 'DELETE',
+        body: JSON.stringify({ key }),
       })
     },
   }

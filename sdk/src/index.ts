@@ -6,7 +6,7 @@ import { createGitHubClient, type GitHubClient } from './github.js'
 
 export type { ViagenUser, OrgInfo, AuthResult, AuthClient, ApiTokenInfo } from './auth.js'
 export type { OrgMembership, Org, OrgsClient } from './orgs.js'
-export type { Project, CreateProjectInput, UpdateProjectInput, ProjectsClient } from './projects.js'
+export type { Project, CreateProjectInput, UpdateProjectInput, SyncProjectInput, SyncResult, ProjectSecret, ProjectsClient } from './projects.js'
 export type { VercelProject, VercelListProjectsParams, IntegrationStatus, VercelClient } from './vercel.js'
 export type { GitHubRepo, GitHubListReposParams, GitHubClient } from './github.js'
 export { loadCredentials, saveCredentials, clearCredentials, type StoredCredentials } from './credentials.js'

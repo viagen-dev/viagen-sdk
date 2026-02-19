@@ -87,3 +87,79 @@ export async function createVercelProject(
 
   return res.json()
 }
+
+// ── Environment Variables ────────────────────────────
+
+export interface VercelEnvVar {
+  id: string
+  key: string
+  value: string
+  target: string[]
+  type: string
+}
+
+export async function listVercelEnvVars(
+  token: string,
+  vercelProjectId: string,
+): Promise<VercelEnvVar[]> {
+  const url = new URL(`${VERCEL_API}/v9/projects/${vercelProjectId}/env`)
+  url.searchParams.set('decrypt', 'true')
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new VercelApiError(res.status, body.error?.message ?? 'Vercel API error')
+  }
+
+  const data = await res.json()
+  return data.envs ?? []
+}
+
+export async function upsertVercelEnvVars(
+  token: string,
+  vercelProjectId: string,
+  envVars: { key: string; value: string; target?: string[]; type?: string }[],
+): Promise<void> {
+  const url = new URL(`${VERCEL_API}/v10/projects/${vercelProjectId}/env`)
+  url.searchParams.set('upsert', 'true')
+
+  const body = envVars.map((v) => ({
+    key: v.key,
+    value: v.value,
+    target: v.target ?? ['production', 'preview', 'development'],
+    type: v.type ?? 'encrypted',
+  }))
+
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const resBody = await res.json().catch(() => ({}))
+    throw new VercelApiError(res.status, resBody.error?.message ?? 'Vercel API error')
+  }
+}
+
+export async function deleteVercelEnvVar(
+  token: string,
+  vercelProjectId: string,
+  envVarId: string,
+): Promise<void> {
+  const res = await fetch(`${VERCEL_API}/v9/projects/${vercelProjectId}/env/${envVarId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (!res.ok && res.status !== 404) {
+    const body = await res.json().catch(() => ({}))
+    throw new VercelApiError(res.status, body.error?.message ?? 'Vercel API error')
+  }
+}

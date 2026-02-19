@@ -67,24 +67,30 @@ export async function getSecret(orgId: string, key: string): Promise<string | nu
   return data.secret?.secretValue ?? null
 }
 
-async function ensureFolder(orgId: string): Promise<void> {
+async function ensureFolder(secretPath: string): Promise<void> {
   const token = await getAccessToken()
-  const res = await fetch(`${INFISICAL_API}/api/v1/folders`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      workspaceId: projectId(),
-      environment,
-      name: orgId,
-      path: '/',
-    }),
-  })
-  if (!res.ok && res.status !== 400) {
-    const body = await res.text()
-    throw new Error(`Infisical folder create failed (${res.status}): ${body}`)
+  const segments = secretPath.split('/').filter(Boolean)
+  let currentPath = '/'
+
+  for (const segment of segments) {
+    const res = await fetch(`${INFISICAL_API}/api/v1/folders`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        workspaceId: projectId(),
+        environment,
+        name: segment,
+        path: currentPath,
+      }),
+    })
+    if (!res.ok && res.status !== 400) {
+      const body = await res.text()
+      throw new Error(`Infisical folder create failed (${res.status}): ${body}`)
+    }
+    currentPath = currentPath === '/' ? `/${segment}` : `${currentPath}/${segment}`
   }
 }
 
@@ -132,6 +138,57 @@ export async function setSecret(orgId: string, key: string, value: string): Prom
       throw new Error(`Infisical create failed (${res.status}): ${body}`)
     }
   }
+}
+
+export async function listProjectSecrets(
+  orgId: string,
+  viagenProjectId: string,
+): Promise<{ key: string; value: string }[]> {
+  const token = await getAccessToken()
+  const url = new URL(`${INFISICAL_API}/api/v3/secrets/raw`)
+  url.searchParams.set('workspaceId', projectId())
+  url.searchParams.set('environment', environment)
+  url.searchParams.set('secretPath', `/${orgId}/${viagenProjectId}`)
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (res.status === 404) return []
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Infisical list failed (${res.status}): ${body}`)
+  }
+
+  const data = await res.json()
+  return (data.secrets ?? []).map((s: any) => ({
+    key: s.secretKey,
+    value: s.secretValue,
+  }))
+}
+
+export async function listOrgSecrets(orgId: string): Promise<{ key: string; value: string }[]> {
+  const token = await getAccessToken()
+  const url = new URL(`${INFISICAL_API}/api/v3/secrets/raw`)
+  url.searchParams.set('workspaceId', projectId())
+  url.searchParams.set('environment', environment)
+  url.searchParams.set('secretPath', `/${orgId}`)
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (res.status === 404) return []
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Infisical list failed (${res.status}): ${body}`)
+  }
+
+  const data = await res.json()
+  return (data.secrets ?? []).map((s: any) => ({
+    key: s.secretKey,
+    value: s.secretValue,
+  }))
 }
 
 export async function deleteSecret(orgId: string, key: string): Promise<void> {

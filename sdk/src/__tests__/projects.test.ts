@@ -163,4 +163,85 @@ describe.skipIf(!TOKEN)('projects', () => {
       expect(project.name).toContain('isolation-target-')
     })
   })
+
+  // ── sync ──────────────────────────────────────────────
+
+  describe('sync', () => {
+    it('sync() creates a new project', async () => {
+      const result = await authed.projects.sync({
+        name: `sync-new-${Date.now()}`,
+      })
+      expect(result.project.id).toBeTypeOf('string')
+      expect(result.project.name).toContain('sync-new-')
+      expect(result.project.gitBranch).toBe('main')
+      expect(result.secrets.stored).toBe(0)
+    })
+
+    it('sync() upserts an existing project by ID', async () => {
+      const first = await authed.projects.sync({
+        name: `sync-upsert-${Date.now()}`,
+        templateId: 'react-router',
+      })
+
+      const newName = `sync-updated-${Date.now()}`
+      const second = await authed.projects.sync({
+        id: first.project.id,
+        name: newName,
+        gitBranch: 'develop',
+      })
+
+      expect(second.project.id).toBe(first.project.id)
+      expect(second.project.name).toBe(newName)
+      expect(second.project.gitBranch).toBe('develop')
+    })
+
+    it('sync() creates a new project when ID is not found', async () => {
+      const result = await authed.projects.sync({
+        id: '00000000-0000-0000-0000-000000000000',
+        name: `sync-notfound-${Date.now()}`,
+      })
+      expect(result.project.id).not.toBe('00000000-0000-0000-0000-000000000000')
+      expect(result.project.name).toContain('sync-notfound-')
+    })
+
+    it('sync() returns 400 without a name', async () => {
+      try {
+        await authed.projects.sync({ name: '' })
+        expect.fail('Expected error')
+      } catch (err) {
+        expect(err).toBeInstanceOf(ViagenApiError)
+        expect((err as ViagenApiError).status).toBe(400)
+      }
+    })
+
+    it('sync() returns 401 without a token', async () => {
+      try {
+        await unauthed.projects.sync({ name: 'no-auth' })
+        expect.fail('Expected error')
+      } catch (err) {
+        expect(err).toBeInstanceOf(ViagenApiError)
+        expect((err as ViagenApiError).status).toBe(401)
+      }
+    })
+
+    it('outsider cannot sync to another org\'s project', async () => {
+      const owned = await authed.projects.sync({
+        name: `sync-isolation-${Date.now()}`,
+      })
+
+      // Outsider tries to sync with authed's project ID
+      const result = await outsider.projects.sync({
+        id: owned.project.id,
+        name: 'hijack-attempt',
+      })
+
+      // Should create a new project in outsider's org, not modify the original
+      expect(result.project.id).not.toBe(owned.project.id)
+      expect(result.project.name).toBe('hijack-attempt')
+
+      // Original project is untouched
+      const original = await authed.projects.get(owned.project.id)
+      expect(original.name).toContain('sync-isolation-')
+    })
+  })
 })

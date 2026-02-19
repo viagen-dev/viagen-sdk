@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link } from 'react-router'
 import { requireAuth } from '~/lib/session.server'
 import { db } from '~/lib/db/index.server'
 import { projects } from '~/lib/db/schema'
@@ -37,21 +37,9 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export default function Projects({ loaderData }: { loaderData: { projects: Project[] } }) {
   const { projects } = loaderData
-  const [searchParams, setSearchParams] = useSearchParams()
 
   const [claudeStatuses, setClaudeStatuses] = useState<Record<string, ClaudeStatus>>({})
   const [claudeLoading, setClaudeLoading] = useState(true)
-  const [activeProject, setActiveProject] = useState<Project | null>(null)
-  const [apiKeyInput, setApiKeyInput] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [modalError, setModalError] = useState<string | null>(null)
-
-  // Clean up OAuth redirect params
-  useEffect(() => {
-    if (searchParams.has('connected') || searchParams.has('error')) {
-      setSearchParams({}, { replace: true })
-    }
-  }, [searchParams, setSearchParams])
 
   // Fetch Claude status for all projects
   useEffect(() => {
@@ -76,66 +64,6 @@ export default function Projects({ loaderData }: { loaderData: { projects: Proje
     })
   }, [projects])
 
-  const refreshStatus = async (projectId: string) => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/claude`, { credentials: 'include' })
-      const data = await res.json()
-      setClaudeStatuses(prev => ({ ...prev, [projectId]: data }))
-    } catch {}
-  }
-
-  const handleSaveApiKey = async () => {
-    if (!activeProject || !apiKeyInput.trim()) return
-    setSaving(true)
-    setModalError(null)
-    try {
-      const res = await fetch(`/api/projects/${activeProject.id}/claude`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: apiKeyInput.trim() }),
-      })
-      if (!res.ok) {
-        setModalError('Failed to save API key')
-        setSaving(false)
-        return
-      }
-      await refreshStatus(activeProject.id)
-      setApiKeyInput('')
-      setSaving(false)
-      setActiveProject(null)
-    } catch {
-      setModalError('Failed to save API key')
-      setSaving(false)
-    }
-  }
-
-  const handleRemoveProjectKey = async () => {
-    if (!activeProject) return
-    setSaving(true)
-    await fetch(`/api/projects/${activeProject.id}/claude`, {
-      method: 'DELETE',
-      credentials: 'include',
-    })
-    await refreshStatus(activeProject.id)
-    setSaving(false)
-    setActiveProject(null)
-  }
-
-  const openModal = (project: Project) => {
-    setActiveProject(project)
-    setApiKeyInput('')
-    setModalError(null)
-    setSaving(false)
-  }
-
-  const closeModal = () => {
-    setActiveProject(null)
-    setApiKeyInput('')
-    setModalError(null)
-  }
-
-  const activeStatus = activeProject ? claudeStatuses[activeProject.id] : null
 
   return (
     <div>
@@ -162,148 +90,58 @@ export default function Projects({ loaderData }: { loaderData: { projects: Proje
           {projects.map((project) => {
             const status = claudeStatuses[project.id]
             return (
-              <div key={project.id} style={styles.projectCard}>
-                <div style={{ marginBottom: '1rem' }}>
-                  <h3 style={styles.projectName}>{project.name}</h3>
-                  <p style={styles.projectMeta}>
-                    Created {new Date(project.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-
-                {project.templateId && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <span style={styles.templateBadge}>{project.templateId}</span>
+              <Link key={project.id} to={`/projects/${project.id}`} style={styles.projectCardLink}>
+                <div style={styles.projectCard}>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <h3 style={styles.projectName}>{project.name}</h3>
+                    <p style={styles.projectMeta}>
+                      Created {new Date(project.createdAt).toLocaleDateString()}
+                    </p>
                   </div>
-                )}
 
-                {project.vercelProjectId && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: project.githubRepo ? '0.5rem' : 0 }}>
-                    <VercelIcon />
-                    <span style={{ fontSize: '0.8125rem', color: 'var(--ds-gray-600)' }}>
-                      {project.vercelProjectId}
-                    </span>
-                  </div>
-                )}
-
-                {project.githubRepo && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <GitHubIcon />
-                    <span style={{ fontSize: '0.8125rem', color: 'var(--ds-gray-600)' }}>
-                      {project.githubRepo}
-                    </span>
-                  </div>
-                )}
-
-                <div
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.75rem', cursor: 'pointer' }}
-                  onClick={() => openModal(project)}
-                >
-                  <ClaudeIcon />
-                  {claudeLoading ? (
-                    <span style={styles.loadingBadge}>Checking...</span>
-                  ) : status?.connected ? (
-                    <span style={styles.connectedBadge}>
-                      {SOURCE_LABELS[status.source ?? 'project'] ?? 'Connected'}
-                    </span>
-                  ) : (
-                    <span style={styles.disconnectedBadge}>Not connected</span>
+                  {project.templateId && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <span style={styles.templateBadge}>{project.templateId}</span>
+                    </div>
                   )}
+
+                  {project.vercelProjectId && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: project.githubRepo ? '0.5rem' : 0 }}>
+                      <VercelIcon />
+                      <span style={{ fontSize: '0.8125rem', color: 'var(--ds-gray-600)' }}>
+                        {project.vercelProjectId}
+                      </span>
+                    </div>
+                  )}
+
+                  {project.githubRepo && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <GitHubIcon />
+                      <span style={{ fontSize: '0.8125rem', color: 'var(--ds-gray-600)' }}>
+                        {project.githubRepo}
+                      </span>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.75rem' }}>
+                    <ClaudeIcon />
+                    {claudeLoading ? (
+                      <span style={styles.loadingBadge}>Checking...</span>
+                    ) : status?.connected ? (
+                      <span style={styles.connectedBadge}>
+                        {SOURCE_LABELS[status.source ?? 'project'] ?? 'Connected'}
+                      </span>
+                    ) : (
+                      <span style={styles.disconnectedBadge}>Not connected</span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </Link>
             )
           })}
         </div>
       )}
 
-      {/* Claude credentials modal */}
-      {activeProject && (
-        <div style={styles.modalOverlay} onClick={closeModal}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>
-                Claude &mdash; {activeProject.name}
-              </h3>
-              <button onClick={closeModal} style={styles.closeButton}>&times;</button>
-            </div>
-
-            {modalError && (
-              <div style={styles.errorBanner}>{modalError}</div>
-            )}
-
-            {activeStatus?.connected ? (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                  <span style={styles.connectedBadge}>Connected</span>
-                  <span style={{ fontSize: '0.8125rem', color: 'var(--ds-gray-600)' }}>
-                    via {SOURCE_LABELS[activeStatus.source ?? 'project']}
-                    {activeStatus.keyPrefix ? ` (${activeStatus.keyPrefix})` : ''}
-                  </span>
-                </div>
-
-                {activeStatus.source === 'project' ? (
-                  <button onClick={handleRemoveProjectKey} disabled={saving} style={styles.dangerButton}>
-                    {saving ? 'Removing...' : 'Remove Project Key'}
-                  </button>
-                ) : (
-                  <div>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--ds-gray-600)', marginBottom: '1rem' }}>
-                      This project is using the {SOURCE_LABELS[activeStatus.source ?? 'org']}. You can set a project-specific key to override it.
-                    </p>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input
-                        type="password"
-                        value={apiKeyInput}
-                        onChange={(e) => setApiKeyInput(e.target.value)}
-                        placeholder="sk-ant-api..."
-                        style={{ ...styles.input, flex: 1 }}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSaveApiKey()}
-                      />
-                      <button
-                        onClick={handleSaveApiKey}
-                        disabled={!apiKeyInput.trim() || saving}
-                        style={{
-                          ...styles.primaryButton,
-                          opacity: !apiKeyInput.trim() || saving ? 0.5 : 1,
-                        }}
-                      >
-                        {saving ? 'Saving...' : 'Override'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>
-                <p style={{ fontSize: '0.8125rem', color: 'var(--ds-gray-600)', marginBottom: '1rem' }}>
-                  No API key found for this project. Set a project key below, or configure an org/personal key in{' '}
-                  <Link to="/settings" style={{ color: 'var(--ds-gray-1000)' }}>Settings</Link>.
-                </p>
-                <label style={styles.label}>Anthropic API Key</label>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input
-                    type="password"
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    placeholder="sk-ant-api..."
-                    style={{ ...styles.input, flex: 1 }}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSaveApiKey()}
-                  />
-                  <button
-                    onClick={handleSaveApiKey}
-                    disabled={!apiKeyInput.trim() || saving}
-                    style={{
-                      ...styles.primaryButton,
-                      opacity: !apiKeyInput.trim() || saving ? 0.5 : 1,
-                    }}
-                  >
-                    {saving ? 'Saving...' : 'Save'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -339,7 +177,8 @@ const styles: Record<string, React.CSSProperties> = {
   description: { color: 'var(--ds-gray-600)', fontSize: '0.9375rem' },
   primaryButton: { display: 'inline-flex', alignItems: 'center', padding: '0.625rem 1.25rem', background: 'var(--ds-gray-1000)', color: 'var(--ds-background-100)', border: 'none', borderRadius: 6, fontSize: '0.875rem', fontFamily: 'inherit', fontWeight: 500, cursor: 'pointer', textDecoration: 'none', whiteSpace: 'nowrap' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' },
-  projectCard: { padding: '1.5rem', border: '1px solid var(--ds-gray-200)', borderRadius: 8, background: 'var(--ds-background-100)' },
+  projectCardLink: { textDecoration: 'none', color: 'inherit' },
+  projectCard: { padding: '1.5rem', border: '1px solid var(--ds-gray-200)', borderRadius: 8, background: 'var(--ds-background-100)', transition: 'border-color 0.15s ease', cursor: 'pointer' },
   projectName: { fontSize: '1rem', fontWeight: 600, marginBottom: '0.25rem' },
   projectMeta: { fontSize: '0.8125rem', color: 'var(--ds-gray-600)' },
   templateBadge: { display: 'inline-block', padding: '0.125rem 0.5rem', fontSize: '0.75rem', fontWeight: 500, color: 'var(--ds-gray-700)', background: 'var(--ds-gray-100)', border: '1px solid var(--ds-gray-200)', borderRadius: 9999 },
@@ -352,13 +191,4 @@ const styles: Record<string, React.CSSProperties> = {
   disconnectedBadge: { display: 'inline-block', padding: '0.125rem 0.5rem', fontSize: '0.75rem', fontWeight: 500, color: 'var(--ds-gray-600)', background: 'var(--ds-gray-100)', border: '1px solid var(--ds-gray-200)', borderRadius: 9999 },
   loadingBadge: { display: 'inline-block', padding: '0.125rem 0.5rem', fontSize: '0.75rem', fontWeight: 500, color: 'var(--ds-gray-600)', background: 'var(--ds-gray-50)', border: '1px solid var(--ds-gray-200)', borderRadius: 9999 },
 
-  // Modal
-  modalOverlay: { position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-  modalContent: { background: 'var(--ds-background-100)', borderRadius: 12, padding: '2rem', width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' },
-  modalHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' },
-  closeButton: { background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--ds-gray-600)', padding: '0.25rem', lineHeight: 1 },
-  errorBanner: { padding: '0.625rem 0.875rem', marginBottom: '1rem', fontSize: '0.8125rem', color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6 },
-  label: { display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--ds-gray-700)' },
-  input: { padding: '0.625rem 0.75rem', fontSize: '0.875rem', border: '1px solid var(--ds-gray-300)', borderRadius: 6, fontFamily: 'inherit', color: 'var(--ds-gray-1000)', background: 'var(--ds-background-100)', boxSizing: 'border-box' as const },
-  dangerButton: { display: 'inline-flex', alignItems: 'center', padding: '0.5rem 1rem', background: 'none', border: '1px solid #fca5a5', borderRadius: 6, color: '#dc2626', fontSize: '0.875rem', fontFamily: 'inherit', fontWeight: 500, cursor: 'pointer' },
 }
