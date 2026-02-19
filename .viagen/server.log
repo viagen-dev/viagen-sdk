@@ -1,9 +1,9 @@
-[2026-02-19T02:40:07.577Z] [INFO] Re-optimizing dependencies because lockfile has changed
-[2026-02-19T02:40:07.608Z] [INFO] Port 5173 is in use, trying another one...
-[2026-02-19T02:40:07.608Z] [INFO] Port 5174 is in use, trying another one...
-[2026-02-19T02:40:07.611Z] [INFO]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5175[22m/[39m
-[2026-02-19T02:40:07.611Z] [INFO] [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
-[2026-02-19T02:40:07.611Z] [INFO] [2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
-[2026-02-19T02:40:19.542Z] [INFO] [32m✨ new dependencies optimized: [33mdrizzle-orm, dotenv/config, arctic, @neondatabase/serverless, drizzle-orm/neon-http, drizzle-orm/pg-core[32m[39m
-[2026-02-19T02:40:19.542Z] [INFO] [32m✨ optimized dependencies changed. reloading[39m
-[2026-02-19T02:40:35.321Z] [INFO] [32mpage reload [39m[2mapp/routes/api.projects.$id.ts[22m
+[2026-02-19T03:36:51.052Z] [INFO]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[2026-02-19T03:36:51.053Z] [INFO] [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2026-02-19T03:36:51.053Z] [INFO] [2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2026-02-19T03:36:52.893Z] [INFO] [32m✨ new dependencies optimized: [33mdrizzle-orm, dotenv/config, clsx, tailwind-merge, arctic, @neondatabase/serverless, drizzle-orm/neon-http, drizzle-orm/pg-core[32m[39m
+[2026-02-19T03:36:52.896Z] [INFO] [32m✨ optimized dependencies changed. reloading[39m
+[2026-02-19T03:37:24.839Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.dashboard.tsx[22m
+[2026-02-19T03:37:24.840Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.dashboard.tsx[22m
+[2026-02-19T03:37:24.841Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.dashboard.tsx[22m
+[2026-02-19T03:37:24.842Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.dashboard.tsx[22m
