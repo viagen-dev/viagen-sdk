@@ -16,27 +16,27 @@ export interface OrgsClient {
   list(): Promise<OrgMembership[]>
   /** Create a new organization. The current user becomes admin. */
   create(input: { name: string }): Promise<Org>
-  /** Invite a user by email to the current organization. Admin only. */
-  invite(input: { email: string }): Promise<void>
+  /** Add a member by email to the current organization. Admin only. */
+  addMember(input: { email: string }): Promise<void>
 }
 
-export function createOrgsClient(baseUrl: string, request: RequestFn): OrgsClient {
+export function createOrgsClient(_baseUrl: string, request: RequestFn): OrgsClient {
   return {
     async list() {
-      const data = await request<{ memberships: OrgMembership[] }>('/orgs')
+      const data = await request<{ memberships: OrgMembership[] }>('/api/orgs')
       return data.memberships
     },
 
     async create(input) {
-      const data = await request<{ organization: Org }>('/orgs', {
+      const data = await request<{ organization: Org }>('/api/orgs', {
         method: 'POST',
         body: JSON.stringify(input),
       })
       return data.organization
     },
 
-    async invite(input) {
-      await request<{ success: boolean }>('/orgs/invite', {
+    async addMember(input) {
+      await request<{ success: boolean }>('/api/orgs/members', {
         method: 'POST',
         body: JSON.stringify(input),
       })

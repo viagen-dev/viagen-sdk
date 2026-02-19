@@ -27,7 +27,7 @@ export function createGitHubClient(_baseUrl: string, request: RequestFn): GitHub
       if (params?.page) qs.set('page', String(params.page))
       if (params?.perPage) qs.set('per_page', String(params.perPage))
       const query = qs.toString()
-      const data = await request<{ repos: GitHubRepo[] }>(`/github/repos${query ? `?${query}` : ''}`)
+      const data = await request<{ repos: GitHubRepo[] }>(`/api/github/repos${query ? `?${query}` : ''}`)
       return data.repos
     },
   }

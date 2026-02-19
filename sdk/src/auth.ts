@@ -29,11 +29,11 @@ export interface AuthClient {
 export function createAuthClient(baseUrl: string): AuthClient {
   return {
     login(provider = 'github') {
-      window.location.href = `${baseUrl}/auth/login/${provider}`
+      window.location.href = `${baseUrl}/api/auth/login/${provider}`
     },
 
     async me() {
-      const res = await fetch(`${baseUrl}/auth/me`, {
+      const res = await fetch(`${baseUrl}/api/auth/me`, {
         credentials: 'include',
       })
 
@@ -46,7 +46,7 @@ export function createAuthClient(baseUrl: string): AuthClient {
     },
 
     async logout() {
-      await fetch(`${baseUrl}/auth/logout`, {
+      await fetch(`${baseUrl}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       })

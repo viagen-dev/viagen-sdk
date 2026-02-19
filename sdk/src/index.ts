@@ -7,7 +7,7 @@ import { createGitHubClient, type GitHubClient } from './github.js'
 export type { ViagenUser, OrgInfo, AuthResult, AuthClient } from './auth.js'
 export type { OrgMembership, Org, OrgsClient } from './orgs.js'
 export type { Project, CreateProjectInput, UpdateProjectInput, ProjectsClient } from './projects.js'
-export type { VercelProject, VercelListProjectsParams, VercelCreateProjectInput, VercelClient } from './vercel.js'
+export type { VercelProject, VercelListProjectsParams, IntegrationStatus, VercelClient } from './vercel.js'
 export type { GitHubRepo, GitHubListReposParams, GitHubClient } from './github.js'
 
 export interface ViagenConfig {
