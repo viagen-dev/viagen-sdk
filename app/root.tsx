@@ -11,7 +11,7 @@ import "./app.css";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -50,27 +50,12 @@ export function ErrorBoundary({ error }: { error: unknown }) {
   }
 
   return (
-    <main
-      style={{
-        padding: "4rem 1rem",
-        maxWidth: 600,
-        margin: "0 auto",
-        textAlign: "center",
-      }}
-    >
-      <h1>{message}</h1>
-      <p>{details}</p>
+    <main className="mx-auto max-w-xl px-4 py-16 text-center">
+      <h1 className="text-2xl font-bold tracking-tight">{message}</h1>
+      <p className="mt-2 text-muted-foreground">{details}</p>
       {stack && (
-        <pre
-          style={{
-            width: "100%",
-            padding: "1rem",
-            overflow: "auto",
-            textAlign: "left",
-            marginTop: "1rem",
-          }}
-        >
-          <code>{stack}</code>
+        <pre className="mt-4 w-full overflow-auto rounded-md border bg-muted p-4 text-left text-sm">
+          <code className="font-mono">{stack}</code>
         </pre>
       )}
     </main>
