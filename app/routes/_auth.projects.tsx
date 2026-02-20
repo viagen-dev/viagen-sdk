@@ -1,9 +1,39 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Link, useNavigate } from "react-router";
+import { Search, Plus, Ellipsis, GitBranch, Sparkles, X } from "lucide-react";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects } from "~/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardAction,
+} from "~/components/ui/card";
+import { Badge } from "~/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverAnchor,
+} from "~/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "~/components/ui/command";
 
 export async function loader({ request }: { request: Request }) {
   const { org } = await requireAuth(request);
@@ -20,7 +50,9 @@ interface Project {
   templateId: string | null;
   vercelProjectId: string | null;
   githubRepo: string | null;
+  gitBranch: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 interface ClaudeStatus {
@@ -29,11 +61,38 @@ interface ClaudeStatus {
   keyPrefix?: string;
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  project: "project key",
-  org: "org key",
-  user: "personal key",
-};
+function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = now - then;
+
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "just now";
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+
+  const years = Math.floor(months / 12);
+  return `${years}y ago`;
+}
+
+function projectInitials(name: string): string {
+  return name
+    .split(/[\s-_]+/)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export default function Projects({
   loaderData,
@@ -41,19 +100,17 @@ export default function Projects({
   loaderData: { projects: Project[] };
 }) {
   const { projects } = loaderData;
+  const navigate = useNavigate();
 
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [claudeStatuses, setClaudeStatuses] = useState<
     Record<string, ClaudeStatus>
   >({});
-  const [claudeLoading, setClaudeLoading] = useState(true);
 
-  // Fetch Claude status for all projects
   useEffect(() => {
-    if (projects.length === 0) {
-      setClaudeLoading(false);
-      return;
-    }
-    setClaudeLoading(true);
+    if (projects.length === 0) return;
     Promise.all(
       projects.map(async (p) => {
         try {
@@ -65,139 +122,283 @@ export default function Projects({
         } catch {
           return [p.id, { connected: false }] as const;
         }
-      })
+      }),
     ).then((entries) => {
       setClaudeStatuses(Object.fromEntries(entries));
-      setClaudeLoading(false);
     });
   }, [projects]);
 
+  const filteredProjects = useMemo(() => {
+    if (!search.trim()) return projects;
+    const q = search.toLowerCase();
+    return projects.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.githubRepo?.toLowerCase().includes(q) ||
+        p.vercelProjectId?.toLowerCase().includes(q) ||
+        p.templateId?.toLowerCase().includes(q),
+    );
+  }, [projects, search]);
+
   return (
     <div>
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <h1 className="mb-2 text-3xl font-semibold">Projects</h1>
-          <p className="text-[0.9375rem] text-muted-foreground">
-            Manage your viagen projects
-          </p>
-        </div>
-        <Link
-          to="/projects/new"
-          className="inline-flex items-center whitespace-nowrap rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground no-underline transition-colors hover:bg-primary/90"
-        >
-          New Project
-        </Link>
+      <div className="mb-6 flex items-center gap-3">
+        <Popover open={open && search.trim().length > 0} onOpenChange={setOpen}>
+          <PopoverAnchor asChild>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                ref={inputRef}
+                type="text"
+                placeholder="Search projects..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  if (e.target.value.trim()) setOpen(true);
+                }}
+                onFocus={() => {
+                  if (search.trim()) setOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setOpen(false);
+                    inputRef.current?.blur();
+                  }
+                }}
+                className="bg-background pl-9 pr-9"
+              />
+              {search && (
+                <button
+                  onClick={() => {
+                    setSearch("");
+                    setOpen(false);
+                    inputRef.current?.focus();
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
+            </div>
+          </PopoverAnchor>
+          <PopoverContent
+            className="w-(--radix-popover-trigger-width) p-0"
+            align="start"
+            sideOffset={6}
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
+            <Command shouldFilter={false}>
+              <CommandList>
+                {filteredProjects.length === 0 ? (
+                  <CommandEmpty>
+                    No projects match &ldquo;{search}&rdquo;
+                  </CommandEmpty>
+                ) : (
+                  <>
+                    <CommandGroup heading="Projects">
+                      {filteredProjects.slice(0, 5).map((p) => (
+                        <CommandItem
+                          key={p.id}
+                          value={p.id}
+                          onSelect={() => {
+                            setOpen(false);
+                            navigate(`/projects/${p.id}`);
+                          }}
+                        >
+                          <Avatar size="sm">
+                            {p.vercelProjectId && (
+                              <AvatarImage
+                                src={`https://${p.vercelProjectId}.vercel.app/favicon.ico`}
+                                alt={p.name}
+                              />
+                            )}
+                            <AvatarFallback className="bg-foreground text-background text-[0.5rem] font-semibold">
+                              {projectInitials(p.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">
+                              {p.name}
+                            </p>
+                            {p.githubRepo && (
+                              <p className="truncate text-xs text-muted-foreground">
+                                {p.githubRepo}
+                              </p>
+                            )}
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                    {filteredProjects.length > 5 && (
+                      <>
+                        <CommandSeparator />
+                        <CommandGroup>
+                          <CommandItem
+                            onSelect={() => {
+                              setOpen(false);
+                              inputRef.current?.focus();
+                            }}
+                            className="justify-center text-xs text-muted-foreground"
+                          >
+                            {filteredProjects.length - 5} more result
+                            {filteredProjects.length - 5 > 1 ? "s" : ""}
+                            &hellip;
+                          </CommandItem>
+                        </CommandGroup>
+                      </>
+                    )}
+                  </>
+                )}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        <Button asChild>
+          <Link to="/projects/new">
+            <Plus />
+            Add project
+          </Link>
+        </Button>
       </div>
 
       {projects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/50 px-8 py-16">
-          <h3 className="mb-2 text-lg font-semibold">No projects yet</h3>
-          <p className="text-center text-sm text-muted-foreground">
-            Create your first project to get started
-          </p>
-          <Link
-            to="/projects/new"
-            className="mt-4 inline-flex items-center rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground no-underline transition-colors hover:bg-primary/90"
-          >
-            New Project
-          </Link>
-        </div>
+        <Card className="border-dashed bg-muted/50">
+          <CardContent className="flex flex-col items-center justify-center px-8 py-16">
+            <h3 className="mb-2 text-lg font-semibold">No projects yet</h3>
+            <p className="text-center text-sm text-muted-foreground">
+              Create your first project to get started
+            </p>
+            <Button asChild className="mt-4">
+              <Link to="/projects/new">New Project</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : filteredProjects.length === 0 ? (
+        <Card className="border-dashed bg-muted/50">
+          <CardContent className="flex flex-col items-center justify-center px-8 py-16">
+            <Search className="mb-3 size-8 text-muted-foreground/50" />
+            <h3 className="mb-1 text-lg font-semibold">No projects found</h3>
+            <p className="mb-4 text-center text-sm text-muted-foreground">
+              No projects match &ldquo;{search}&rdquo;
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setSearch("")}>
+              Clear search
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
-          {projects.map((project) => {
-            const status = claudeStatuses[project.id];
-            return (
-              <Link
-                key={project.id}
-                to={`/projects/${project.id}`}
-                className="no-underline text-inherit"
-              >
-                <div className="rounded-lg border border-border bg-card p-6 transition-colors hover:border-foreground/20 cursor-pointer">
-                  <div className="mb-4">
-                    <h3 className="mb-1 text-base font-semibold">
-                      {project.name}
-                    </h3>
-                    <p className="text-[0.8125rem] text-muted-foreground">
-                      Created{" "}
-                      {new Date(project.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-
-                  {project.templateId && (
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="inline-block rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                        {project.templateId}
-                      </span>
-                    </div>
-                  )}
-
-                  {project.vercelProjectId && (
-                    <div
-                      className={`flex items-center gap-2 ${project.githubRepo ? "mb-2" : ""}`}
-                    >
-                      <VercelIcon />
-                      <span className="text-[0.8125rem] text-muted-foreground">
-                        {project.vercelProjectId}
-                      </span>
-                    </div>
-                  )}
-
-                  {project.githubRepo && (
-                    <div className="flex items-center gap-2">
-                      <GitHubIcon />
-                      <span className="text-[0.8125rem] text-muted-foreground">
-                        {project.githubRepo}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="mt-3 flex items-center gap-2">
-                    <ClaudeIcon />
-                    {claudeLoading ? (
-                      <span className="inline-block rounded-full border border-border bg-muted/50 px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                        Checking...
-                      </span>
-                    ) : status?.connected ? (
-                      <span className="inline-block rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                        {SOURCE_LABELS[status.source ?? "project"] ??
-                          "Connected"}
-                      </span>
-                    ) : (
-                      <span className="inline-block rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                        Not connected
-                      </span>
+          {filteredProjects.map((project) => (
+            <Card
+              key={project.id}
+              className="cursor-pointer transition-colors hover:border-foreground/20"
+              onClick={() => navigate(`/projects/${project.id}`)}
+            >
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <Avatar>
+                    {project.vercelProjectId && (
+                      <AvatarImage
+                        src={`https://${project.vercelProjectId}.vercel.app/favicon.ico`}
+                        alt={project.name}
+                      />
                     )}
+                    <AvatarFallback className="bg-foreground text-background text-xs font-semibold">
+                      {projectInitials(project.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      to={`/projects/${project.id}`}
+                      className="text-sm font-semibold text-foreground no-underline hover:underline"
+                    >
+                      {project.name}
+                    </Link>
                   </div>
                 </div>
-              </Link>
-            );
-          })}
+                <CardAction>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Ellipsis className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <DropdownMenuItem asChild>
+                        <Link to={`/projects/${project.id}/settings`}>
+                          Project settings
+                        </Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </CardAction>
+              </CardHeader>
+
+              <CardContent className="flex flex-col gap-2">
+                <Badge
+                  variant="secondary"
+                  className={
+                    project.githubRepo
+                      ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
+                      : "gap-1.5 font-normal"
+                  }
+                >
+                  <GitHubIcon />
+                  {project.githubRepo ?? "GitHub not connected"}
+                </Badge>
+
+                <Badge
+                  variant="secondary"
+                  className={
+                    project.vercelProjectId
+                      ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
+                      : "gap-1.5 font-normal"
+                  }
+                >
+                  <VercelIcon />
+                  {project.vercelProjectId ?? "Vercel not connected"}
+                </Badge>
+
+                <Badge
+                  variant="secondary"
+                  className={
+                    claudeStatuses[project.id]?.connected
+                      ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
+                      : "gap-1.5 font-normal"
+                  }
+                >
+                  <Sparkles className="size-3" />
+                  {claudeStatuses[project.id]?.connected
+                    ? "Claude connected"
+                    : "Claude not connected"}
+                </Badge>
+
+                <p className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+                  {timeAgo(project.updatedAt)} on
+                  <GitBranch className="size-3" />
+                  {project.gitBranch ?? "main"}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function ClaudeIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className="shrink-0"
-    >
-      <path d="M17.308 6.136a.3.3 0 0 0-.417-.139l-4.381 2.12a.3.3 0 0 0-.164.268v7.23a.3.3 0 0 0 .442.265l4.381-2.34a.3.3 0 0 0 .158-.265V6.406a.3.3 0 0 0-.019-.13z" />
-      <path d="M11.654 3.07a.3.3 0 0 0-.308 0L3.882 7.284a.3.3 0 0 0-.152.261v8.91a.3.3 0 0 0 .152.261l7.464 4.214a.3.3 0 0 0 .308 0l7.464-4.214a.3.3 0 0 0 .152-.261v-8.91a.3.3 0 0 0-.152-.261zm-4.19 13.504L4.83 15.062V8.538l5.018 2.718v7.028zm.614-8.218L3.9 5.775 11.5 1.482l4.178 2.58z" />
-    </svg>
-  );
-}
-
 function VercelIcon() {
   return (
     <svg
-      width="14"
-      height="14"
+      width="12"
+      height="12"
       viewBox="0 0 76 65"
       fill="currentColor"
       className="shrink-0"
@@ -210,8 +411,8 @@ function VercelIcon() {
 function GitHubIcon() {
   return (
     <svg
-      width="14"
-      height="14"
+      width="12"
+      height="12"
       viewBox="0 0 16 16"
       fill="currentColor"
       className="shrink-0"

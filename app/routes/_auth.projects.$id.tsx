@@ -1,9 +1,44 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router";
+import { Link, useRouteLoaderData } from "react-router";
+import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardAction,
+} from "~/components/ui/card";
+import { Badge } from "~/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
+import { Alert, AlertDescription } from "~/components/ui/alert";
+import {
+  Plus,
+  Sparkles,
+  GitBranch,
+  Settings,
+  Ellipsis,
+  Circle,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Send,
+  KeyRound,
+  ExternalLink,
+  GitMerge,
+  Triangle,
+} from "lucide-react";
 
 export async function loader({
   request,
@@ -17,7 +52,7 @@ export async function loader({
     .select()
     .from(projects)
     .where(
-      and(eq(projects.id, params.id), eq(projects.organizationId, org.id))
+      and(eq(projects.id, params.id), eq(projects.organizationId, org.id)),
     );
 
   if (!project) {
@@ -44,480 +79,493 @@ interface ClaudeStatus {
   keyPrefix?: string;
 }
 
-interface SecretRow {
-  key: string;
-  value: string;
-  source: "project" | "org";
+type TaskStatus = "pending" | "running" | "completed";
+
+interface Task {
+  id: string;
+  prompt: string;
+  status: TaskStatus;
+  createdAt: string;
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  project: "project key",
-  org: "org key",
-  user: "personal key",
+const STATUS_CONFIG: Record<
+  TaskStatus,
+  {
+    label: string;
+    icon: typeof Circle;
+    className: string;
+    badgeClassName: string;
+  }
+> = {
+  pending: {
+    label: "Pending",
+    icon: Circle,
+    className: "text-muted-foreground",
+    badgeClassName: "gap-1.5 font-normal",
+  },
+  running: {
+    label: "Running",
+    icon: Loader2,
+    className: "text-blue-500",
+    badgeClassName:
+      "gap-1.5 font-normal border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300",
+  },
+  completed: {
+    label: "Completed",
+    icon: CheckCircle2,
+    className: "text-green-500",
+    badgeClassName:
+      "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300",
+  },
 };
 
-export default function ProjectDetail({
+function projectInitials(name: string): string {
+  return name
+    .split(/[\s-_]+/)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = now - then;
+
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "just now";
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+interface ParentData {
+  integrations: { github: boolean; vercel: boolean };
+}
+
+export default function ProjectTasks({
   loaderData,
 }: {
   loaderData: { project: Project; role: string };
 }) {
   const { project, role } = loaderData;
   const isAdmin = role === "admin";
+  const parentData = useRouteLoaderData("routes/_auth") as ParentData;
+  const orgGithub = parentData?.integrations?.github ?? false;
+  const orgVercel = parentData?.integrations?.vercel ?? false;
 
-  // Claude status
   const [claudeStatus, setClaudeStatus] = useState<ClaudeStatus | null>(null);
+  const [claudeLoading, setClaudeLoading] = useState(true);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [savingKey, setSavingKey] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
 
-  // Sandbox
-  const [launching, setLaunching] = useState(false);
-  const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
-  const [sandboxError, setSandboxError] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Secrets
-  const [secrets, setSecrets] = useState<SecretRow[]>([]);
-  const [secretsLoading, setSecretsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Add form
-  const [newKey, setNewKey] = useState("");
-  const [newValue, setNewValue] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  // Edit state
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
-  const [editSaving, setEditSaving] = useState(false);
-
-  // Reveal state
-  const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
-
-  // Fetch Claude status
+  // Fetch Claude connection status
   useEffect(() => {
+    setClaudeLoading(true);
     fetch(`/api/projects/${project.id}/claude`, { credentials: "include" })
       .then((r) => r.json())
-      .then(setClaudeStatus)
-      .catch(() => setClaudeStatus({ connected: false }));
+      .then((data) => setClaudeStatus(data))
+      .catch(() => setClaudeStatus({ connected: false }))
+      .finally(() => setClaudeLoading(false));
   }, [project.id]);
 
-  // Fetch secrets
-  const fetchSecrets = async () => {
+  const handleSaveKey = async () => {
+    if (!apiKeyInput.trim() || savingKey) return;
+    setSavingKey(true);
+    setKeyError(null);
     try {
-      const res = await fetch(`/api/projects/${project.id}/secrets`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load secrets");
-      const data = await res.json();
-      setSecrets(data.secrets);
-    } catch {
-      setError("Failed to load secrets");
-    } finally {
-      setSecretsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSecrets();
-  }, [project.id]);
-
-  // Launch sandbox
-  const handleLaunch = async () => {
-    setLaunching(true);
-    setSandboxError(null);
-    setSandboxUrl(null);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/sandbox`, {
-        method: "POST",
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setSandboxError(data.error ?? "Failed to launch sandbox");
-        return;
-      }
-      setSandboxUrl(data.url);
-    } catch {
-      setSandboxError("Failed to launch sandbox");
-    } finally {
-      setLaunching(false);
-    }
-  };
-
-  // Secret handlers
-  const handleAdd = async () => {
-    if (!newKey.trim() || saving) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/secrets`, {
-        method: "POST",
+      const res = await fetch(`/api/projects/${project.id}/claude`, {
+        method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: newKey.trim(), value: newValue }),
+        body: JSON.stringify({ apiKey: apiKeyInput.trim() }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Failed to save secret");
-        setSaving(false);
+        setKeyError(data.error ?? "Failed to save key");
+        setSavingKey(false);
         return;
       }
-      setNewKey("");
-      setNewValue("");
-      await fetchSecrets();
-    } catch {
-      setError("Failed to save secret");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleEdit = async (key: string) => {
-    if (editSaving) return;
-    setEditSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/secrets`, {
-        method: "POST",
+      setApiKeyInput("");
+      // Re-fetch status
+      const statusRes = await fetch(`/api/projects/${project.id}/claude`, {
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, value: editValue }),
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Failed to update secret");
-        setEditSaving(false);
-        return;
-      }
-      setEditingKey(null);
-      setEditValue("");
-      await fetchSecrets();
+      setClaudeStatus(await statusRes.json());
     } catch {
-      setError("Failed to update secret");
+      setKeyError("Failed to save key");
     } finally {
-      setEditSaving(false);
+      setSavingKey(false);
     }
   };
 
-  const handleDelete = async (key: string) => {
-    setError(null);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/secrets`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Failed to delete secret");
-        return;
-      }
-      await fetchSecrets();
-    } catch {
-      setError("Failed to delete secret");
-    }
+  const claudeConnected = claudeStatus?.connected ?? false;
+  const githubConnected = !!project.githubRepo;
+  const vercelConnected = !!project.vercelProjectId;
+  const allConnected = githubConnected && vercelConnected && claudeConnected;
+
+  // Determine which missing connection to prompt for (in order)
+  const missingStep = !githubConnected
+    ? "github"
+    : !vercelConnected
+      ? "vercel"
+      : !claudeConnected
+        ? "claude"
+        : null;
+
+  const handleSubmit = () => {
+    if (!prompt.trim() || submitting) return;
+
+    setSubmitting(true);
+
+    const newTask: Task = {
+      id: crypto.randomUUID(),
+      prompt: prompt.trim(),
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+
+    setTasks((prev) => [newTask, ...prev]);
+    setPrompt("");
+    setSubmitting(false);
   };
 
-  const toggleReveal = (key: string) => {
-    setRevealedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const startEdit = (secret: SecretRow) => {
-    setEditingKey(secret.key);
-    setEditValue(secret.value);
-  };
-
-  const cancelEdit = () => {
-    setEditingKey(null);
-    setEditValue("");
-  };
-
-  const maskValue = (value: string) => {
-    if (value.length <= 4) return "\u2022".repeat(8);
-    return (
-      value.slice(0, 4) + "\u2022".repeat(Math.min(value.length - 4, 20))
-    );
-  };
+  const pendingCount = tasks.filter((t) => t.status === "pending").length;
+  const runningCount = tasks.filter((t) => t.status === "running").length;
+  const completedCount = tasks.filter((t) => t.status === "completed").length;
 
   return (
     <div>
-      <Link
-        to="/projects"
-        className="mb-6 inline-block text-sm text-muted-foreground no-underline hover:text-foreground"
-      >
-        &larr; Projects
-      </Link>
-
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
-        <h1 className="text-3xl font-semibold">{project.name}</h1>
-        <button
-          onClick={handleLaunch}
-          disabled={launching}
-          className="inline-flex cursor-pointer items-center whitespace-nowrap rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:bg-primary/90 disabled:opacity-60"
-        >
-          {launching ? "Launching..." : "Launch Sandbox"}
-        </button>
-      </div>
-
-      {sandboxUrl && (
-        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-3.5 py-2.5 text-[0.8125rem] text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-          Sandbox ready:{" "}
-          <a
-            href={sandboxUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium text-green-800 dark:text-green-300"
-          >
-            Open sandbox
-          </a>
-        </div>
-      )}
-      {sandboxError && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3.5 py-2.5 text-[0.8125rem] text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
-          {sandboxError}
-        </div>
-      )}
-
-      {/* Project details */}
-      <div className="mb-6 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
-        {project.templateId && (
-          <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Template
-            </span>
-            <span className="flex items-center gap-1.5 text-sm font-medium">
-              {project.templateId}
-            </span>
-          </div>
-        )}
-        {project.githubRepo && (
-          <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Repository
-            </span>
-            <span className="flex items-center gap-1.5 text-sm font-medium">
-              <GitHubIcon /> {project.githubRepo}
-            </span>
-          </div>
-        )}
-        <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Branch
-          </span>
-          <span className="flex items-center gap-1.5 text-sm font-medium">
-            {project.gitBranch ?? "main"}
-          </span>
-        </div>
-        {project.vercelProjectId && (
-          <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Vercel
-            </span>
-            <span className="flex items-center gap-1.5 text-sm font-medium">
-              <VercelIcon /> {project.vercelProjectId}
-            </span>
-          </div>
-        )}
-        <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Claude
-          </span>
-          <span className="flex items-center gap-1.5 text-sm font-medium">
-            {claudeStatus === null ? (
-              <span className="text-muted-foreground">Checking...</span>
-            ) : claudeStatus.connected ? (
-              <span className="inline-block rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                {SOURCE_LABELS[claudeStatus.source ?? "project"]}
-                {claudeStatus.keyPrefix
-                  ? ` (${claudeStatus.keyPrefix})`
-                  : ""}
-              </span>
-            ) : (
-              <span className="inline-block rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                Not connected
-              </span>
+      <div className="mb-6 flex flex-col gap-4">
+        {/* Top row: avatar + name + actions */}
+        <div className="flex items-center gap-3">
+          <Avatar size="lg">
+            {project.vercelProjectId && (
+              <AvatarImage
+                src={`https://${project.vercelProjectId}.vercel.app/favicon.ico`}
+                alt={project.name}
+              />
             )}
-          </span>
+            <AvatarFallback className="bg-foreground text-background text-sm font-semibold">
+              {projectInitials(project.name)}
+            </AvatarFallback>
+          </Avatar>
+          <h1 className="min-w-0 flex-1 truncate text-xl font-semibold leading-tight sm:text-2xl">
+            {project.name}
+          </h1>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button size="sm" asChild className="hidden sm:inline-flex">
+              <Link to={`/projects/${project.id}/workspace`}>
+                <ExternalLink className="size-4" />
+                View Workspace
+              </Link>
+            </Button>
+            <Button size="icon" asChild className="sm:hidden">
+              <Link to={`/projects/${project.id}/workspace`}>
+                <ExternalLink className="size-4" />
+              </Link>
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Ellipsis className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link to={`/projects/${project.id}/settings`}>
+                    Project settings
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-        <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Created
-          </span>
-          <span className="flex items-center gap-1.5 text-sm font-medium">
-            {new Date(project.createdAt).toLocaleDateString()}
-          </span>
+
+        {/* Badges row */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge
+            variant={project.githubRepo ? "secondary" : "outline"}
+            className={
+              project.githubRepo
+                ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
+                : "gap-1.5 font-normal text-muted-foreground"
+            }
+          >
+            <GitHubIcon />
+            {project.githubRepo ?? "GitHub not connected"}
+          </Badge>
+          <Badge
+            variant={project.vercelProjectId ? "secondary" : "outline"}
+            className={
+              project.vercelProjectId
+                ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
+                : "gap-1.5 font-normal text-muted-foreground"
+            }
+          >
+            <VercelIcon />
+            {project.vercelProjectId ?? "Vercel not connected"}
+          </Badge>
+          <Badge
+            variant={claudeConnected ? "secondary" : "outline"}
+            className={
+              claudeConnected
+                ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
+                : "gap-1.5 font-normal text-muted-foreground"
+            }
+          >
+            <Sparkles className="size-3" />
+            {claudeConnected ? "Claude connected" : "Claude not connected"}
+          </Badge>
         </div>
       </div>
 
-      {/* Secrets section */}
-      <div className="rounded-lg border border-border bg-card p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Environment Variables</h2>
-          {project.vercelProjectId && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-              <VercelIcon /> Syncs to Vercel
+      {/* Task input or connection prompts */}
+      {claudeLoading ? (
+        <Card className="mb-6">
+          <CardContent>
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <Loader2 className="size-5 animate-spin" />
+              <span className="text-sm">Checking connections...</span>
+            </div>
+          </CardContent>
+        </Card>
+      ) : missingStep === "github" ? (
+        <Card className="mb-6">
+          <CardContent className="flex flex-col items-center gap-4 px-8 py-10">
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <GitHubIcon size={24} />
+            </div>
+            <div className="text-center">
+              <h3 className="mb-1 text-lg font-semibold">
+                Connect GitHub to get started
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {!orgGithub
+                  ? "Your team needs to connect a GitHub account first."
+                  : "This project needs to be linked to a GitHub repository."}
+              </p>
+            </div>
+            {!orgGithub ? (
+              <Button asChild>
+                <a
+                  href={`/api/integrations/github/start?return_to=/projects/${project.id}`}
+                >
+                  Connect GitHub
+                </a>
+              </Button>
+            ) : (
+              <Button asChild>
+                <Link to={`/projects/${project.id}/settings`}>
+                  Go to project settings
+                </Link>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : missingStep === "vercel" ? (
+        <Card className="mb-6">
+          <CardContent className="flex flex-col items-center gap-4 px-8 py-10">
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <VercelIcon size={24} />
+            </div>
+            <div className="text-center">
+              <h3 className="mb-1 text-lg font-semibold">
+                Connect Vercel to get started
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {!orgVercel
+                  ? "Your team needs to connect a Vercel account first."
+                  : "This project needs to be linked to a Vercel project."}
+              </p>
+            </div>
+            {!orgVercel ? (
+              <Button asChild>
+                <a
+                  href={`/api/integrations/vercel/start?return_to=/projects/${project.id}`}
+                >
+                  Connect Vercel
+                </a>
+              </Button>
+            ) : (
+              <Button asChild>
+                <Link to={`/projects/${project.id}/settings`}>
+                  Go to project settings
+                </Link>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : missingStep === "claude" ? (
+        <Card className="mb-6">
+          <CardContent className="flex flex-col items-center gap-4 px-8 py-10">
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <Sparkles className="size-6" />
+            </div>
+            <div className="text-center">
+              <h3 className="mb-1 text-lg font-semibold">
+                Connect Claude to get started
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                An Anthropic API key is required to run tasks. Add one below for
+                this project, or set a shared key in{" "}
+                <Link
+                  to="/settings"
+                  className="font-medium text-foreground underline underline-offset-4"
+                >
+                  team settings
+                </Link>
+                .
+              </p>
+            </div>
+
+            {keyError && (
+              <Alert variant="destructive" className="w-full max-w-md">
+                <AlertDescription>{keyError}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex w-full max-w-md gap-2">
+              <Input
+                type="password"
+                value={apiKeyInput}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+                placeholder="sk-ant-api..."
+                className="flex-1"
+                onKeyDown={(e) => e.key === "Enter" && handleSaveKey()}
+              />
+              <Button
+                onClick={handleSaveKey}
+                disabled={!apiKeyInput.trim() || savingKey}
+              >
+                {savingKey ? "Saving..." : "Connect"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="mb-6">
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <Sparkles className="size-5 shrink-0 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Describe a task for Claude to work on..."
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSubmit();
+                }}
+                className="flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+              />
+              <Button
+                size="sm"
+                onClick={handleSubmit}
+                disabled={!prompt.trim() || submitting}
+              >
+                <Send className="size-4" />
+                Send
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Status summary */}
+      {tasks.length > 0 && (
+        <div className="mb-4 flex items-center gap-4 text-sm text-muted-foreground">
+          {pendingCount > 0 && (
+            <span className="flex items-center gap-1.5">
+              <Circle className="size-3" />
+              {pendingCount} pending
+            </span>
+          )}
+          {runningCount > 0 && (
+            <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+              <Loader2 className="size-3 animate-spin" />
+              {runningCount} running
+            </span>
+          )}
+          {completedCount > 0 && (
+            <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+              <CheckCircle2 className="size-3" />
+              {completedCount} completed
             </span>
           )}
         </div>
+      )}
 
-        {error && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3.5 py-2.5 text-[0.8125rem] text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
-            {error}
-          </div>
-        )}
+      {/* Task list */}
+      {tasks.length === 0 && allConnected ? (
+        <Card className="border-dashed bg-muted/50">
+          <CardContent className="flex flex-col items-center justify-center px-8 py-16">
+            <Sparkles className="mb-3 size-8 text-muted-foreground/50" />
+            <h3 className="mb-1 text-lg font-semibold">No tasks yet</h3>
+            <p className="text-center text-sm text-muted-foreground">
+              Describe what you want to build and Claude will get to work.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {tasks.map((task) => {
+            const config = STATUS_CONFIG[task.status];
+            const StatusIcon = config.icon;
 
-        {/* Add form */}
-        {isAdmin && (
-          <div className="mb-4 flex items-center gap-2 border-b border-border pb-4">
-            <input
-              type="text"
-              value={newKey}
-              onChange={(e) =>
-                setNewKey(
-                  e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "")
-                )
-              }
-              placeholder="KEY_NAME"
-              className="w-[200px] shrink-0 rounded-md border border-input bg-background px-3 py-2 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            />
-            <input
-              type="text"
-              value={newValue}
-              onChange={(e) => setNewValue(e.target.value)}
-              placeholder="value"
-              className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            />
-            <button
-              onClick={handleAdd}
-              disabled={!newKey.trim() || saving}
-              className="cursor-pointer whitespace-nowrap rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:bg-primary/90 disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Add"}
-            </button>
-          </div>
-        )}
-
-        {/* Secrets list */}
-        {secretsLoading ? (
-          <p className="py-4 text-sm text-muted-foreground">Loading...</p>
-        ) : secrets.length === 0 ? (
-          <p className="py-4 text-sm text-muted-foreground">
-            No environment variables set.
-          </p>
-        ) : (
-          <div className="flex flex-col">
-            {secrets.map((secret) => (
-              <div
-                key={secret.key}
-                className="flex items-center gap-3 border-b border-border/50 py-2.5 last:border-b-0"
-              >
-                {editingKey === secret.key ? (
-                  <>
-                    <span className="w-[200px] shrink-0 font-mono text-[0.8125rem] font-medium">
-                      {secret.key}
-                    </span>
-                    <div className="flex flex-1 items-center gap-2">
-                      <input
-                        type="text"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleEdit(secret.key);
-                          if (e.key === "Escape") cancelEdit();
-                        }}
-                      />
-                      <button
-                        onClick={() => handleEdit(secret.key)}
-                        disabled={editSaving}
-                        className="cursor-pointer whitespace-nowrap rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:bg-primary/90"
-                      >
-                        {editSaving ? "Saving..." : "Save"}
-                      </button>
-                      <button
-                        onClick={cancelEdit}
-                        className="cursor-pointer whitespace-nowrap rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium text-foreground/70 transition-colors hover:bg-accent"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <span className="w-[200px] shrink-0 font-mono text-[0.8125rem] font-medium">
-                      {secret.key}
-                    </span>
-                    <span
-                      className="min-w-0 flex-1 cursor-pointer truncate font-mono text-[0.8125rem] text-muted-foreground"
-                      onClick={() => toggleReveal(secret.key)}
-                      title="Click to reveal"
-                    >
-                      {revealedKeys.has(secret.key)
-                        ? secret.value
-                        : maskValue(secret.value)}
-                    </span>
-                    <span
-                      className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[0.6875rem] font-medium ${
-                        secret.source === "org"
-                          ? "border border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"
-                          : "border border-border bg-muted text-muted-foreground"
+            return (
+              <Card key={task.id}>
+                <CardHeader>
+                  <div className="flex items-start gap-3">
+                    <StatusIcon
+                      className={`mt-0.5 size-5 shrink-0 ${config.className} ${
+                        task.status === "running" ? "animate-spin" : ""
                       }`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium leading-relaxed">
+                        {task.prompt}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {timeAgo(task.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <CardAction>
+                    <Badge
+                      variant="secondary"
+                      className={config.badgeClassName}
                     >
-                      {secret.source === "org" ? "inherited" : "project"}
-                    </span>
-                    {isAdmin && secret.source === "project" && (
-                      <div className="flex shrink-0 gap-1">
-                        <button
-                          onClick={() => startEdit(secret)}
-                          className="cursor-pointer border-none bg-transparent px-2 py-1 text-[0.8125rem] text-muted-foreground hover:text-foreground"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(secret.key)}
-                          className="cursor-pointer border-none bg-transparent px-2 py-1 text-[0.8125rem] text-destructive hover:text-destructive/80"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                    {secret.source === "org" && isAdmin && (
-                      <div className="flex shrink-0 gap-1">
-                        <button
-                          onClick={() => {
-                            setNewKey(secret.key);
-                            setNewValue("");
-                          }}
-                          className="cursor-pointer border-none bg-transparent px-2 py-1 text-[0.8125rem] text-muted-foreground hover:text-foreground"
-                          title="Create a project-level override"
-                        >
-                          Override
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                      {config.label}
+                    </Badge>
+                  </CardAction>
+                </CardHeader>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-function VercelIcon() {
+function VercelIcon({ size = 12 }: { size?: number }) {
   return (
     <svg
-      width="12"
-      height="12"
+      width={size}
+      height={size}
       viewBox="0 0 76 65"
       fill="currentColor"
       className="shrink-0"
@@ -527,11 +575,11 @@ function VercelIcon() {
   );
 }
 
-function GitHubIcon() {
+function GitHubIcon({ size = 12 }: { size?: number }) {
   return (
     <svg
-      width="13"
-      height="13"
+      width={size}
+      height={size}
       viewBox="0 0 16 16"
       fill="currentColor"
       className="shrink-0"

@@ -3,6 +3,9 @@ import { useNavigate, useSearchParams } from "react-router";
 import { redirect } from "react-router";
 import { getSessionUser } from "~/lib/session.server";
 import { cn } from "~/lib/utils";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 
 export async function loader({ request }: { request: Request }) {
   const session = await getSessionUser(request);
@@ -102,12 +105,14 @@ export default function Onboarding({
           />
         )}
 
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={handleLogout}
-          className="mt-8 block w-full cursor-pointer border-none bg-transparent p-2 text-center text-xs text-muted-foreground hover:text-foreground"
+          className="mt-8 w-full text-xs text-muted-foreground"
         >
           Sign out
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -150,17 +155,17 @@ function TeamStep({ onNext }: { onNext: () => Promise<void> }) {
       <p className="mb-8 text-center text-sm leading-relaxed text-muted-foreground">
         Teams let you organize projects and collaborate with others.
       </p>
-      <div className="mb-6">
-        <label className="mb-2 block text-sm font-medium text-foreground/70">
+      <div className="mb-6 space-y-2">
+        <Label htmlFor="team-name" className="text-foreground/70">
           Team name
-        </label>
-        <input
+        </Label>
+        <Input
+          id="team-name"
           type="text"
           placeholder="Acme Inc."
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-          className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           autoFocus
         />
       </div>
@@ -169,16 +174,13 @@ function TeamStep({ onNext }: { onNext: () => Promise<void> }) {
           {error}
         </p>
       )}
-      <button
+      <Button
         onClick={handleCreate}
         disabled={creating || !name.trim()}
-        className={cn(
-          "w-full cursor-pointer rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:bg-primary/90",
-          (creating || !name.trim()) && "cursor-not-allowed opacity-50",
-        )}
+        className="w-full"
       >
         {creating ? "Creating..." : "Continue"}
-      </button>
+      </Button>
     </>
   );
 }
@@ -204,18 +206,17 @@ function GitHubStep({
           Failed to connect GitHub. Please try again.
         </p>
       )}
-      <a
-        href="/api/integrations/github/start"
-        className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground no-underline transition-opacity hover:bg-primary/90"
-      >
-        Connect GitHub
-      </a>
-      <button
+      <Button asChild className="w-full">
+        <a href="/api/integrations/github/start">Connect GitHub</a>
+      </Button>
+      <Button
+        variant="link"
+        size="sm"
         onClick={onSkip}
-        className="mt-4 block w-full cursor-pointer border-none bg-transparent p-2 text-center text-[0.8125rem] text-muted-foreground underline hover:text-foreground"
+        className="mt-4 w-full text-muted-foreground"
       >
         Skip for now
-      </button>
+      </Button>
     </>
   );
 }
@@ -240,18 +241,17 @@ function VercelStep({
           Failed to connect Vercel. Please try again.
         </p>
       )}
-      <a
-        href="/api/integrations/vercel/start"
-        className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground no-underline transition-opacity hover:bg-primary/90"
-      >
-        Connect Vercel
-      </a>
-      <button
+      <Button asChild className="w-full">
+        <a href="/api/integrations/vercel/start">Connect Vercel</a>
+      </Button>
+      <Button
+        variant="link"
+        size="sm"
         onClick={onSkip}
-        className="mt-4 block w-full cursor-pointer border-none bg-transparent p-2 text-center text-[0.8125rem] text-muted-foreground underline hover:text-foreground"
+        className="mt-4 w-full text-muted-foreground"
       >
         Skip for now
-      </button>
+      </Button>
     </>
   );
 }

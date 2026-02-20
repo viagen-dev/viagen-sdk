@@ -4,6 +4,33 @@ import { redirect } from "react-router";
 import { requireAuth } from "~/lib/session.server";
 import { getSecret } from "~/lib/infisical.server";
 import { cn } from "~/lib/utils";
+import { Button } from "~/components/ui/button";
+import { ViagenLogo } from "~/components/icons/viagen-logo";
+import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
+import { Badge } from "~/components/ui/badge";
+import { Separator } from "~/components/ui/separator";
+import { Plus, Check, ChevronsUpDown, ArrowLeft } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "~/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "~/components/ui/command";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 
 export async function loader({ request }: { request: Request }) {
   const auth = await requireAuth(request);
@@ -56,8 +83,15 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleOrgSwitch = (orgId: string) => {
-    document.cookie = `viagen-org=${orgId}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+  const [teamOpen, setTeamOpen] = useState(false);
+
+  const handleOrgSwitch = (value: string) => {
+    if (value === "__add_team__") {
+      setTeamOpen(false);
+      navigate("/onboarding");
+      return;
+    }
+    document.cookie = `viagen-org=${value}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
     window.location.reload();
   };
 
@@ -71,93 +105,117 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
 
   const missingIntegrations = !integrations.github || !integrations.vercel;
 
+  const isProjectsIndex = location.pathname === "/";
+
+  const userInitials = user.name
+    ? user.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : user.email[0].toUpperCase();
+
   return (
     <div className="flex min-h-svh flex-col">
       <header className="border-b border-border bg-background">
-        <div className="mx-auto flex h-[60px] max-w-[1200px] items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <Link
-              to="/"
-              className="text-lg font-semibold text-foreground no-underline"
-            >
-              viagen
-            </Link>
-            <span className="text-lg font-light text-border">/</span>
-            {organizations.length > 1 ? (
-              <select
-                value={currentOrg.id}
-                onChange={(e) => handleOrgSwitch(e.target.value)}
-                className="cursor-pointer rounded-md border border-border bg-transparent px-2 py-1 text-sm font-medium text-foreground"
-              >
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name}
-                  </option>
-                ))}
-              </select>
+        <div className="mx-auto grid h-[60px] max-w-[1200px] grid-cols-3 items-center px-6">
+          <div className="flex items-center">
+            {isProjectsIndex ? (
+              <Link to="/" className="no-underline">
+                <ViagenLogo className="size-8" />
+              </Link>
             ) : (
-              <span className="text-sm font-medium text-foreground">
-                {currentOrg.name}
-              </span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => navigate(-1)}
+              >
+                <ArrowLeft className="size-4" />
+              </Button>
             )}
-            <nav className="ml-4 flex gap-1">
-              <Link
-                to="/"
-                className={cn(
-                  "rounded-md px-3 py-2 text-sm no-underline transition-colors",
-                  location.pathname === "/"
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
-              >
-                Dashboard
-              </Link>
-              <Link
-                to="/projects"
-                className={cn(
-                  "rounded-md px-3 py-2 text-sm no-underline transition-colors",
-                  location.pathname.startsWith("/projects")
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
-              >
-                Projects
-              </Link>
-              <Link
-                to="/settings"
-                className={cn(
-                  "rounded-md px-3 py-2 text-sm no-underline transition-colors",
-                  location.pathname.startsWith("/settings")
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
-              >
-                Settings
-              </Link>
-            </nav>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              {user.avatarUrl && (
-                <img
-                  src={user.avatarUrl}
-                  alt=""
-                  className="h-8 w-8 rounded-full"
-                />
-              )}
-              <div className="flex flex-col">
-                <p className="text-sm font-medium leading-tight">{user.name}</p>
-                <p className="text-xs leading-tight text-muted-foreground">
-                  {user.email}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="cursor-pointer rounded-md border border-border bg-transparent px-4 py-2 text-xs text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
-            >
-              Sign out
-            </button>
+          <div className="flex items-center justify-center">
+            <Popover open={teamOpen} onOpenChange={setTeamOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  role="combobox"
+                  aria-expanded={teamOpen}
+                  className="gap-1.5 font-medium"
+                >
+                  {currentOrg.name}
+                  <ChevronsUpDown className="size-3.5 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-0" align="center">
+                <Command>
+                  <CommandInput placeholder="Search teams..." />
+                  <CommandList>
+                    <CommandEmpty>No teams found.</CommandEmpty>
+                    <CommandGroup>
+                      {organizations.map((org) => (
+                        <CommandItem
+                          key={org.id}
+                          value={org.name}
+                          onSelect={() => handleOrgSwitch(org.id)}
+                        >
+                          {org.name}
+                          <Check
+                            className={cn(
+                              "ml-auto size-3.5",
+                              currentOrg.id === org.id
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                    <CommandSeparator />
+                    <CommandGroup>
+                      <CommandItem
+                        value="Add team"
+                        onSelect={() => handleOrgSwitch("__add_team__")}
+                      >
+                        <Plus className="size-3.5" />
+                        Add team
+                      </CommandItem>
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="flex items-center justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <Avatar>
+                    {user.avatarUrl ? (
+                      <AvatarImage src={user.avatarUrl} alt={user.name ?? ""} />
+                    ) : null}
+                    <AvatarFallback>{userInitials}</AvatarFallback>
+                  </Avatar>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link to="/settings">Profile</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/settings">Billing</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/settings">Team settings</Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={handleLogout}>
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -171,17 +229,21 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
                 ? "Connect your GitHub account to save sandbox changes."
                 : "Connect your Vercel account to deploy projects."}
           </span>
-          <Link
-            to="/settings"
-            className="text-[0.8125rem] font-semibold text-amber-800 underline dark:text-amber-200"
+          <Button
+            variant="link"
+            size="sm"
+            asChild
+            className="h-auto p-0 font-semibold text-amber-800 dark:text-amber-200"
           >
-            Go to Settings
-          </Link>
+            <Link to="/settings">Go to Settings</Link>
+          </Button>
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-[1200px] flex-1 px-6 py-8">
-        <Outlet />
+      <main className="flex-1 bg-muted">
+        <div className="mx-auto w-full max-w-[1200px] px-6 py-8">
+          <Outlet />
+        </div>
       </main>
     </div>
   );
