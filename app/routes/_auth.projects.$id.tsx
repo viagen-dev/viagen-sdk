@@ -336,7 +336,7 @@ export default function ProjectTasks({
               ) : (
                 <ExternalLink className="size-4" />
               )}
-              {launching ? "Launching..." : "Launch Sandbox"}
+              {launching ? "Opening..." : "Open Workspace"}
             </Button>
             <Button
               size="icon"
