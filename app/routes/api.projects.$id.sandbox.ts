@@ -9,7 +9,7 @@ export async function action({ request, params }: { request: Request; params: { 
     return Response.json({ error: 'Method not allowed' }, { status: 405 })
   }
 
-  const { role, org } = await requireAuth(request)
+  const { role, user, org } = await requireAuth(request)
   if (role !== 'admin') {
     return Response.json({ error: 'Admin role required' }, { status: 403 })
   }
@@ -49,13 +49,15 @@ export async function action({ request, params }: { request: Request; params: { 
     await getProjectSecret(org.id, id, 'ANTHROPIC_API_KEY').catch(() => null) ??
     await getSecret(org.id, 'ANTHROPIC_API_KEY').catch(() => null)
 
-  // Resolve Vercel credentials
-  const vercelToken = await getSecret(org.id, 'VERCEL_ACCESS_TOKEN').catch(() => null)
+  // Resolve Vercel credentials (project override > user's token)
+  const vercelToken =
+    await getProjectSecret(org.id, id, 'VERCEL_ACCESS_TOKEN').catch(() => null) ??
+    await getSecret(`user/${user.id}`, 'VERCEL_ACCESS_TOKEN').catch(() => null)
 
-  // Resolve GitHub token
+  // Resolve GitHub token (project override > user's token)
   const githubToken =
-    await getProjectSecret(org.id, id, 'GITHUB_TOKEN').catch(() => null) ??
-    await getSecret(org.id, 'GITHUB_TOKEN').catch(() => null)
+    await getProjectSecret(org.id, id, 'GITHUB_ACCESS_TOKEN').catch(() => null) ??
+    await getSecret(`user/${user.id}`, 'GITHUB_ACCESS_TOKEN').catch(() => null)
 
   // Inject resolved credentials into envVars so they're available inside the sandbox
   if (vercelToken) {

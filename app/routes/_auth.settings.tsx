@@ -177,7 +177,7 @@ export default function Settings() {
               <div>
                 <p className="text-[0.9375rem] font-medium">GitHub</p>
                 <p className="text-[0.8125rem] text-muted-foreground">
-                  Access repositories and save sandbox changes
+                  Connect your GitHub account to access your repositories
                 </p>
               </div>
             </div>
@@ -212,7 +212,7 @@ export default function Settings() {
               <div>
                 <p className="text-[0.9375rem] font-medium">Vercel</p>
                 <p className="text-[0.8125rem] text-muted-foreground">
-                  Deploy projects and manage environments
+                  Connect your Vercel account to deploy projects
                 </p>
               </div>
             </div>

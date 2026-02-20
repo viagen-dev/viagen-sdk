@@ -5,11 +5,11 @@ const GITHUB_TOKEN_KEY = 'GITHUB_ACCESS_TOKEN'
 const VERCEL_TOKEN_KEY = 'VERCEL_ACCESS_TOKEN'
 
 export async function loader({ request }: { request: Request }) {
-  const { org } = await requireAuth(request)
+  const { user } = await requireAuth(request)
 
   const safeGet = async (key: string): Promise<boolean> => {
     try {
-      const val = await getSecret(org.id, key)
+      const val = await getSecret(`user/${user.id}`, key)
       return !!val
     } catch {
       return false

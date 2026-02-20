@@ -1,8 +1,10 @@
 import { redirect } from 'react-router'
 import { setSecret } from '~/lib/infisical.server'
+import { validateSession } from '~/lib/auth.server'
 import { parseCookie, deleteCookieHeader } from '~/lib/session.server'
 
 const VERCEL_TOKEN_KEY = 'VERCEL_ACCESS_TOKEN'
+const SESSION_COOKIE = 'viagen-session'
 const redirectBase = process.env.AUTH_REDIRECT_BASE ?? 'http://localhost:5173'
 
 export async function loader({ request }: { request: Request }) {
@@ -11,7 +13,6 @@ export async function loader({ request }: { request: Request }) {
   const state = url.searchParams.get('state')
   const cookieHeader = request.headers.get('Cookie')
   const storedState = parseCookie(cookieHeader, 'vercel-oauth-state')
-  const connectOrgId = parseCookie(cookieHeader, 'vercel-connect-org')
   const returnTo = parseCookie(cookieHeader, 'vercel-connect-return-to') ?? '/onboarding'
 
   const headers = new Headers()
@@ -19,7 +20,17 @@ export async function loader({ request }: { request: Request }) {
   headers.append('Set-Cookie', deleteCookieHeader('vercel-connect-org'))
   headers.append('Set-Cookie', deleteCookieHeader('vercel-connect-return-to'))
 
-  if (!code || !state || state !== storedState || !connectOrgId) {
+  if (!code || !state || state !== storedState) {
+    return redirect(`${returnTo}?error=vercel`, { headers })
+  }
+
+  // Validate session to get user ID for user-scoped token storage
+  const sessionToken = parseCookie(cookieHeader, SESSION_COOKIE)
+  if (!sessionToken) {
+    return redirect(`${returnTo}?error=vercel`, { headers })
+  }
+  const session = await validateSession(sessionToken)
+  if (!session) {
     return redirect(`${returnTo}?error=vercel`, { headers })
   }
 
@@ -42,7 +53,7 @@ export async function loader({ request }: { request: Request }) {
     }
 
     const data = await res.json()
-    await setSecret(connectOrgId, VERCEL_TOKEN_KEY, data.access_token)
+    await setSecret(`user/${session.user.id}`, VERCEL_TOKEN_KEY, data.access_token)
 
     return redirect(`${returnTo}?connected=vercel`, { headers })
   } catch {

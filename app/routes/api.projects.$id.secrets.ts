@@ -54,7 +54,7 @@ export async function loader({ request, params }: { request: Request; params: { 
 }
 
 export async function action({ request, params }: { request: Request; params: { id: string } }) {
-  const { role, org } = await requireAuth(request)
+  const { role, user, org } = await requireAuth(request)
   const id = params.id
 
   if (role !== 'admin') {
@@ -87,7 +87,7 @@ export async function action({ request, params }: { request: Request; params: { 
     // Sync to Vercel if connected
     if (project.vercelProjectId) {
       try {
-        const vercelToken = await getSecret(org.id, 'VERCEL_ACCESS_TOKEN')
+        const vercelToken = await getSecret(`user/${user.id}`, 'VERCEL_ACCESS_TOKEN')
         if (vercelToken) {
           await upsertVercelEnvVars(vercelToken, project.vercelProjectId, [{ key, value }])
         }
@@ -112,7 +112,7 @@ export async function action({ request, params }: { request: Request; params: { 
     // Remove from Vercel if connected
     if (project.vercelProjectId) {
       try {
-        const vercelToken = await getSecret(org.id, 'VERCEL_ACCESS_TOKEN')
+        const vercelToken = await getSecret(`user/${user.id}`, 'VERCEL_ACCESS_TOKEN')
         if (vercelToken) {
           const envVars = await listVercelEnvVars(vercelToken, project.vercelProjectId)
           const match = envVars.find((v) => v.key === key)

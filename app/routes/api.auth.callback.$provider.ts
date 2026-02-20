@@ -55,7 +55,7 @@ export async function loader({ params, request }: { params: { provider: string }
           .where(and(eq(orgMembers.userId, result.user.id), eq(orgMembers.organizationId, connectOrgId)))
 
         if (membership) {
-          await setSecret(connectOrgId, 'GITHUB_ACCESS_TOKEN', tokens.accessToken())
+          await setSecret(`user/${result.user.id}`, 'GITHUB_ACCESS_TOKEN', tokens.accessToken())
           return redirect(`${returnTo}?connected=github`, { headers: cleanupHeaders })
         }
       }
