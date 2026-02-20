@@ -1,5 +1,7 @@
 import { redirect, useLoaderData } from "react-router";
 import { getSessionUser } from "~/lib/session.server";
+import { Button } from "~/components/ui/button";
+import { ViagenLogo } from "~/components/icons/viagen-logo";
 
 export async function loader({ request }: { request: Request }) {
   const url = new URL(request.url);
@@ -22,26 +24,30 @@ export default function Login() {
     : "";
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center">
-      <h1 className="text-2xl font-medium">viagen</h1>
-      <p className="mb-6 mt-2 text-sm text-muted-foreground">
-        Sign in to continue
-      </p>
-      <div className="flex w-[260px] flex-col gap-2.5">
-        <a
-          href={`/api/auth/login/github${returnParam}`}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[0.8125rem] font-medium text-primary-foreground no-underline transition-colors hover:bg-primary/90"
-        >
-          <GitHubIcon />
-          Continue with GitHub
-        </a>
-        <a
-          href={`/api/auth/login/google${returnParam}`}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[0.8125rem] font-medium text-primary-foreground no-underline transition-colors hover:bg-primary/90"
-        >
-          <GoogleIcon />
-          Continue with Google
-        </a>
+    <div className="flex min-h-svh flex-col bg-muted">
+      <header className="flex items-center justify-center px-6 py-4">
+        <ViagenLogo className="size-8" />
+      </header>
+      <div className="flex flex-1 flex-col items-center pt-[15vh]">
+        <h1 className="text-4xl font-semibold">Log in to viagen</h1>
+        <p className="mb-8 mt-3 text-sm italic text-muted-foreground">
+          /ˈviː.ə.dʒən/ <span className="not-italic">n.</span> vite + agent;
+          also: travel
+        </p>
+        <div className="flex w-[260px] flex-col gap-2.5">
+          <Button variant="outline" asChild>
+            <a href={`/api/auth/login/github${returnParam}`}>
+              <GitHubIcon />
+              Continue with GitHub
+            </a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a href={`/api/auth/login/google${returnParam}`}>
+              <GoogleIcon />
+              Continue with Google
+            </a>
+          </Button>
+        </div>
       </div>
     </div>
   );

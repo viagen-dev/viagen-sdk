@@ -1,5 +1,18 @@
 import { useState, useEffect } from "react";
 import { useRouteLoaderData, useSearchParams } from "react-router";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "~/components/ui/card";
+import { Badge } from "~/components/ui/badge";
+import { Alert, AlertDescription } from "~/components/ui/alert";
+import { Separator } from "~/components/ui/separator";
 
 interface ParentData {
   user: {
@@ -135,111 +148,118 @@ export default function Settings() {
         Manage your account and preferences
       </p>
 
+      {/* Profile */}
       <div className="mb-8">
         <h2 className="mb-4 text-lg font-semibold">Profile</h2>
-        <div className="rounded-lg border border-border bg-card p-6">
-          <div className="mb-5">
-            <label className="mb-2 block text-sm font-medium text-foreground/70">
-              Name
-            </label>
-            <input
-              type="text"
-              defaultValue={user.name ?? ""}
-              placeholder="Your name"
-              className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div className="mb-5">
-            <label className="mb-2 block text-sm font-medium text-foreground/70">
-              Email
-            </label>
-            <input
-              type="email"
-              defaultValue={user.email}
-              placeholder="your@email.com"
-              className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <button className="cursor-pointer rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:bg-primary/90">
-            Save Changes
-          </button>
-        </div>
+        <Card>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="profile-name" className="text-foreground/70">
+                Name
+              </Label>
+              <Input
+                id="profile-name"
+                type="text"
+                defaultValue={user.name ?? ""}
+                placeholder="Your name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-email" className="text-foreground/70">
+                Email
+              </Label>
+              <Input
+                id="profile-email"
+                type="email"
+                defaultValue={user.email}
+                placeholder="your@email.com"
+              />
+            </div>
+            <Button>Save Changes</Button>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Integrations */}
       <div className="mb-8">
         <h2 className="mb-4 text-lg font-semibold">Integrations</h2>
 
         {/* GitHub */}
-        <div className="mb-4 rounded-lg border border-border bg-card p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <GitHubIcon />
-              <div>
-                <p className="text-[0.9375rem] font-medium">GitHub</p>
-                <p className="text-[0.8125rem] text-muted-foreground">
-                  Access repositories and save sandbox changes
-                </p>
-              </div>
-            </div>
-            {githubConnected ? (
+        <Card className="mb-4">
+          <CardContent>
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="inline-block rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                  Connected
-                </span>
-                <button
-                  onClick={disconnectGithub}
-                  className="cursor-pointer rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium text-foreground/70 transition-colors hover:border-foreground/20 hover:bg-accent"
-                >
-                  Disconnect
-                </button>
+                <GitHubIcon />
+                <div>
+                  <p className="text-[0.9375rem] font-medium">GitHub</p>
+                  <p className="text-[0.8125rem] text-muted-foreground">
+                    Access repositories and save sandbox changes
+                  </p>
+                </div>
               </div>
-            ) : (
-              <a
-                href="/api/integrations/github/start?return_to=/settings"
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground no-underline transition-opacity hover:bg-primary/90"
-              >
-                Connect
-              </a>
-            )}
-          </div>
-        </div>
+              {githubConnected ? (
+                <div className="flex items-center gap-3">
+                  <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                    Connected
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={disconnectGithub}
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+              ) : (
+                <Button asChild>
+                  <a href="/api/integrations/github/start?return_to=/settings">
+                    Connect
+                  </a>
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Vercel */}
-        <div className="rounded-lg border border-border bg-card p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <VercelIcon />
-              <div>
-                <p className="text-[0.9375rem] font-medium">Vercel</p>
-                <p className="text-[0.8125rem] text-muted-foreground">
-                  Deploy projects and manage environments
-                </p>
-              </div>
-            </div>
-            {vercelConnected ? (
+        <Card>
+          <CardContent>
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="inline-block rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                  Connected
-                </span>
-                <button
-                  onClick={disconnectVercel}
-                  className="cursor-pointer rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium text-foreground/70 transition-colors hover:border-foreground/20 hover:bg-accent"
-                >
-                  Disconnect
-                </button>
+                <VercelIcon />
+                <div>
+                  <p className="text-[0.9375rem] font-medium">Vercel</p>
+                  <p className="text-[0.8125rem] text-muted-foreground">
+                    Deploy projects and manage environments
+                  </p>
+                </div>
               </div>
-            ) : (
-              <a
-                href="/api/integrations/vercel/start?return_to=/settings"
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground no-underline transition-opacity hover:bg-primary/90"
-              >
-                Connect
-              </a>
-            )}
-          </div>
-        </div>
+              {vercelConnected ? (
+                <div className="flex items-center gap-3">
+                  <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                    Connected
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={disconnectVercel}
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+              ) : (
+                <Button asChild>
+                  <a href="/api/integrations/vercel/start?return_to=/settings">
+                    Connect
+                  </a>
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Claude / Anthropic */}
       <div className="mb-8">
         <h2 className="mb-4 text-lg font-semibold">Claude / Anthropic</h2>
         <p className="mb-4 -mt-2 text-[0.8125rem] text-muted-foreground">
@@ -248,136 +268,144 @@ export default function Settings() {
         </p>
 
         {/* Personal key */}
-        <div className="mb-4 rounded-lg border border-border bg-card p-6">
-          <div
-            className={`flex items-center justify-between ${userKey?.connected ? "mb-3" : ""}`}
-          >
-            <div>
-              <p className="text-[0.9375rem] font-medium">Personal Key</p>
-              <p className="text-[0.8125rem] text-muted-foreground">
-                Your personal Anthropic API key. Used as fallback when no org or
-                project key is set.
-              </p>
-            </div>
-            {userKey?.connected && (
-              <div className="flex items-center gap-3">
-                <span className="inline-block rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                  {userKey.keyPrefix}
-                </span>
-                <button
-                  onClick={removeUserKey}
-                  disabled={savingUserKey}
-                  className="cursor-pointer rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium text-foreground/70 transition-colors hover:border-foreground/20 hover:bg-accent"
-                >
-                  Remove
-                </button>
+        <Card className="mb-4">
+          <CardContent>
+            <div
+              className={`flex items-center justify-between ${userKey?.connected ? "mb-3" : ""}`}
+            >
+              <div>
+                <p className="text-[0.9375rem] font-medium">Personal Key</p>
+                <p className="text-[0.8125rem] text-muted-foreground">
+                  Your personal Anthropic API key. Used as fallback when no org
+                  or project key is set.
+                </p>
               </div>
-            )}
-          </div>
-          {!userKey?.connected && (
-            <div className="mt-3 flex gap-2">
-              <input
-                type="password"
-                value={userKeyInput}
-                onChange={(e) => setUserKeyInput(e.target.value)}
-                placeholder="sk-ant-api..."
-                className="flex-1 rounded-md border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                onKeyDown={(e) => e.key === "Enter" && saveUserKey()}
-              />
-              <button
-                onClick={saveUserKey}
-                disabled={!userKeyInput.trim() || savingUserKey}
-                className="cursor-pointer rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:bg-primary/90 disabled:opacity-50"
-              >
-                {savingUserKey ? "Saving..." : "Save"}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Organization key */}
-        <div className="rounded-lg border border-border bg-card p-6">
-          <div
-            className={`flex items-center justify-between ${orgKey?.connected ? "mb-3" : ""}`}
-          >
-            <div>
-              <p className="text-[0.9375rem] font-medium">Organization Key</p>
-              <p className="text-[0.8125rem] text-muted-foreground">
-                Shared key for all projects in {currentOrg.name}. Overrides
-                personal keys.
-              </p>
-            </div>
-            {orgKey?.connected && (
-              <div className="flex items-center gap-3">
-                <span className="inline-block rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                  {orgKey.keyPrefix}
-                </span>
-                {isAdmin && (
-                  <button
-                    onClick={removeOrgKey}
-                    disabled={savingOrgKey}
-                    className="cursor-pointer rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium text-foreground/70 transition-colors hover:border-foreground/20 hover:bg-accent"
+              {userKey?.connected && (
+                <div className="flex items-center gap-3">
+                  <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                    {userKey.keyPrefix}
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={removeUserKey}
+                    disabled={savingUserKey}
                   >
                     Remove
-                  </button>
-                )}
+                  </Button>
+                </div>
+              )}
+            </div>
+            {!userKey?.connected && (
+              <div className="mt-3 flex gap-2">
+                <Input
+                  type="password"
+                  value={userKeyInput}
+                  onChange={(e) => setUserKeyInput(e.target.value)}
+                  placeholder="sk-ant-api..."
+                  className="flex-1"
+                  onKeyDown={(e) => e.key === "Enter" && saveUserKey()}
+                />
+                <Button
+                  onClick={saveUserKey}
+                  disabled={!userKeyInput.trim() || savingUserKey}
+                >
+                  {savingUserKey ? "Saving..." : "Save"}
+                </Button>
               </div>
             )}
-          </div>
-          {!orgKey?.connected && isAdmin && (
-            <div className="mt-3 flex gap-2">
-              <input
-                type="password"
-                value={orgKeyInput}
-                onChange={(e) => setOrgKeyInput(e.target.value)}
-                placeholder="sk-ant-api..."
-                className="flex-1 rounded-md border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                onKeyDown={(e) => e.key === "Enter" && saveOrgKey()}
-              />
-              <button
-                onClick={saveOrgKey}
-                disabled={!orgKeyInput.trim() || savingOrgKey}
-                className="cursor-pointer rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:bg-primary/90 disabled:opacity-50"
-              >
-                {savingOrgKey ? "Saving..." : "Save"}
-              </button>
+          </CardContent>
+        </Card>
+
+        {/* Organization key */}
+        <Card>
+          <CardContent>
+            <div
+              className={`flex items-center justify-between ${orgKey?.connected ? "mb-3" : ""}`}
+            >
+              <div>
+                <p className="text-[0.9375rem] font-medium">Organization Key</p>
+                <p className="text-[0.8125rem] text-muted-foreground">
+                  Shared key for all projects in {currentOrg.name}. Overrides
+                  personal keys.
+                </p>
+              </div>
+              {orgKey?.connected && (
+                <div className="flex items-center gap-3">
+                  <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                    {orgKey.keyPrefix}
+                  </Badge>
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={removeOrgKey}
+                      disabled={savingOrgKey}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
-          )}
-          {!orgKey?.connected && !isAdmin && (
-            <p className="mt-3 text-[0.8125rem] italic text-muted-foreground">
-              Only admins can set the organization key.
-            </p>
-          )}
-        </div>
+            {!orgKey?.connected && isAdmin && (
+              <div className="mt-3 flex gap-2">
+                <Input
+                  type="password"
+                  value={orgKeyInput}
+                  onChange={(e) => setOrgKeyInput(e.target.value)}
+                  placeholder="sk-ant-api..."
+                  className="flex-1"
+                  onKeyDown={(e) => e.key === "Enter" && saveOrgKey()}
+                />
+                <Button
+                  onClick={saveOrgKey}
+                  disabled={!orgKeyInput.trim() || savingOrgKey}
+                >
+                  {savingOrgKey ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            )}
+            {!orgKey?.connected && !isAdmin && (
+              <p className="mt-3 text-[0.8125rem] italic text-muted-foreground">
+                Only admins can set the organization key.
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
+      {/* API Keys */}
       <div className="mb-8">
         <h2 className="mb-4 text-lg font-semibold">API Keys</h2>
-        <div className="rounded-lg border border-border bg-card p-6">
-          <p className="mb-4 text-sm text-muted-foreground">
-            Manage your API keys for authentication
-          </p>
-          <button className="cursor-pointer rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium text-foreground/70 transition-colors hover:border-foreground/20 hover:bg-accent">
-            Generate New Key
-          </button>
-        </div>
+        <Card>
+          <CardContent>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Manage your API keys for authentication
+            </p>
+            <Button variant="outline">Generate New Key</Button>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Danger Zone */}
       <div className="mb-8">
         <h2 className="mb-4 text-lg font-semibold">Danger Zone</h2>
-        <div className="flex items-center justify-between rounded-lg border border-destructive bg-destructive/5 p-6">
-          <div>
-            <h3 className="mb-1 text-[0.9375rem] font-semibold text-destructive">
-              Delete Account
-            </h3>
-            <p className="text-[0.8125rem] text-destructive/80">
-              Permanently delete your account and all associated data
-            </p>
-          </div>
-          <button className="cursor-pointer rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-opacity hover:bg-destructive/90">
-            Delete Account
-          </button>
-        </div>
+        <Card className="border-destructive bg-destructive/5">
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="mb-1 text-[0.9375rem] font-semibold text-destructive">
+                  Delete Account
+                </h3>
+                <p className="text-[0.8125rem] text-destructive/80">
+                  Permanently delete your account and all associated data
+                </p>
+              </div>
+              <Button variant="destructive">Delete Account</Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

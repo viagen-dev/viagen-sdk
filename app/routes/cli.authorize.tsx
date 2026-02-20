@@ -1,6 +1,14 @@
 import { redirect, useLoaderData } from "react-router";
 import { getSessionUser, requireUser } from "~/lib/session.server";
 import { createApiToken } from "~/lib/auth.server";
+import { Button } from "~/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 
 export async function loader({ request }: { request: Request }) {
   const url = new URL(request.url);
@@ -45,35 +53,36 @@ export default function CliAuthorize() {
     <div className="flex min-h-svh flex-col items-center justify-center">
       <h1 className="text-2xl font-medium">viagen</h1>
       <p className="mb-6 mt-2 text-base font-medium">Authorize CLI access?</p>
-      <div className="mb-6 w-full max-w-[360px] rounded-lg border border-border p-5 text-center">
-        <p className="text-sm">
-          Signed in as <strong>{user.name ?? user.email}</strong>
-        </p>
-        {user.name && (
-          <p className="mt-1 text-[0.8125rem] text-muted-foreground">
-            {user.email}
+
+      <Card className="mb-6 w-full max-w-[360px] text-center">
+        <CardHeader>
+          <CardTitle className="text-sm font-normal">
+            Signed in as <strong>{user.name ?? user.email}</strong>
+          </CardTitle>
+          {user.name && <CardDescription>{user.email}</CardDescription>}
+        </CardHeader>
+        <CardContent>
+          <p className="text-[0.8125rem] text-muted-foreground">
+            This will create an API token for the viagen CLI on your machine.
           </p>
-        )}
-        <p className="mt-4 text-[0.8125rem] text-muted-foreground">
-          This will create an API token for the viagen CLI on your machine.
-        </p>
-      </div>
+        </CardContent>
+      </Card>
+
       <div className="flex flex-col items-center gap-3">
         <form method="post">
           <input type="hidden" name="port" value={port} />
-          <button
-            type="submit"
-            className="inline-flex items-center rounded-md bg-primary px-8 py-2.5 text-[0.8125rem] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
+          <Button type="submit" size="lg">
             Authorize
-          </button>
+          </Button>
         </form>
-        <a
-          href={`http://127.0.0.1:${port}/callback?error=denied`}
-          className="text-[0.8125rem] text-muted-foreground no-underline hover:text-foreground"
-        >
-          Cancel
-        </a>
+        <Button variant="link" asChild>
+          <a
+            href={`http://127.0.0.1:${port}/callback?error=denied`}
+            className="text-muted-foreground"
+          >
+            Cancel
+          </a>
+        </Button>
       </div>
     </div>
   );
