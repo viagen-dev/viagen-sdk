@@ -19,6 +19,8 @@ const INTEGRATION_KEYS = new Set([
   'VERCEL_ACCESS_TOKEN',
   'ANTHROPIC_API_KEY',
   'GITHUB_ACCESS_TOKEN',
+  'CLAUDE_ACCESS_TOKEN',
+  'CLAUDE_TOKEN_EXPIRES',
 ])
 
 export async function loader({ request, params }: { request: Request; params: { id: string } }) {
@@ -39,10 +41,13 @@ export async function loader({ request, params }: { request: Request; params: { 
     listOrgSecrets(org.id),
   ])
 
-  // Build merged list: project secrets override org secrets with same key
+  // Build merged list: project secrets override org secrets with same key.
+  // Filter out integration-managed keys from both levels.
   const projectKeySet = new Set(projectSecrets.map((s) => s.key))
   const secrets: { key: string; value: string; source: 'project' | 'org' }[] = [
-    ...projectSecrets.map((s) => ({ ...s, source: 'project' as const })),
+    ...projectSecrets
+      .filter((s) => !INTEGRATION_KEYS.has(s.key))
+      .map((s) => ({ ...s, source: 'project' as const })),
     ...orgSecrets
       .filter((s) => !INTEGRATION_KEYS.has(s.key) && !projectKeySet.has(s.key))
       .map((s) => ({ ...s, source: 'org' as const })),

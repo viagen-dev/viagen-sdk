@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useRouteLoaderData } from "react-router";
+import { Link } from "react-router";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
@@ -77,6 +77,14 @@ interface ClaudeStatus {
   connected: boolean;
   source?: "project" | "org" | "user";
   keyPrefix?: string;
+  expired?: boolean;
+}
+
+interface ProjectStatus {
+  ready: boolean;
+  github: { linked: boolean; tokenAvailable: boolean };
+  vercel: { linked: boolean; tokenAvailable: boolean };
+  claude: ClaudeStatus;
 }
 
 type TaskStatus = "pending" | "running" | "completed";
@@ -146,10 +154,6 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-interface ParentData {
-  integrations: { github: boolean; vercel: boolean };
-}
-
 export default function ProjectTasks({
   loaderData,
 }: {
@@ -157,29 +161,81 @@ export default function ProjectTasks({
 }) {
   const { project, role } = loaderData;
   const isAdmin = role === "admin";
-  const parentData = useRouteLoaderData("routes/_auth") as ParentData;
-  const orgGithub = parentData?.integrations?.github ?? false;
-  const orgVercel = parentData?.integrations?.vercel ?? false;
 
-  const [claudeStatus, setClaudeStatus] = useState<ClaudeStatus | null>(null);
-  const [claudeLoading, setClaudeLoading] = useState(true);
+  const [status, setStatus] = useState<ProjectStatus | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [savingKey, setSavingKey] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
+  const [showClaudeManage, setShowClaudeManage] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const [launching, setLaunching] = useState(false);
+  const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
+  const [sandboxError, setSandboxError] = useState<string | null>(null);
 
   const [prompt, setPrompt] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch Claude connection status
-  useEffect(() => {
-    setClaudeLoading(true);
-    fetch(`/api/projects/${project.id}/claude`, { credentials: "include" })
+  // Fetch project readiness status
+  const refreshStatus = () => {
+    setStatusLoading(true);
+    fetch(`/api/projects/${project.id}/status`, { credentials: "include" })
       .then((r) => r.json())
-      .then((data) => setClaudeStatus(data))
-      .catch(() => setClaudeStatus({ connected: false }))
-      .finally(() => setClaudeLoading(false));
+      .then((data) => setStatus(data))
+      .catch(() =>
+        setStatus({
+          ready: false,
+          github: { linked: false, tokenAvailable: false },
+          vercel: { linked: false, tokenAvailable: false },
+          claude: { connected: false },
+        }),
+      )
+      .finally(() => setStatusLoading(false));
+  };
+
+  useEffect(() => {
+    refreshStatus();
   }, [project.id]);
+
+  const handleLaunch = async () => {
+    setLaunching(true);
+    setSandboxError(null);
+    setSandboxUrl(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/sandbox`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSandboxError(data.error ?? "Failed to launch sandbox");
+        return;
+      }
+      setSandboxUrl(data.url);
+    } catch {
+      setSandboxError("Failed to launch sandbox");
+    } finally {
+      setLaunching(false);
+    }
+  };
+
+  const handleDisconnectClaude = async () => {
+    setDisconnecting(true);
+    try {
+      await fetch(`/api/projects/${project.id}/claude`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      setShowClaudeManage(false);
+      refreshStatus();
+    } catch {
+      // ignore
+    } finally {
+      setDisconnecting(false);
+    }
+  };
 
   const handleSaveKey = async () => {
     if (!apiKeyInput.trim() || savingKey) return;
@@ -199,11 +255,9 @@ export default function ProjectTasks({
         return;
       }
       setApiKeyInput("");
-      // Re-fetch status
-      const statusRes = await fetch(`/api/projects/${project.id}/claude`, {
-        credentials: "include",
-      });
-      setClaudeStatus(await statusRes.json());
+      setShowClaudeManage(false);
+      // Re-fetch project status
+      refreshStatus();
     } catch {
       setKeyError("Failed to save key");
     } finally {
@@ -211,17 +265,21 @@ export default function ProjectTasks({
     }
   };
 
-  const claudeConnected = claudeStatus?.connected ?? false;
-  const githubConnected = !!project.githubRepo;
-  const vercelConnected = !!project.vercelProjectId;
-  const allConnected = githubConnected && vercelConnected && claudeConnected;
+  const githubLinked = status?.github.linked ?? !!project.githubRepo;
+  const githubToken = status?.github.tokenAvailable ?? false;
+  const vercelLinked = status?.vercel.linked ?? !!project.vercelProjectId;
+  const vercelToken = status?.vercel.tokenAvailable ?? false;
+  const claudeConnected = status?.claude.connected ?? false;
+  const claudeExpired = status?.claude.expired ?? false;
+  const allReady = status?.ready ?? false;
 
-  // Determine which missing connection to prompt for (in order)
-  const missingStep = !githubConnected
-    ? "github"
-    : !vercelConnected
-      ? "vercel"
-      : !claudeConnected
+  // Determine which blocking step to prompt for (in priority order).
+  // Only GitHub (repo + token) and Claude are hard requirements.
+  // Vercel is optional — token availability is shown in badges but doesn't block.
+  const missingStep =
+    !githubLinked || !githubToken
+      ? "github"
+      : !claudeConnected || claudeExpired
         ? "claude"
         : null;
 
@@ -267,16 +325,30 @@ export default function ProjectTasks({
             {project.name}
           </h1>
           <div className="flex shrink-0 items-center gap-2">
-            <Button size="sm" asChild className="hidden sm:inline-flex">
-              <Link to={`/projects/${project.id}/workspace`}>
+            <Button
+              size="sm"
+              className="hidden sm:inline-flex"
+              disabled={!allReady || launching}
+              onClick={handleLaunch}
+            >
+              {launching ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
                 <ExternalLink className="size-4" />
-                View Workspace
-              </Link>
+              )}
+              {launching ? "Launching..." : "Launch Sandbox"}
             </Button>
-            <Button size="icon" asChild className="sm:hidden">
-              <Link to={`/projects/${project.id}/workspace`}>
+            <Button
+              size="icon"
+              className="sm:hidden"
+              disabled={!allReady || launching}
+              onClick={handleLaunch}
+            >
+              {launching ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
                 <ExternalLink className="size-4" />
-              </Link>
+              )}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -295,12 +367,34 @@ export default function ProjectTasks({
           </div>
         </div>
 
+        {/* Sandbox alerts */}
+        {sandboxUrl && (
+          <Alert className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+            <AlertDescription>
+              Sandbox ready:{" "}
+              <a
+                href={sandboxUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium underline"
+              >
+                Open sandbox
+              </a>
+            </AlertDescription>
+          </Alert>
+        )}
+        {sandboxError && (
+          <Alert variant="destructive">
+            <AlertDescription>{sandboxError}</AlertDescription>
+          </Alert>
+        )}
+
         {/* Badges row */}
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge
-            variant={project.githubRepo ? "secondary" : "outline"}
+            variant={githubLinked && githubToken ? "secondary" : "outline"}
             className={
-              project.githubRepo
+              githubLinked && githubToken
                 ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
                 : "gap-1.5 font-normal text-muted-foreground"
             }
@@ -309,32 +403,100 @@ export default function ProjectTasks({
             {project.githubRepo ?? "GitHub not connected"}
           </Badge>
           <Badge
-            variant={project.vercelProjectId ? "secondary" : "outline"}
+            variant={vercelToken ? "secondary" : "outline"}
             className={
-              project.vercelProjectId
+              vercelToken
                 ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
                 : "gap-1.5 font-normal text-muted-foreground"
             }
           >
             <VercelIcon />
-            {project.vercelProjectId ?? "Vercel not connected"}
+            {project.vercelProjectId
+              ? project.vercelProjectId
+              : vercelToken
+                ? "Vercel ready"
+                : "Vercel not connected"}
           </Badge>
           <Badge
-            variant={claudeConnected ? "secondary" : "outline"}
-            className={
-              claudeConnected
-                ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
-                : "gap-1.5 font-normal text-muted-foreground"
-            }
+            variant={claudeConnected && !claudeExpired ? "secondary" : "outline"}
+            className={`cursor-pointer ${
+              claudeExpired
+                ? "gap-1.5 font-normal border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"
+                : claudeConnected
+                  ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
+                  : "gap-1.5 font-normal text-muted-foreground"
+            }`}
+            onClick={() => claudeConnected && setShowClaudeManage((v) => !v)}
           >
             <Sparkles className="size-3" />
-            {claudeConnected ? "Claude connected" : "Claude not connected"}
+            {claudeExpired
+              ? "Claude token expired"
+              : claudeConnected
+                ? "Claude connected"
+                : "Claude not connected"}
           </Badge>
         </div>
+
+        {/* Claude manage section (toggled by clicking badge) */}
+        {showClaudeManage && claudeConnected && (
+          <Card>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm">
+                  <span className="font-medium">Claude</span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    — {status?.claude.source} level
+                    {status?.claude.keyPrefix && (
+                      <> ({status.claude.keyPrefix})</>
+                    )}
+                  </span>
+                </div>
+                {isAdmin && status?.claude.source === "project" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDisconnectClaude}
+                    disabled={disconnecting}
+                    className="text-destructive hover:text-destructive/80"
+                  >
+                    {disconnecting ? "Removing..." : "Disconnect"}
+                  </Button>
+                )}
+              </div>
+              {isAdmin && (
+                <>
+                  {keyError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{keyError}</AlertDescription>
+                    </Alert>
+                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      placeholder="sk-ant-api... (replaces current key)"
+                      className="flex-1"
+                      onKeyDown={(e) => e.key === "Enter" && handleSaveKey()}
+                    />
+                    <Button
+                      onClick={handleSaveKey}
+                      disabled={!apiKeyInput.trim() || savingKey}
+                      size="sm"
+                    >
+                      {savingKey ? "Saving..." : "Update"}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Task input or connection prompts */}
-      {claudeLoading ? (
+      {statusLoading ? (
         <Card className="mb-6">
           <CardContent>
             <div className="flex items-center gap-3 text-muted-foreground">
@@ -351,15 +513,17 @@ export default function ProjectTasks({
             </div>
             <div className="text-center">
               <h3 className="mb-1 text-lg font-semibold">
-                Connect GitHub to get started
+                {!githubToken
+                  ? "Connect GitHub to get started"
+                  : "Link a GitHub repository"}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {!orgGithub
-                  ? "Your team needs to connect a GitHub account first."
+                {!githubToken
+                  ? "Connect your GitHub account to access repositories."
                   : "This project needs to be linked to a GitHub repository."}
               </p>
             </div>
-            {!orgGithub ? (
+            {!githubToken ? (
               <Button asChild>
                 <a
                   href={`/api/integrations/github/start?return_to=/projects/${project.id}`}
@@ -370,40 +534,7 @@ export default function ProjectTasks({
             ) : (
               <Button asChild>
                 <Link to={`/projects/${project.id}/settings`}>
-                  Go to project settings
-                </Link>
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : missingStep === "vercel" ? (
-        <Card className="mb-6">
-          <CardContent className="flex flex-col items-center gap-4 px-8 py-10">
-            <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <VercelIcon size={24} />
-            </div>
-            <div className="text-center">
-              <h3 className="mb-1 text-lg font-semibold">
-                Connect Vercel to get started
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {!orgVercel
-                  ? "Your team needs to connect a Vercel account first."
-                  : "This project needs to be linked to a Vercel project."}
-              </p>
-            </div>
-            {!orgVercel ? (
-              <Button asChild>
-                <a
-                  href={`/api/integrations/vercel/start?return_to=/projects/${project.id}`}
-                >
-                  Connect Vercel
-                </a>
-              </Button>
-            ) : (
-              <Button asChild>
-                <Link to={`/projects/${project.id}/settings`}>
-                  Go to project settings
+                  Link Repository
                 </Link>
               </Button>
             )}
@@ -417,18 +548,29 @@ export default function ProjectTasks({
             </div>
             <div className="text-center">
               <h3 className="mb-1 text-lg font-semibold">
-                Connect Claude to get started
+                {claudeExpired
+                  ? "Claude token expired"
+                  : "Connect Claude to get started"}
               </h3>
               <p className="text-sm text-muted-foreground">
-                An Anthropic API key is required to run tasks. Add one below for
-                this project, or set a shared key in{" "}
-                <Link
-                  to="/settings"
-                  className="font-medium text-foreground underline underline-offset-4"
-                >
-                  team settings
-                </Link>
-                .
+                {claudeExpired ? (
+                  <>
+                    The Claude OAuth token has expired. Re-authorize or add an
+                    API key below.
+                  </>
+                ) : (
+                  <>
+                    An Anthropic API key is required to run tasks. Add one below
+                    for this project, or set a shared key in{" "}
+                    <Link
+                      to="/settings"
+                      className="font-medium text-foreground underline underline-offset-4"
+                    >
+                      team settings
+                    </Link>
+                    .
+                  </>
+                )}
               </p>
             </div>
 
@@ -509,7 +651,7 @@ export default function ProjectTasks({
       )}
 
       {/* Task list */}
-      {tasks.length === 0 && allConnected ? (
+      {tasks.length === 0 && allReady ? (
         <Card className="border-dashed bg-muted/50">
           <CardContent className="flex flex-col items-center justify-center px-8 py-16">
             <Sparkles className="mb-3 size-8 text-muted-foreground/50" />

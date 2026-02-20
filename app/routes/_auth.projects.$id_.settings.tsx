@@ -49,23 +49,11 @@ interface Project {
   updatedAt: string;
 }
 
-interface ClaudeStatus {
-  connected: boolean;
-  source?: "project" | "org" | "user";
-  keyPrefix?: string;
-}
-
 interface SecretRow {
   key: string;
   value: string;
   source: "project" | "org";
 }
-
-const SOURCE_LABELS: Record<string, string> = {
-  project: "project key",
-  org: "org key",
-  user: "personal key",
-};
 
 export default function ProjectDetail({
   loaderData,
@@ -75,13 +63,12 @@ export default function ProjectDetail({
   const { project, role } = loaderData;
   const isAdmin = role === "admin";
 
-  // Claude status
-  const [claudeStatus, setClaudeStatus] = useState<ClaudeStatus | null>(null);
-
-  // Sandbox
-  const [launching, setLaunching] = useState(false);
-  const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
-  const [sandboxError, setSandboxError] = useState<string | null>(null);
+  // Project name
+  const [projectName, setProjectName] = useState(project.name);
+  const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [nameSaved, setNameSaved] = useState(false);
+  const nameChanged = projectName.trim() !== project.name;
 
   // Secrets
   const [secrets, setSecrets] = useState<SecretRow[]>([]);
@@ -101,13 +88,30 @@ export default function ProjectDetail({
   // Reveal state
   const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
 
-  // Fetch Claude status
-  useEffect(() => {
-    fetch(`/api/projects/${project.id}/claude`, { credentials: "include" })
-      .then((r) => r.json())
-      .then(setClaudeStatus)
-      .catch(() => setClaudeStatus({ connected: false }));
-  }, [project.id]);
+  // Save project name
+  const handleSaveName = async () => {
+    if (!projectName.trim() || savingName) return;
+    setSavingName(true);
+    setNameError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: projectName.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setNameError(data.error ?? "Failed to update name");
+        return;
+      }
+      setNameSaved(true);
+    } catch {
+      setNameError("Failed to update name");
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   // Fetch secrets
   const fetchSecrets = async () => {
@@ -128,29 +132,6 @@ export default function ProjectDetail({
   useEffect(() => {
     fetchSecrets();
   }, [project.id]);
-
-  // Launch sandbox
-  const handleLaunch = async () => {
-    setLaunching(true);
-    setSandboxError(null);
-    setSandboxUrl(null);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/sandbox`, {
-        method: "POST",
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setSandboxError(data.error ?? "Failed to launch sandbox");
-        return;
-      }
-      setSandboxUrl(data.url);
-    } catch {
-      setSandboxError("Failed to launch sandbox");
-    } finally {
-      setLaunching(false);
-    }
-  };
 
   // Secret handlers
   const handleAdd = async () => {
@@ -262,33 +243,36 @@ export default function ProjectDetail({
       </Button>
 
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
-        <h1 className="text-3xl font-semibold">{project.name}</h1>
-        <Button onClick={handleLaunch} disabled={launching}>
-          {launching ? "Launching..." : "Launch Sandbox"}
-        </Button>
+      <div className="mb-6">
+        <h2 className="mb-4 text-lg font-semibold">Project Name</h2>
+        <Card>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <Input
+                type="text"
+                value={projectName}
+                onChange={(e) => {
+                  setProjectName(e.target.value);
+                  setNameSaved(false);
+                  setNameError(null);
+                }}
+                placeholder="Project name"
+                className="flex-1"
+                onKeyDown={(e) => e.key === "Enter" && nameChanged && handleSaveName()}
+              />
+              <Button
+                onClick={handleSaveName}
+                disabled={!nameChanged || !projectName.trim() || savingName}
+              >
+                {savingName ? "Saving..." : nameSaved ? "Saved" : "Save"}
+              </Button>
+            </div>
+            {nameError && (
+              <p className="mt-2 text-sm text-destructive">{nameError}</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
-
-      {sandboxUrl && (
-        <Alert className="mb-4 border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-          <AlertDescription>
-            Sandbox ready:{" "}
-            <a
-              href={sandboxUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium underline"
-            >
-              Open sandbox
-            </a>
-          </AlertDescription>
-        </Alert>
-      )}
-      {sandboxError && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{sandboxError}</AlertDescription>
-        </Alert>
-      )}
 
       {/* Project details */}
       <div className="mb-6 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
@@ -338,25 +322,6 @@ export default function ProjectDetail({
             </CardContent>
           </Card>
         )}
-        <Card>
-          <CardContent className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Claude
-            </span>
-            <span className="flex items-center gap-1.5 text-sm font-medium">
-              {claudeStatus === null ? (
-                <span className="text-muted-foreground">Checking...</span>
-              ) : claudeStatus.connected ? (
-                <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                  {SOURCE_LABELS[claudeStatus.source ?? "project"]}
-                  {claudeStatus.keyPrefix ? ` (${claudeStatus.keyPrefix})` : ""}
-                </Badge>
-              ) : (
-                <Badge variant="secondary">Not connected</Badge>
-              )}
-            </span>
-          </CardContent>
-        </Card>
         <Card>
           <CardContent className="flex flex-col gap-1.5">
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

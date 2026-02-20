@@ -70,16 +70,20 @@ export async function action({ request, params }: { request: Request; params: { 
     return Response.json({ error: 'Project not found' }, { status: 404 })
   }
 
-  // DELETE — remove project-level key
+  // DELETE — remove all project-level Claude credentials
   if (request.method === 'DELETE') {
     if (role !== 'admin') {
       return Response.json({ error: 'Admin role required' }, { status: 403 })
     }
-    await deleteProjectSecret(org.id, id, KEY).catch(() => {})
+    await deleteProjectSecret(org.id, id, 'ANTHROPIC_API_KEY').catch(() => {})
+    await deleteProjectSecret(org.id, id, 'CLAUDE_ACCESS_TOKEN').catch(() => {})
+    await deleteProjectSecret(org.id, id, 'CLAUDE_TOKEN_EXPIRES').catch(() => {})
     return Response.json({ success: true })
   }
 
   // PUT — set API key at specified scope
+  // Setting a raw ANTHROPIC_API_KEY always removes any OAuth credentials
+  // (CLAUDE_ACCESS_TOKEN / CLAUDE_TOKEN_EXPIRES). Only CLI sync can set those.
   if (request.method === 'PUT') {
     const body = await request.json()
     if (!body.apiKey) {
@@ -92,7 +96,11 @@ export async function action({ request, params }: { request: Request; params: { 
       if (role !== 'admin') {
         return Response.json({ error: 'Admin role required' }, { status: 403 })
       }
-      await setProjectSecret(org.id, id, KEY, body.apiKey)
+      // Save the API key
+      await setProjectSecret(org.id, id, 'ANTHROPIC_API_KEY', body.apiKey)
+      // Remove any stale OAuth credentials — manual key entry supersedes OAuth
+      await deleteProjectSecret(org.id, id, 'CLAUDE_ACCESS_TOKEN').catch(() => {})
+      await deleteProjectSecret(org.id, id, 'CLAUDE_TOKEN_EXPIRES').catch(() => {})
     } else {
       return Response.json({ error: 'Use /api/claude-key for org/user scope' }, { status: 400 })
     }
