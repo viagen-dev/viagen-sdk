@@ -3,6 +3,25 @@ import { db } from '~/lib/db/index.server'
 import { users, orgMembers } from '~/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 
+export async function loader({ request }: { request: Request }) {
+  const { org } = await requireAuth(request)
+
+  const rows = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      avatarUrl: users.avatarUrl,
+      role: orgMembers.role,
+      joinedAt: orgMembers.createdAt,
+    })
+    .from(orgMembers)
+    .innerJoin(users, eq(orgMembers.userId, users.id))
+    .where(eq(orgMembers.organizationId, org.id))
+
+  return Response.json({ members: rows })
+}
+
 export async function action({ request }: { request: Request }) {
   if (request.method !== 'POST') {
     return Response.json({ error: 'Method not allowed' }, { status: 405 })
