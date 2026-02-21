@@ -19,12 +19,14 @@ export default [
     route("projects/:id", "routes/_auth.projects.$id.tsx"),
     route("projects/:id/settings", "routes/_auth.projects.$id_.settings.tsx"),
     route("settings", "routes/_auth.settings.tsx"),
+    route("billing", "routes/_auth.billing.tsx"),
   ]),
 
   // Resource routes (REST API for SDK)
   route("api/auth/login/:provider", "routes/api.auth.login.$provider.ts"),
   route("api/auth/callback/:provider", "routes/api.auth.callback.$provider.ts"),
   route("api/auth/me", "routes/api.auth.me.ts"),
+  route("api/auth/profile", "routes/api.auth.profile.ts"),
   route("api/auth/logout", "routes/api.auth.logout.ts"),
   route("api/auth/tokens", "routes/api.auth.tokens.ts"),
   route("api/orgs", "routes/api.orgs.ts"),

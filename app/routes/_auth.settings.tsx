@@ -1,6 +1,18 @@
 import { useState, useEffect } from "react";
 import { useRouteLoaderData, useSearchParams } from "react-router";
+import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
 import { Input } from "~/components/ui/input";
 import {
   Card,
@@ -86,6 +98,15 @@ export default function Settings() {
     organizations.find((o) => o.id === currentOrg.id)?.role ?? "member";
   const isAdmin = currentRole === "admin";
 
+  // --- Profile state ---
+  const [displayName, setDisplayName] = useState(user.name ?? "");
+  const [savingDisplayName, setSavingDisplayName] = useState(false);
+  const displayNameChanged = displayName.trim() !== (user.name ?? "");
+
+  const [email, setEmail] = useState(user.email);
+  const [savingEmail, setSavingEmail] = useState(false);
+  const emailChanged = email.trim() !== user.email;
+
   // --- Account state ---
   const [githubConnected, setGithubConnected] = useState(integrations.github);
   const [vercelConnected, setVercelConnected] = useState(integrations.vercel);
@@ -116,10 +137,11 @@ export default function Settings() {
   const [orgKeyInput, setOrgKeyInput] = useState("");
   const [savingOrgKey, setSavingOrgKey] = useState(false);
 
-  // Clean up OAuth redirect params from URL
+  // Clean up OAuth redirect params from URL (but preserve tab)
   useEffect(() => {
-    if (searchParams.has("connected") || searchParams.has("error") || searchParams.has("tab")) {
-      setSearchParams({}, { replace: true });
+    if (searchParams.has("connected") || searchParams.has("error")) {
+      const tab = searchParams.get("tab");
+      setSearchParams(tab ? { tab } : {}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
 
@@ -148,6 +170,53 @@ export default function Settings() {
     fetchMembers();
   }, []);
 
+  // --- Profile handlers ---
+  const saveDisplayName = async () => {
+    if (!displayName.trim() || savingDisplayName) return;
+    setSavingDisplayName(true);
+    try {
+      const res = await fetch("/api/auth/profile", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: displayName.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to save display name");
+        return;
+      }
+      toast.success("Display name saved");
+    } catch {
+      toast.error("Failed to save display name");
+    } finally {
+      setSavingDisplayName(false);
+    }
+  };
+
+  const saveEmail = async () => {
+    if (!email.trim() || savingEmail) return;
+    setSavingEmail(true);
+    try {
+      const res = await fetch("/api/auth/profile", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to save email");
+        return;
+      }
+      toast.success("Email saved");
+    } catch {
+      toast.error("Failed to save email");
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
   // --- Account handlers ---
   const disconnectGithub = async () => {
     await fetch("/api/integrations/github", {
@@ -155,6 +224,7 @@ export default function Settings() {
       credentials: "include",
     });
     setGithubConnected(false);
+    toast.success("GitHub disconnected");
   };
 
   const disconnectVercel = async () => {
@@ -163,6 +233,7 @@ export default function Settings() {
       credentials: "include",
     });
     setVercelConnected(false);
+    toast.success("Vercel disconnected");
   };
 
   const saveUserKey = async () => {
@@ -180,6 +251,7 @@ export default function Settings() {
     setUserKey(await res.json());
     setUserKeyInput("");
     setSavingUserKey(false);
+    toast.success("Personal Claude key saved");
   };
 
   const removeUserKey = async () => {
@@ -190,6 +262,7 @@ export default function Settings() {
     });
     setUserKey({ connected: false, scope: "user" });
     setSavingUserKey(false);
+    toast.success("Personal Claude key removed");
   };
 
   // --- Team handlers ---
@@ -210,8 +283,10 @@ export default function Settings() {
         return;
       }
       setNameSaved(true);
+      toast.success("Organization renamed");
     } catch {
       setNameError("Failed to rename organization");
+      toast.error("Failed to rename organization");
     } finally {
       setSavingName(false);
     }
@@ -236,8 +311,10 @@ export default function Settings() {
       }
       setAddEmail("");
       fetchMembers();
+      toast.success("Member added");
     } catch {
       setAddError("Failed to add member");
+      toast.error("Failed to add member");
     } finally {
       setAdding(false);
     }
@@ -258,8 +335,10 @@ export default function Settings() {
         return;
       }
       setMembers((prev) => prev.filter((m) => m.id !== userId));
+      toast.success("Member removed");
     } catch {
       setMembersError("Failed to remove member");
+      toast.error("Failed to remove member");
     }
   };
 
@@ -280,8 +359,10 @@ export default function Settings() {
       setMembers((prev) =>
         prev.map((m) => (m.id === userId ? { ...m, role: newRole } : m)),
       );
+      toast.success("Role updated");
     } catch {
       setMembersError("Failed to update role");
+      toast.error("Failed to update role");
     }
   };
 
@@ -300,6 +381,7 @@ export default function Settings() {
     setOrgKey(await res.json());
     setOrgKeyInput("");
     setSavingOrgKey(false);
+    toast.success("Organization Claude key saved");
   };
 
   const removeOrgKey = async () => {
@@ -310,17 +392,24 @@ export default function Settings() {
     });
     setOrgKey({ connected: false, scope: "org" });
     setSavingOrgKey(false);
+    toast.success("Organization Claude key removed");
   };
 
   const getInitialSection = (): "profile" | "user" | "team" => {
     const tab = searchParams.get("tab");
     if (tab === "user" || tab === "team" || tab === "profile") return tab;
-    if (searchParams.has("connected") || searchParams.has("error")) return "user";
+    if (searchParams.has("connected") || searchParams.has("error"))
+      return "user";
     return "profile";
   };
   const [activeSection, setActiveSection] = useState<
     "profile" | "user" | "team"
   >(getInitialSection);
+
+  const handleSectionChange = (section: "profile" | "user" | "team") => {
+    setActiveSection(section);
+    setSearchParams({ tab: section }, { replace: true });
+  };
 
   return (
     <div className="flex min-h-[calc(100svh-60px)]">
@@ -335,7 +424,7 @@ export default function Settings() {
               <NavigationMenuLink
                 data-active={activeSection === "profile"}
                 className="cursor-pointer hover:bg-[oklch(0.94_0_0)] data-[active=true]:bg-[oklch(0.94_0_0)] data-[active=true]:hover:bg-[oklch(0.94_0_0)]"
-                onSelect={() => setActiveSection("profile")}
+                onSelect={() => handleSectionChange("profile")}
               >
                 Profile
               </NavigationMenuLink>
@@ -344,7 +433,7 @@ export default function Settings() {
               <NavigationMenuLink
                 data-active={activeSection === "user"}
                 className="cursor-pointer hover:bg-[oklch(0.94_0_0)] data-[active=true]:bg-[oklch(0.94_0_0)] data-[active=true]:hover:bg-[oklch(0.94_0_0)]"
-                onSelect={() => setActiveSection("user")}
+                onSelect={() => handleSectionChange("user")}
               >
                 User Settings
               </NavigationMenuLink>
@@ -353,7 +442,7 @@ export default function Settings() {
               <NavigationMenuLink
                 data-active={activeSection === "team"}
                 className="cursor-pointer hover:bg-[oklch(0.94_0_0)] data-[active=true]:bg-[oklch(0.94_0_0)] data-[active=true]:hover:bg-[oklch(0.94_0_0)]"
-                onSelect={() => setActiveSection("team")}
+                onSelect={() => handleSectionChange("team")}
               >
                 Team Settings
               </NavigationMenuLink>
@@ -370,7 +459,7 @@ export default function Settings() {
               <div className="mb-8">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Name</CardTitle>
+                    <CardTitle>Display Name</CardTitle>
                     <CardDescription>
                       Your display name. This is how others will see you.
                     </CardDescription>
@@ -379,14 +468,29 @@ export default function Settings() {
                     <Input
                       id="profile-name"
                       type="text"
-                      defaultValue={user.name ?? ""}
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="Your name"
                       className="max-w-md"
+                      onKeyDown={(e) =>
+                        e.key === "Enter" &&
+                        displayNameChanged &&
+                        saveDisplayName()
+                      }
                     />
                   </CardContent>
                   <CardFooter className="border-t justify-between">
                     <Muted>Please use 32 characters at maximum.</Muted>
-                    <Button>Save</Button>
+                    <Button
+                      onClick={saveDisplayName}
+                      disabled={
+                        !displayNameChanged ||
+                        !displayName.trim() ||
+                        savingDisplayName
+                      }
+                    >
+                      {savingDisplayName ? "Saving..." : "Save"}
+                    </Button>
                   </CardFooter>
                 </Card>
               </div>
@@ -400,17 +504,31 @@ export default function Settings() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Input
-                      id="profile-email"
-                      type="email"
-                      defaultValue={user.email}
-                      placeholder="your@email.com"
-                      className="max-w-md"
-                    />
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="profile-email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="your@email.com"
+                        className="max-w-md"
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && emailChanged && saveEmail()
+                        }
+                      />
+                      <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                        Verified
+                      </Badge>
+                    </div>
                   </CardContent>
                   <CardFooter className="border-t justify-between">
                     <Muted>We will email you to verify the change.</Muted>
-                    <Button>Save</Button>
+                    <Button
+                      onClick={saveEmail}
+                      disabled={!emailChanged || !email.trim() || savingEmail}
+                    >
+                      {savingEmail ? "Saving..." : "Save"}
+                    </Button>
                   </CardFooter>
                 </Card>
               </div>
@@ -427,9 +545,33 @@ export default function Settings() {
                     </CardDescription>
                   </CardHeader>
                   <CardFooter className="border-t border-destructive bg-destructive/5 justify-end">
-                    <Button variant="destructive">
-                      Delete Personal Account
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive">
+                          Delete Personal Account
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            Are you absolutely sure?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently
+                            delete your account and remove all of your data from
+                            our servers.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <CardFooter className="border-t justify-end gap-2 -mx-6 -mb-6 mt-2">
+                          <AlertDialogCancel size="sm">
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction variant="destructive" size="sm">
+                            Delete Account
+                          </AlertDialogAction>
+                        </CardFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </CardFooter>
                 </Card>
               </div>
@@ -532,8 +674,8 @@ export default function Settings() {
                     </CardDescription>
                   </CardHeader>
                   {!userKey?.connected ? (
-                    <CardContent>
-                      <div className="flex gap-2">
+                    <>
+                      <CardContent>
                         <Input
                           type="password"
                           value={userKeyInput}
@@ -542,14 +684,17 @@ export default function Settings() {
                           className="max-w-md"
                           onKeyDown={(e) => e.key === "Enter" && saveUserKey()}
                         />
+                      </CardContent>
+                      <CardFooter className="border-t justify-between">
+                        <Muted>Not connected</Muted>
                         <Button
                           onClick={saveUserKey}
                           disabled={!userKeyInput.trim() || savingUserKey}
                         >
                           {savingUserKey ? "Saving..." : "Save"}
                         </Button>
-                      </div>
-                    </CardContent>
+                      </CardFooter>
+                    </>
                   ) : (
                     <CardFooter className="border-t justify-between">
                       <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">

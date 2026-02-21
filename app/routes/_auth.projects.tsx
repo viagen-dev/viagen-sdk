@@ -1,20 +1,43 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Link, useNavigate } from "react-router";
-import { Search, Plus, Ellipsis, Sparkles, X } from "lucide-react";
+import { Link, useNavigate, useRouteLoaderData } from "react-router";
+import {
+  Search,
+  Plus,
+  Ellipsis,
+  Sparkles,
+  X,
+  Check,
+  Circle,
+} from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "~/components/ui/tooltip";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects } from "~/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Small, Muted, Large } from "~/components/ui/typography";
 import {
   Card,
   CardContent,
   CardHeader,
   CardAction,
+  CardTitle,
+  CardDescription,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
+import {
+  Item,
+  ItemMedia,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+} from "~/components/ui/item";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,6 +117,18 @@ function projectInitials(name: string): string {
     .slice(0, 2);
 }
 
+interface ParentData {
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    avatarUrl: string | null;
+  };
+  currentOrg: { id: string; name: string };
+  organizations: { id: string; name: string; role: string }[];
+  integrations: { github: boolean; vercel: boolean };
+}
+
 export default function Projects({
   loaderData,
 }: {
@@ -101,6 +136,11 @@ export default function Projects({
 }) {
   const { projects } = loaderData;
   const navigate = useNavigate();
+  const parentData = useRouteLoaderData("routes/_auth") as
+    | ParentData
+    | undefined;
+  const integrations = parentData?.integrations;
+  const missingIntegrations = !integrations?.github || !integrations?.vercel;
 
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -148,7 +188,7 @@ export default function Projects({
 
   return (
     <div>
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-8 flex items-center gap-3">
         <Popover open={open && search.trim().length > 0} onOpenChange={setOpen}>
           <PopoverAnchor asChild>
             <div className="relative flex-1">
@@ -223,13 +263,11 @@ export default function Projects({
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">
-                              {p.name}
-                            </p>
+                            <Small className="truncate">{p.name}</Small>
                             {p.githubRepo && (
-                              <p className="truncate text-xs text-muted-foreground">
+                              <Muted className="truncate text-xs">
                                 {p.githubRepo}
-                              </p>
+                              </Muted>
                             )}
                           </div>
                         </CommandItem>
@@ -259,7 +297,17 @@ export default function Projects({
             </Command>
           </PopoverContent>
         </Popover>
-        <Button asChild>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button asChild size="icon" className="sm:hidden">
+              <Link to="/projects/new">
+                <Plus />
+              </Link>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Add project</TooltipContent>
+        </Tooltip>
+        <Button asChild className="hidden sm:inline-flex">
           <Link to="/projects/new">
             <Plus />
             Add project
@@ -270,10 +318,10 @@ export default function Projects({
       {projects.length === 0 ? (
         <Card className="border-dashed bg-muted/50">
           <CardContent className="flex flex-col items-center justify-center px-8 py-16">
-            <h3 className="mb-2 text-lg font-semibold">No projects yet</h3>
-            <p className="text-center text-sm text-muted-foreground">
+            <Large className="mb-2">No projects yet</Large>
+            <Muted className="text-center">
               Create your first project to get started
-            </p>
+            </Muted>
             <Button asChild className="mt-4">
               <Link to="/projects/new">New Project</Link>
             </Button>
@@ -283,120 +331,176 @@ export default function Projects({
         <Card className="border-dashed bg-muted/50">
           <CardContent className="flex flex-col items-center justify-center px-8 py-16">
             <Search className="mb-3 size-8 text-muted-foreground/50" />
-            <h3 className="mb-1 text-lg font-semibold">No projects found</h3>
-            <p className="mb-4 text-center text-sm text-muted-foreground">
+            <Large className="mb-1">No projects found</Large>
+            <Muted className="mb-4 text-center">
               No projects match &ldquo;{search}&rdquo;
-            </p>
+            </Muted>
             <Button variant="outline" size="sm" onClick={() => setSearch("")}>
               Clear search
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
-          {filteredProjects.map((project) => (
-            <Card
-              key={project.id}
-              className="cursor-pointer transition-colors hover:border-foreground/20"
-              onClick={() => navigate(`/projects/${project.id}`)}
-            >
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    {project.vercelProjectId && (
-                      <AvatarImage
-                        src={`https://${project.vercelProjectId}.vercel.app/favicon.ico`}
-                        alt={project.name}
-                      />
-                    )}
-                    <AvatarFallback className="bg-foreground text-background text-xs font-semibold">
-                      {projectInitials(project.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      to={`/projects/${project.id}`}
-                      className="text-sm font-semibold text-foreground no-underline hover:underline"
-                    >
-                      {project.name}
-                    </Link>
-                  </div>
-                </div>
-                <CardAction>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Ellipsis className="size-4" />
+        <div
+          className={
+            missingIntegrations
+              ? "flex flex-col items-start gap-6 md:flex-row"
+              : ""
+          }
+        >
+          {missingIntegrations && (
+            <div className="w-full shrink-0 md:w-[380px]">
+              <CardTitle className="mb-4">Getting started</CardTitle>
+              <Card className="sticky top-8">
+                <CardHeader>
+                  <CardTitle>Connect accounts</CardTitle>
+                  <CardDescription>
+                    Connect your accounts to unlock the full experience.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-1">
+                  <Item size="sm" variant="outline">
+                    <ItemMedia variant="icon">
+                      <GitHubIcon />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>Connect GitHub</ItemTitle>
+                    </ItemContent>
+                    {!integrations?.github && (
+                      <Button size="sm" asChild>
+                        <Link to="/settings?tab=user">Connect</Link>
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <DropdownMenuItem asChild>
-                        <Link to={`/projects/${project.id}/settings`}>
-                          Project settings
+                    )}
+                  </Item>
+                  <Item size="sm" variant="outline">
+                    <ItemMedia variant="icon">
+                      <VercelIcon />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>Connect Vercel</ItemTitle>
+                    </ItemContent>
+                    {!integrations?.vercel && (
+                      <Button size="sm" asChild>
+                        <Link to="/settings?tab=user">Connect</Link>
+                      </Button>
+                    )}
+                  </Item>
+                  <Item size="sm" variant="outline">
+                    <ItemMedia variant="icon">
+                      <Sparkles className="size-3" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>Connect Claude</ItemTitle>
+                    </ItemContent>
+                    <Button size="sm" asChild>
+                      <Link to="/settings?tab=user">Connect</Link>
+                    </Button>
+                  </Item>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          <div className="min-w-0 w-full flex-1">
+            <CardTitle className="mb-4">Projects</CardTitle>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
+              {filteredProjects.map((project) => (
+                <Card
+                  key={project.id}
+                  className="cursor-pointer transition-colors hover:border-foreground/20"
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                >
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        {project.vercelProjectId && (
+                          <AvatarImage
+                            src={`https://${project.vercelProjectId}.vercel.app/favicon.ico`}
+                            alt={project.name}
+                          />
+                        )}
+                        <AvatarFallback className="bg-foreground text-background text-xs font-semibold">
+                          {projectInitials(project.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          to={`/projects/${project.id}`}
+                          className="text-sm font-semibold text-foreground no-underline hover:underline"
+                        >
+                          {project.name}
                         </Link>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </CardAction>
-              </CardHeader>
+                      </div>
+                    </div>
+                    <CardAction>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Ellipsis className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <DropdownMenuItem asChild>
+                            <Link to={`/projects/${project.id}/settings`}>
+                              Project settings
+                            </Link>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </CardAction>
+                  </CardHeader>
 
-              <CardContent className="flex flex-col gap-2">
-                <Badge
-                  variant="secondary"
-                  className={
-                    statuses[project.id]?.github.linked &&
-                    statuses[project.id]?.github.tokenAvailable
-                      ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
-                      : "gap-1.5 font-normal"
-                  }
-                >
-                  <GitHubIcon />
-                  {project.githubRepo ?? "GitHub not connected"}
-                </Badge>
+                  <CardContent className="flex flex-col gap-2">
+                    <Badge
+                      variant="secondary"
+                      className={
+                        statuses[project.id]?.github.linked &&
+                        statuses[project.id]?.github.tokenAvailable
+                          ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
+                          : "gap-1.5 font-normal"
+                      }
+                    >
+                      <GitHubIcon />
+                      {project.githubRepo ?? "GitHub not connected"}
+                    </Badge>
 
-                <Badge
-                  variant="secondary"
-                  className={
-                    statuses[project.id]?.vercel.tokenAvailable
-                      ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
-                      : "gap-1.5 font-normal"
-                  }
-                >
-                  <VercelIcon />
-                  {project.vercelProjectId
-                    ? project.vercelProjectId
-                    : statuses[project.id]?.vercel.tokenAvailable
-                      ? "Vercel ready"
-                      : "Vercel not connected"}
-                </Badge>
+                    <Badge
+                      variant="secondary"
+                      className={
+                        statuses[project.id]?.vercel.tokenAvailable
+                          ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
+                          : "gap-1.5 font-normal"
+                      }
+                    >
+                      <VercelIcon />
+                      {project.vercelProjectId
+                        ? project.vercelProjectId
+                        : statuses[project.id]?.vercel.tokenAvailable
+                          ? "Vercel ready"
+                          : "Vercel not connected"}
+                    </Badge>
 
-                <Badge
-                  variant="secondary"
-                  className={
-                    statuses[project.id]?.claude.connected
-                      ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
-                      : "gap-1.5 font-normal"
-                  }
-                >
-                  <Sparkles className="size-3" />
-                  {statuses[project.id]?.claude.connected
-                    ? "Claude connected"
-                    : "Claude not connected"}
-                </Badge>
+                    <Badge variant="secondary" className="gap-1.5 font-normal">
+                      <Sparkles className="size-3" />
+                      {statuses[project.id]?.claude.connected
+                        ? "Claude connected"
+                        : "Claude not connected"}
+                    </Badge>
 
-                <p className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
-                  {timeAgo(project.updatedAt)}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
+                    <Muted className="flex items-center gap-1.5 pt-1 text-xs">
+                      {timeAgo(project.updatedAt)}
+                    </Muted>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

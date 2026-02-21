@@ -3,9 +3,31 @@ import { Link, useNavigate } from "react-router";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { Card, CardContent } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "~/components/ui/card";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from "~/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import {
+  Item,
+  ItemMedia,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+  ItemActions,
+} from "~/components/ui/item";
+import { H3, Small, Muted } from "~/components/ui/typography";
 
 const TEMPLATES = [
   {
@@ -115,33 +137,30 @@ export default function NewProject() {
     name.trim().length > 0 && (mode === "template" || selectedVercel !== null);
 
   return (
-    <div>
+    <div className="mx-auto max-w-[960px]">
       <div className="mb-8">
-        <Button
-          variant="link"
-          asChild
-          className="mb-2 h-auto p-0 text-muted-foreground"
-        >
-          <Link to="/projects">&larr; Projects</Link>
-        </Button>
-        <h1 className="text-3xl font-semibold">New Project</h1>
+        <H3>New Project</H3>
       </div>
 
       {/* Project name — always visible */}
-      <div className="mb-6 space-y-2">
-        <Label htmlFor="project-name" className="text-foreground/70">
-          Project Name
-        </Label>
-        <Input
-          id="project-name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && canCreate && handleCreate()}
-          placeholder="my-app"
-          autoFocus
-        />
-      </div>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Project Name</CardTitle>
+          <CardDescription>A unique name for your project.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Input
+            id="project-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && canCreate && handleCreate()}
+            placeholder="my-app"
+            className="max-w-md"
+            autoFocus
+          />
+        </CardContent>
+      </Card>
 
       {/* Mode tabs */}
       <Tabs
@@ -149,87 +168,88 @@ export default function NewProject() {
         onValueChange={(v) => setMode(v as "template" | "import")}
         className="mb-8"
       >
-        <TabsList
-          variant="line"
-          className="w-full justify-start border-b border-border"
-        >
-          <TabsTrigger value="template">Start from Template</TabsTrigger>
-          <TabsTrigger value="import">Import Existing</TabsTrigger>
+        <TabsList variant="line" className="justify-start gap-4">
+          <TabsTrigger
+            value="template"
+            className="px-0 text-base font-semibold"
+          >
+            Start from Template
+          </TabsTrigger>
+          <TabsTrigger value="import" className="px-0 text-base font-semibold">
+            Import Existing
+          </TabsTrigger>
         </TabsList>
 
         {/* Template selection */}
         <TabsContent value="template">
-          <p className="mb-4 mt-4 text-[0.8125rem] text-muted-foreground">
-            Start with a pre-configured template. More coming soon.
-          </p>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+          <div className="mt-4 flex flex-col gap-3">
             {TEMPLATES.map((t) => (
-              <Card
-                key={t.id}
-                onClick={() => setSelectedTemplate(t.id)}
-                className={cn(
-                  "cursor-pointer border-2 transition-colors",
-                  selectedTemplate === t.id
-                    ? "border-foreground"
-                    : "border-border hover:border-foreground/30",
-                )}
-              >
-                <CardContent>
-                  <div className="mb-2 flex items-center gap-2">
-                    <ReactRouterIcon />
-                    <span className="text-[0.9375rem] font-semibold">
-                      {t.name}
-                    </span>
-                    {selectedTemplate === t.id && (
-                      <span className="ml-auto text-sm font-bold text-foreground">
-                        &#10003;
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[0.8125rem] leading-relaxed text-muted-foreground">
-                    {t.description}
-                  </p>
-                </CardContent>
-              </Card>
+              <Item key={t.id} variant="outline">
+                <ItemMedia variant="icon">
+                  <ReactRouterIcon />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>{t.name}</ItemTitle>
+                  <ItemDescription>{t.description}</ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Button
+                    size="sm"
+                    variant={selectedTemplate === t.id ? "default" : "outline"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedTemplate(t.id);
+                    }}
+                  >
+                    {selectedTemplate === t.id ? "Selected" : "Use"}
+                  </Button>
+                </ItemActions>
+              </Item>
             ))}
           </div>
         </TabsContent>
 
         {/* Import from Vercel */}
         <TabsContent value="import">
-          <p className="mb-4 mt-4 text-[0.8125rem] text-muted-foreground">
+          <Muted className="mb-4 mt-4">
             Import an existing project from Vercel.
-          </p>
+          </Muted>
 
           {vercelLoading && (
-            <p className="py-4 text-sm text-muted-foreground">
-              Loading Vercel projects...
-            </p>
+            <Muted className="py-4">Loading Vercel projects...</Muted>
           )}
 
           {vercelError === "not_connected" && (
-            <Card className="text-center">
+            <Card className="mt-4">
               <CardContent>
-                <p className="mb-3 text-sm text-muted-foreground">
-                  Connect your Vercel account to import projects.
-                </p>
-                <Button variant="outline" asChild>
-                  <Link to="/settings">Go to Settings</Link>
-                </Button>
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <VercelIcon />
+                    </EmptyMedia>
+                    <EmptyTitle>Vercel not connected</EmptyTitle>
+                    <EmptyDescription>
+                      Connect your Vercel account to import existing projects.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button asChild>
+                      <Link to="/settings?tab=user">Go to Settings</Link>
+                    </Button>
+                  </EmptyContent>
+                </Empty>
               </CardContent>
             </Card>
           )}
 
           {vercelError === "failed" && (
-            <p className="py-4 text-sm text-destructive">
+            <Small className="py-4 text-destructive">
               Failed to load Vercel projects.
-            </p>
+            </Small>
           )}
 
           {!vercelLoading && !vercelError && vercelProjects.length === 0 && (
-            <p className="py-4 text-sm text-muted-foreground">
-              No Vercel projects found.
-            </p>
+            <Muted className="py-4">No Vercel projects found.</Muted>
           )}
 
           {!vercelLoading && !vercelError && vercelProjects.length > 0 && (
@@ -248,18 +268,16 @@ export default function NewProject() {
                   <CardContent>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium">{vp.name}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <Small>{vp.name}</Small>
+                        <Muted className="text-xs">
                           {vp.framework ?? "No framework"}
                           {vp.link
                             ? ` \u00b7 ${vp.link.org}/${vp.link.repo}`
                             : ""}
-                        </p>
+                        </Muted>
                       </div>
                       {selectedVercel?.id === vp.id && (
-                        <span className="ml-auto text-sm font-bold text-foreground">
-                          &#10003;
-                        </span>
+                        <Small className="ml-auto font-bold">&#10003;</Small>
                       )}
                     </div>
                   </CardContent>
@@ -271,9 +289,7 @@ export default function NewProject() {
       </Tabs>
 
       {/* Error */}
-      {error && (
-        <p className="mb-4 text-[0.8125rem] text-destructive">{error}</p>
-      )}
+      {error && <Small className="mb-4 text-destructive">{error}</Small>}
 
       {/* Create button */}
       <Button
@@ -308,6 +324,20 @@ function ReactRouterIcon() {
         stroke="currentColor"
         strokeWidth="1.5"
       />
+    </svg>
+  );
+}
+
+function VercelIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 76 65"
+      fill="currentColor"
+      className="shrink-0"
+    >
+      <path d="M37.5274 0L75.0548 65H0L37.5274 0Z" />
     </svg>
   );
 }

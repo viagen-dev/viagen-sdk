@@ -103,8 +103,6 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
     navigate("/login");
   };
 
-  const missingIntegrations = !integrations.github || !integrations.vercel;
-
   const isProjectsIndex = location.pathname === "/";
 
   const userInitials = user.name
@@ -129,7 +127,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate("/")}
               >
                 <ArrowLeft className="size-4" />
               </Button>
@@ -205,7 +203,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
                   <Link to="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/settings">Billing</Link>
+                  <Link to="/billing">Billing</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onClick={handleLogout}>
@@ -216,26 +214,6 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
           </div>
         </div>
       </header>
-
-      {missingIntegrations && (
-        <div className="flex items-center justify-center gap-3 border-b border-yellow-400 bg-amber-50 px-4 py-2.5 text-[0.8125rem] text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-          <span>
-            {!integrations.github && !integrations.vercel
-              ? "Connect your GitHub and Vercel accounts to save sandbox changes."
-              : !integrations.github
-                ? "Connect your GitHub account to save sandbox changes."
-                : "Connect your Vercel account to deploy projects."}
-          </span>
-          <Button
-            variant="link"
-            size="sm"
-            asChild
-            className="h-auto p-0 font-semibold text-amber-800 dark:text-amber-200"
-          >
-            <Link to="/settings?tab=user">Go to Settings</Link>
-          </Button>
-        </div>
-      )}
 
       <main className="flex-1 bg-[oklch(0.985_0_0)]">
         {location.pathname === "/settings" ? (

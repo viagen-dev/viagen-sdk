@@ -1,14 +1,100 @@
-[2026-02-21T15:59:43.407Z] [INFO]   ➜  Local:   http://localhost:5173/
-[2026-02-21T15:59:43.408Z] [INFO]   ➜  Network: use --host to expose
-[2026-02-21T16:07:07.962Z] [INFO] hmr update /app/routes/_auth.settings.tsx
-[2026-02-21T16:07:07.991Z] [INFO] hmr update /app/routes/_auth.settings.tsx
-[2026-02-21T16:07:07.992Z] [INFO] hmr update /app/app.css, /app/routes/_auth.settings.tsx
-[2026-02-21T16:07:07.992Z] [INFO] page reload app/routes/_auth.settings.tsx
-[2026-02-21T16:07:12.445Z] [INFO] hmr update /app/routes/_auth.settings.tsx
-[2026-02-21T16:07:12.445Z] [INFO] hmr update /app/routes/_auth.settings.tsx
-[2026-02-21T16:07:12.446Z] [INFO] hmr update /app/app.css, /app/routes/_auth.settings.tsx
-[2026-02-21T16:07:12.446Z] [INFO] page reload app/routes/_auth.settings.tsx
-[2026-02-21T16:07:15.948Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-02-21T16:07:15.949Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-02-21T16:07:15.949Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-02-21T16:07:15.949Z] [INFO] page reload app/routes/_auth.tsx
+[2026-02-21T16:29:12.506Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
+[2026-02-21T16:29:12.507Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
+[2026-02-21T16:29:12.507Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
+[2026-02-21T16:29:12.508Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
+[2026-02-21T16:30:56.706Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T16:30:56.707Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T16:30:56.707Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T16:30:56.707Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T16:32:08.390Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T16:32:08.391Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T16:32:08.392Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T16:32:08.392Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T16:32:52.394Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T16:32:52.394Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T16:32:52.395Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T16:32:52.396Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T16:35:21.971Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T16:35:21.972Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T16:35:21.972Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T16:35:21.973Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:26:32.567Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:26:32.567Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:26:32.568Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:26:32.569Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:27:45.230Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:27:45.230Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:27:45.230Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:27:45.231Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:28:33.780Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:28:33.781Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:28:33.781Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:28:33.782Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:34:55.635Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:34:55.635Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:34:55.636Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:34:55.636Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:36:40.221Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:36:40.222Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:36:40.222Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:36:40.223Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:37:14.940Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:37:14.941Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:37:14.941Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:37:14.941Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:37:40.754Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:37:40.755Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:37:40.755Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:37:40.756Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:38:56.734Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:38:56.734Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:38:56.735Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:38:56.735Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:39:30.130Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:39:30.130Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:39:30.131Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:39:30.131Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:40:53.949Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
+[2026-02-21T17:40:53.949Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
+[2026-02-21T17:40:53.950Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.tsx[22m
+[2026-02-21T17:40:53.950Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.tsx[22m
+[2026-02-21T17:41:30.129Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
+[2026-02-21T17:41:30.130Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
+[2026-02-21T17:41:30.130Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.tsx[22m
+[2026-02-21T17:41:30.130Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.tsx[22m
+[2026-02-21T17:41:30.131Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:41:30.131Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:41:30.132Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:41:30.132Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:41:30.259Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
+[2026-02-21T17:41:30.259Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
+[2026-02-21T17:41:30.260Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.tsx[22m
+[2026-02-21T17:41:30.260Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.tsx[22m
+[2026-02-21T17:41:30.320Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:41:30.320Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:41:30.321Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:41:30.321Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:41:30.323Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
+[2026-02-21T17:41:30.324Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
+[2026-02-21T17:41:30.324Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
+[2026-02-21T17:41:30.324Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
+[2026-02-21T17:43:08.505Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:43:08.506Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:43:08.506Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:43:08.506Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:44:50.312Z] [INFO] [32mhmr update [39m[2m/app/root.tsx[22m
+[2026-02-21T17:44:50.312Z] [INFO] [32mhmr update [39m[2m/app/root.tsx[22m
+[2026-02-21T17:44:50.313Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/root.tsx[22m
+[2026-02-21T17:44:50.313Z] [INFO] [32mpage reload [39m[2mapp/root.tsx[22m
+[2026-02-21T17:45:16.446Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:45:16.446Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:45:16.447Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-21T17:45:16.447Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-21T17:47:50.245Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
+[2026-02-21T17:47:50.245Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
+[2026-02-21T17:47:50.246Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
+[2026-02-21T17:47:50.246Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
+[2026-02-21T17:49:43.067Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
+[2026-02-21T17:49:43.068Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
+[2026-02-21T17:49:43.068Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.tsx[22m
+[2026-02-21T17:49:43.069Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.tsx[22m
