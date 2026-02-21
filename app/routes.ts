@@ -19,7 +19,6 @@ export default [
     route("projects/:id", "routes/_auth.projects.$id.tsx"),
     route("projects/:id/settings", "routes/_auth.projects.$id_.settings.tsx"),
     route("settings", "routes/_auth.settings.tsx"),
-    route("team-settings", "routes/_auth.team-settings.tsx"),
   ]),
 
   // Resource routes (REST API for SDK)
