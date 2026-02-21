@@ -119,7 +119,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
   return (
     <div className="flex min-h-svh flex-col">
       <header className="border-b border-border bg-background">
-        <div className="mx-auto grid h-[60px] max-w-[1200px] grid-cols-3 items-center px-6">
+        <div className="grid h-[60px] grid-cols-3 items-center px-6">
           <div className="flex items-center">
             {isProjectsIndex ? (
               <Link to="/" className="no-underline">
@@ -202,10 +202,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                  <Link to="/settings">User settings</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/team-settings">Team settings</Link>
+                  <Link to="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/settings">Billing</Link>
@@ -240,10 +237,14 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
         </div>
       )}
 
-      <main className="flex-1 bg-muted">
-        <div className="mx-auto w-full max-w-[1200px] px-6 py-8">
+      <main className="flex-1 bg-[oklch(0.985_0_0)]">
+        {location.pathname === "/settings" ? (
           <Outlet />
-        </div>
+        ) : (
+          <div className="mx-auto w-full max-w-[1200px] px-6 py-8">
+            <Outlet />
+          </div>
+        )}
       </main>
     </div>
   );
