@@ -14,6 +14,7 @@ import {
   listVercelEnvVars,
   deleteVercelEnvVar,
 } from '~/lib/vercel.server'
+import { log } from '~/lib/logger.server'
 
 const INTEGRATION_KEYS = new Set([
   'VERCEL_ACCESS_TOKEN',
@@ -88,6 +89,7 @@ export async function action({ request, params }: { request: Request; params: { 
     }
 
     await setProjectSecret(org.id, id, key, value)
+    log.info({ projectId: id, key }, 'project secret set')
 
     // Sync to Vercel if connected
     if (project.vercelProjectId) {
@@ -95,9 +97,10 @@ export async function action({ request, params }: { request: Request; params: { 
         const vercelToken = await getSecret(`user/${user.id}`, 'VERCEL_ACCESS_TOKEN')
         if (vercelToken) {
           await upsertVercelEnvVars(vercelToken, project.vercelProjectId, [{ key, value }])
+          log.info({ projectId: id, key, vercelProjectId: project.vercelProjectId }, 'secret synced to vercel')
         }
-      } catch {
-        // Vercel sync is best-effort
+      } catch (err) {
+        log.warn({ projectId: id, key, err }, 'failed to sync secret to vercel')
       }
     }
 
@@ -113,6 +116,7 @@ export async function action({ request, params }: { request: Request; params: { 
     }
 
     await deleteProjectSecret(org.id, id, key)
+    log.info({ projectId: id, key }, 'project secret deleted')
 
     // Remove from Vercel if connected
     if (project.vercelProjectId) {
@@ -125,8 +129,8 @@ export async function action({ request, params }: { request: Request; params: { 
             await deleteVercelEnvVar(vercelToken, project.vercelProjectId, match.id)
           }
         }
-      } catch {
-        // Vercel sync is best-effort
+      } catch (err) {
+        log.warn({ projectId: id, key, err }, 'failed to delete secret from vercel')
       }
     }
 

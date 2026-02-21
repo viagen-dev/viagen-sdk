@@ -2,6 +2,7 @@ import { requireAuth } from '~/lib/session.server'
 import { db } from '~/lib/db/index.server'
 import { users, orgMembers } from '~/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { log } from '~/lib/logger.server'
 
 export async function loader({ request }: { request: Request }) {
   const { org } = await requireAuth(request)
@@ -56,11 +57,13 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ error: 'User is already a member of this organization' }, { status: 409 })
   }
 
+  const assignedRole = body.role === 'admin' ? 'admin' : 'member'
   await db.insert(orgMembers).values({
     userId: targetUser.id,
     organizationId: org.id,
-    role: body.role === 'admin' ? 'admin' : 'member',
+    role: assignedRole,
   })
 
+  log.info({ orgId: org.id, targetUserId: targetUser.id, role: assignedRole, email: body.email.trim() }, 'member added to org')
   return Response.json({ success: true }, { status: 201 })
 }

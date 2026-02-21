@@ -12,6 +12,7 @@ import { db } from '~/lib/db/index.server'
 import { orgMembers } from '~/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { parseCookie, serializeCookie, deleteCookieHeader } from '~/lib/session.server'
+import { log } from '~/lib/logger.server'
 
 const SESSION_COOKIE = 'viagen-session'
 
@@ -33,6 +34,7 @@ export async function loader({ params, request }: { params: { provider: string }
   cleanupHeaders.append('Set-Cookie', deleteCookieHeader('oauth-verifier'))
 
   if (!code || !state || state !== storedState) {
+    log.warn({ provider }, 'auth callback: invalid state or missing code')
     return Response.json({ error: 'Invalid OAuth callback' }, { status: 400 })
   }
 
@@ -56,7 +58,7 @@ export async function loader({ params, request }: { params: { provider: string }
 
         if (membership) {
           await setSecret(`user/${result.user.id}`, 'GITHUB_ACCESS_TOKEN', tokens.accessToken())
-          return redirect(`${returnTo}?connected=github`, { headers: cleanupHeaders })
+          log.info({ userId: result.user.id, orgId: connectOrgId }, 'github integration connected')
         }
       }
     }
@@ -68,6 +70,7 @@ export async function loader({ params, request }: { params: { provider: string }
   const providerUser = await fetchProviderUser(provider, tokens.accessToken())
   const user = await upsertUser(provider, providerUser)
   const { token, expiresAt } = await createSession(user.id)
+  log.info({ userId: user.id, provider }, 'user logged in')
   const isProd = process.env.NODE_ENV === 'production'
 
   cleanupHeaders.append('Set-Cookie', serializeCookie(SESSION_COOKIE, token, {

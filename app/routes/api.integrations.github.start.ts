@@ -2,6 +2,7 @@ import { redirect } from 'react-router'
 import { generateState } from 'arctic'
 import { providers } from '~/lib/auth.server'
 import { requireAuth, serializeCookie } from '~/lib/session.server'
+import { log } from '~/lib/logger.server'
 
 export async function loader({ request }: { request: Request }) {
   const { org } = await requireAuth(request)
@@ -28,5 +29,6 @@ export async function loader({ request }: { request: Request }) {
     'read:org',
   ])
 
+  log.info({ orgId: org.id }, 'github integration: starting OAuth flow')
   return redirect(authUrl.toString(), { headers })
 }

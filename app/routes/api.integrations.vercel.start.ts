@@ -1,6 +1,7 @@
 import { redirect } from 'react-router'
 import { generateState } from 'arctic'
 import { requireAuth, serializeCookie } from '~/lib/session.server'
+import { log } from '~/lib/logger.server'
 
 export async function loader({ request }: { request: Request }) {
   const clientId = process.env.VERCEL_INTEGRATION_CLIENT_ID
@@ -30,5 +31,6 @@ export async function loader({ request }: { request: Request }) {
   const vercelUrl = new URL(`https://vercel.com/integrations/${slug}/new`)
   vercelUrl.searchParams.set('state', state)
 
+  log.info({ orgId: org.id }, 'vercel integration: starting OAuth flow')
   return redirect(vercelUrl.toString(), { headers })
 }

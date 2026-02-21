@@ -1,5 +1,6 @@
 import { requireUser } from '~/lib/session.server'
 import { listApiTokens, revokeApiToken } from '~/lib/auth.server'
+import { log } from '~/lib/logger.server'
 
 export async function loader({ request }: { request: Request }) {
   const { user } = await requireUser(request)
@@ -30,5 +31,6 @@ export async function action({ request }: { request: Request }) {
   }
 
   await revokeApiToken(tokenId, user.id)
+  log.info({ userId: user.id, tokenId }, 'api token revoked')
   return Response.json({ success: true })
 }

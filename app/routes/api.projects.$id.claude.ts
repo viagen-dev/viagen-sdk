@@ -3,6 +3,7 @@ import { db } from '~/lib/db/index.server'
 import { projects } from '~/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { getProjectSecret, setProjectSecret, deleteProjectSecret, getSecret } from '~/lib/infisical.server'
+import { log } from '~/lib/logger.server'
 
 // Check these keys in order — sandboxes use CLAUDE_ACCESS_TOKEN, manual setup uses ANTHROPIC_API_KEY
 const CLAUDE_KEYS = ['CLAUDE_ACCESS_TOKEN', 'ANTHROPIC_API_KEY']
@@ -78,6 +79,7 @@ export async function action({ request, params }: { request: Request; params: { 
     await deleteProjectSecret(org.id, id, 'ANTHROPIC_API_KEY').catch(() => {})
     await deleteProjectSecret(org.id, id, 'CLAUDE_ACCESS_TOKEN').catch(() => {})
     await deleteProjectSecret(org.id, id, 'CLAUDE_TOKEN_EXPIRES').catch(() => {})
+    log.info({ projectId: id }, 'claude credentials removed from project')
     return Response.json({ success: true })
   }
 
@@ -101,6 +103,7 @@ export async function action({ request, params }: { request: Request; params: { 
       // Remove any stale OAuth credentials — manual key entry supersedes OAuth
       await deleteProjectSecret(org.id, id, 'CLAUDE_ACCESS_TOKEN').catch(() => {})
       await deleteProjectSecret(org.id, id, 'CLAUDE_TOKEN_EXPIRES').catch(() => {})
+      log.info({ projectId: id }, 'claude api key set at project level')
     } else {
       return Response.json({ error: 'Use /api/claude-key for org/user scope' }, { status: 400 })
     }

@@ -1,10 +1,12 @@
 import { redirect } from 'react-router'
 import { isValidProvider, createAuthUrl } from '~/lib/auth.server'
 import { serializeCookie } from '~/lib/session.server'
+import { log } from '~/lib/logger.server'
 
 export async function loader({ params, request }: { params: { provider: string }; request: Request }) {
   const provider = params.provider
   if (!isValidProvider(provider)) {
+    log.warn({ provider }, 'auth login: unknown provider')
     return Response.json({ error: `Unknown provider: ${provider}` }, { status: 400 })
   }
 
@@ -43,5 +45,6 @@ export async function loader({ params, request }: { params: { provider: string }
     }))
   }
 
+  log.info({ provider }, 'auth login: redirecting to OAuth provider')
   return redirect(url.toString(), { headers })
 }

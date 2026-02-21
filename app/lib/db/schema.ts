@@ -37,6 +37,7 @@ export const projects = pgTable('projects', {
   organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 255 }).notNull(),
   vercelProjectId: varchar('vercel_project_id', { length: 255 }),
+  vercelTeamId: varchar('vercel_team_id', { length: 255 }),
   githubRepo: varchar('github_repo', { length: 255 }),
   gitBranch: varchar('git_branch', { length: 255 }).default('main'),
   templateId: varchar('template_id', { length: 64 }),

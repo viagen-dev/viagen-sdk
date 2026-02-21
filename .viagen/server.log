@@ -1,17 +1,3 @@
-[2026-02-21T01:10:56.126Z] [INFO] [viagen] Checked out branch: main
-[2026-02-21T01:10:56.149Z] [INFO]   ➜  Local:   http://localhost:5173/
-[2026-02-21T01:10:56.150Z] [INFO]   ➜  Network: use --host to expose
-[2026-02-21T01:10:56.150Z] [INFO]   ➜  press h + enter to show help
-[2026-02-21T01:22:20.837Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-02-21T01:22:20.838Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-02-21T01:22:20.839Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-02-21T01:22:20.839Z] [INFO] page reload app/routes/_auth.tsx
-[2026-02-21T01:24:06.952Z] [INFO] page reload app/routes/api.orgs.members.ts
-[2026-02-21T01:24:10.709Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-02-21T01:24:10.710Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-02-21T01:24:10.710Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-02-21T01:24:10.710Z] [INFO] page reload app/routes/_auth.tsx
-[2026-02-21T01:25:06.982Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-02-21T01:25:06.983Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-02-21T01:25:06.984Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-02-21T01:25:06.984Z] [INFO] page reload app/routes/_auth.tsx
+[2026-02-21T01:54:19.757Z] [INFO] Re-optimizing dependencies because lockfile has changed
+[2026-02-21T01:54:19.787Z] [INFO]   ➜  Local:   http://localhost:5173/
+[2026-02-21T01:54:19.788Z] [INFO]   ➜  Network: use --host to expose

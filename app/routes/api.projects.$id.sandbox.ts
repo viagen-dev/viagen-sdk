@@ -1,8 +1,11 @@
+import { randomUUID } from 'crypto'
+import { Sandbox } from '@vercel/sandbox'
 import { requireAuth } from '~/lib/session.server'
 import { db } from '~/lib/db/index.server'
 import { projects } from '~/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { listProjectSecrets, getSecret, getProjectSecret } from '~/lib/infisical.server'
+import { log } from '~/lib/logger.server'
 
 export async function action({ request, params }: { request: Request; params: { id: string } }) {
   if (request.method !== 'POST') {
@@ -11,6 +14,7 @@ export async function action({ request, params }: { request: Request; params: { 
 
   const { role, user, org } = await requireAuth(request)
   if (role !== 'admin') {
+    log.warn({ userId: user.id, orgId: org.id, projectId: params.id }, 'sandbox launch denied: not admin')
     return Response.json({ error: 'Admin role required' }, { status: 403 })
   }
 
@@ -21,21 +25,25 @@ export async function action({ request, params }: { request: Request; params: { 
     .where(and(eq(projects.id, id), eq(projects.organizationId, org.id)))
 
   if (!project) {
+    log.warn({ userId: user.id, projectId: id }, 'sandbox launch: project not found')
     return Response.json({ error: 'Project not found' }, { status: 404 })
   }
 
   if (!project.githubRepo) {
+    log.warn({ projectId: id }, 'sandbox launch: no github repo linked')
     return Response.json({ error: 'Project must have a GitHub repo to launch a sandbox' }, { status: 400 })
   }
 
-  // Gather secrets as env vars
+  log.info({ projectId: id, userId: user.id, orgId: org.id, repo: project.githubRepo }, 'sandbox launch requested')
+
+  // ── Gather secrets ──────────────────────────────────
   const projectSecrets = await listProjectSecrets(org.id, id)
   const envVars: Record<string, string> = {}
   for (const s of projectSecrets) {
     envVars[s.key] = s.value
   }
 
-  // Resolve Claude credentials (project > org)
+  // Claude credentials (project > org)
   const claudeAccessToken =
     await getProjectSecret(org.id, id, 'CLAUDE_ACCESS_TOKEN').catch(() => null) ??
     await getSecret(org.id, 'CLAUDE_ACCESS_TOKEN').catch(() => null)
@@ -49,83 +57,125 @@ export async function action({ request, params }: { request: Request; params: { 
     await getProjectSecret(org.id, id, 'ANTHROPIC_API_KEY').catch(() => null) ??
     await getSecret(org.id, 'ANTHROPIC_API_KEY').catch(() => null)
 
-  // Resolve Vercel credentials (project override > user's token)
+  // Vercel credentials (project override > user's token)
   const vercelToken =
     await getProjectSecret(org.id, id, 'VERCEL_ACCESS_TOKEN').catch(() => null) ??
     await getSecret(`user/${user.id}`, 'VERCEL_ACCESS_TOKEN').catch(() => null)
 
-  // Resolve GitHub token (project override > user's token)
+  // GitHub token (project override > user's token)
   const githubToken =
     await getProjectSecret(org.id, id, 'GITHUB_ACCESS_TOKEN').catch(() => null) ??
     await getSecret(`user/${user.id}`, 'GITHUB_ACCESS_TOKEN').catch(() => null)
 
-  // Inject resolved credentials into envVars so they're available inside the sandbox
-  if (vercelToken) {
-    envVars['VERCEL_TOKEN'] = vercelToken
-  }
-  if (githubToken) {
-    envVars['GITHUB_TOKEN'] = githubToken
-  }
-  if (project.vercelProjectId) {
-    envVars['VERCEL_PROJECT_ID'] = project.vercelProjectId
-  }
-  const vercelTeamId = process.env.VERCEL_TEAM_ID
-  if (vercelTeamId) {
-    envVars['VERCEL_TEAM_ID'] = vercelTeamId
-  }
+  const claudeAuth = claudeAccessToken ? 'oauth' : anthropicApiKey ? 'api_key' : 'none'
+  log.info(
+    { projectId: id, claudeAuth, hasGithubToken: !!githubToken, hasVercelToken: !!vercelToken },
+    'sandbox credentials resolved',
+  )
 
-  // Dynamic import — viagen is a devDependency, only available in dev
-  const { deploySandbox } = await import('viagen').catch(() => {
-    throw new Error('Sandbox launching is only available in development')
-  })
-
-  // Build deploySandbox options
-  const opts: any = {
-    cwd: process.cwd(),
-    envVars,
-  }
-
-  // Claude auth: prefer OAuth tokens, fall back to API key
-  if (claudeAccessToken && claudeRefreshToken && claudeTokenExpires) {
-    opts.oauth = {
-      accessToken: claudeAccessToken,
-      refreshToken: claudeRefreshToken,
-      tokenExpires: claudeTokenExpires,
-    }
-  } else if (anthropicApiKey) {
-    opts.apiKey = anthropicApiKey
-  }
-
-  // Git info
-  if (githubToken) {
-    const remoteUrl = `https://github.com/${project.githubRepo}.git`
-    opts.git = {
-      remoteUrl,
-      branch: project.gitBranch ?? 'main',
-      userName: 'viagen',
-      userEmail: 'bot@viagen.dev',
-      token: githubToken,
-    }
-  }
-
-  // Vercel credentials
-  if (vercelToken && project.vercelProjectId) {
-    opts.vercel = {
-      token: vercelToken,
-      teamId: process.env.VERCEL_TEAM_ID ?? '',
-      projectId: project.vercelProjectId,
-    }
-  }
+  // ── Build sandbox ───────────────────────────────────
+  const token = randomUUID()
+  const timeoutMs = 30 * 60 * 1000
+  const branch = project.gitBranch ?? 'main'
+  const remoteUrl = `https://github.com/${project.githubRepo}.git`
 
   try {
-    const result = await deploySandbox(opts)
-    return Response.json({
-      url: result.url,
-      sandboxId: result.sandboxId,
-      mode: result.mode,
+    const start = Date.now()
+
+    // 1. Create sandbox with git source
+    const sandbox = await Sandbox.create({
+      runtime: 'node22',
+      ports: [5173],
+      timeout: timeoutMs,
+      ...(githubToken ? {
+        source: {
+          type: 'git' as const,
+          url: remoteUrl,
+          username: 'x-access-token',
+          password: githubToken,
+        },
+      } : {}),
     })
+
+    try {
+      // 2. Configure git inside sandbox
+      if (githubToken) {
+        await sandbox.runCommand('git', ['config', '--global', 'user.name', 'viagen'])
+        await sandbox.runCommand('git', ['config', '--global', 'user.email', 'bot@viagen.dev'])
+        await sandbox.runCommand('git', ['checkout', '-B', branch])
+        await sandbox.runCommand('bash', [
+          '-c',
+          `echo 'https://x-access-token:${githubToken}@github.com' > ~/.git-credentials`,
+        ])
+        await sandbox.runCommand('git', ['config', '--global', 'credential.helper', 'store'])
+        await sandbox.runCommand('bash', [
+          '-c',
+          'apt-get update -qq && apt-get install -y -qq gh > /dev/null 2>&1 || true',
+        ])
+      }
+
+      // 3. Install vercel CLI if credentials available
+      if (vercelToken && project.vercelProjectId) {
+        await sandbox.runCommand('npm', ['install', '-g', 'vercel', '--silent'])
+      }
+
+      // 4. Build .env — use per-project vercelTeamId, NOT process.env
+      const envMap: Record<string, string> = { ...envVars }
+      envMap['VIAGEN_AUTH_TOKEN'] = token
+      envMap['VIAGEN_SESSION_START'] = String(Math.floor(Date.now() / 1000))
+      envMap['VIAGEN_SESSION_TIMEOUT'] = String(30 * 60)
+
+      if (anthropicApiKey) envMap['ANTHROPIC_API_KEY'] = anthropicApiKey
+      if (claudeAccessToken) envMap['CLAUDE_ACCESS_TOKEN'] = claudeAccessToken
+      if (claudeRefreshToken) envMap['CLAUDE_REFRESH_TOKEN'] = claudeRefreshToken
+      if (claudeTokenExpires) envMap['CLAUDE_TOKEN_EXPIRES'] = claudeTokenExpires
+
+      if (githubToken) {
+        envMap['GITHUB_TOKEN'] = githubToken
+        envMap['VIAGEN_BRANCH'] = branch
+      }
+
+      if (vercelToken) envMap['VERCEL_TOKEN'] = vercelToken
+      if (project.vercelTeamId) envMap['VERCEL_ORG_ID'] = project.vercelTeamId
+      if (project.vercelProjectId) envMap['VERCEL_PROJECT_ID'] = project.vercelProjectId
+
+      const envLines = Object.entries(envMap).map(([k, v]) => `${k}=${v}`)
+      await sandbox.writeFiles([
+        { path: '.env', content: Buffer.from(envLines.join('\n')) },
+      ])
+
+      // 5. Install dependencies
+      const install = await sandbox.runCommand('npm', ['install'])
+      if (install.exitCode !== 0) {
+        const stderr = await install.stderr()
+        throw new Error(`npm install failed (exit ${install.exitCode}): ${stderr}`)
+      }
+
+      // 6. Start dev server (detached)
+      await sandbox.runCommand({
+        cmd: 'npm',
+        args: ['run', 'dev', '--', '--host', '0.0.0.0'],
+        detached: true,
+      })
+
+      // 7. Return result
+      const baseUrl = sandbox.domain(5173)
+      const url = `${baseUrl}?token=${token}`
+      const durationMs = Date.now() - start
+
+      log.info(
+        { projectId: id, sandboxId: sandbox.sandboxId, mode: 'git', durationMs },
+        'sandbox deployed successfully',
+      )
+
+      return Response.json({ url, sandboxId: sandbox.sandboxId, mode: 'git' })
+    } catch (err) {
+      await sandbox.stop().catch(() => {})
+      throw err
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Sandbox deployment failed'
+    log.error({ projectId: id, err }, 'sandbox deployment failed')
     return Response.json({ error: message }, { status: 500 })
   }
 }

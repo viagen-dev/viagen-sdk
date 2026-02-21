@@ -2,6 +2,7 @@ import { requireAuth } from '~/lib/session.server'
 import { db } from '~/lib/db/index.server'
 import { projects } from '~/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { log } from '~/lib/logger.server'
 
 export async function loader({ request }: { request: Request }) {
   const { org } = await requireAuth(request)
@@ -37,11 +38,13 @@ export async function action({ request }: { request: Request }) {
       organizationId: org.id,
       name: body.name.trim(),
       vercelProjectId: body.vercelProjectId ?? null,
+      vercelTeamId: body.vercelTeamId ?? null,
       githubRepo: body.githubRepo ?? null,
       gitBranch: body.gitBranch ?? 'main',
       templateId: body.templateId ?? null,
     })
     .returning()
 
+  log.info({ orgId: org.id, projectId: project.id, projectName: project.name }, 'project created')
   return Response.json({ project }, { status: 201 })
 }

@@ -4,6 +4,7 @@ export interface VercelProject {
   id: string
   name: string
   framework: string | null
+  accountId?: string
   link?: {
     type: string
     org: string

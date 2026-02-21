@@ -2,6 +2,7 @@ import { requireAuth } from '~/lib/session.server'
 import { db } from '~/lib/db/index.server'
 import { projects } from '~/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { log } from '~/lib/logger.server'
 
 export async function loader({ request, params }: { request: Request; params: { id: string } }) {
   const { org } = await requireAuth(request)
@@ -32,6 +33,7 @@ export async function action({ request, params }: { request: Request; params: { 
     const updates: Record<string, unknown> = {}
     if ('name' in body) updates.name = body.name
     if ('vercelProjectId' in body) updates.vercelProjectId = body.vercelProjectId ?? null
+    if ('vercelTeamId' in body) updates.vercelTeamId = body.vercelTeamId ?? null
     if ('githubRepo' in body) updates.githubRepo = body.githubRepo ?? null
     if ('gitBranch' in body) updates.gitBranch = body.gitBranch ?? 'main'
 
@@ -49,6 +51,7 @@ export async function action({ request, params }: { request: Request; params: { 
       return Response.json({ error: 'Project not found' }, { status: 404 })
     }
 
+    log.info({ projectId: id, updates: Object.keys(updates) }, 'project updated')
     return Response.json({ project })
   }
 
@@ -66,6 +69,7 @@ export async function action({ request, params }: { request: Request; params: { 
       return Response.json({ error: 'Project not found' }, { status: 404 })
     }
 
+    log.info({ projectId: id, orgId: org.id }, 'project deleted')
     return Response.json({ success: true })
   }
 

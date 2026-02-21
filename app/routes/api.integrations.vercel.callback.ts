@@ -2,6 +2,7 @@ import { redirect } from 'react-router'
 import { setSecret } from '~/lib/infisical.server'
 import { validateSession } from '~/lib/auth.server'
 import { parseCookie, deleteCookieHeader } from '~/lib/session.server'
+import { log } from '~/lib/logger.server'
 
 const VERCEL_TOKEN_KEY = 'VERCEL_ACCESS_TOKEN'
 const SESSION_COOKIE = 'viagen-session'
@@ -21,6 +22,7 @@ export async function loader({ request }: { request: Request }) {
   headers.append('Set-Cookie', deleteCookieHeader('vercel-connect-return-to'))
 
   if (!code || !state || state !== storedState) {
+    log.warn('vercel callback: invalid state or missing code')
     return redirect(`${returnTo}?error=vercel`, { headers })
   }
 
@@ -54,9 +56,11 @@ export async function loader({ request }: { request: Request }) {
 
     const data = await res.json()
     await setSecret(`user/${session.user.id}`, VERCEL_TOKEN_KEY, data.access_token)
+    log.info({ userId: session.user.id }, 'vercel integration connected')
 
     return redirect(`${returnTo}?connected=vercel`, { headers })
-  } catch {
+  } catch (err) {
+    log.error({ err }, 'vercel callback: token exchange failed')
     return redirect(`${returnTo}?error=vercel`, { headers })
   }
 }

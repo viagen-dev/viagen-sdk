@@ -20,6 +20,7 @@ interface VercelProject {
   id: string;
   name: string;
   framework: string | null;
+  accountId?: string;
   link?: { type: string; org: string; repo: string };
 }
 
@@ -83,6 +84,7 @@ export default function NewProject() {
         body.templateId = selectedTemplate;
       } else if (selectedVercel) {
         body.vercelProjectId = selectedVercel.id;
+        body.vercelTeamId = selectedVercel.accountId ?? null;
         if (selectedVercel.link?.org && selectedVercel.link?.repo) {
           body.githubRepo = `${selectedVercel.link.org}/${selectedVercel.link.repo}`;
         }

@@ -1,5 +1,6 @@
 import { requireAuth } from '~/lib/session.server'
 import { getSecret, setSecret, deleteSecret } from '~/lib/infisical.server'
+import { log } from '~/lib/logger.server'
 
 const KEY = 'ANTHROPIC_API_KEY'
 
@@ -52,6 +53,7 @@ export async function action({ request }: { request: Request }) {
 
     const path = pathForScope(scope, org.id, user.id)!
     await setSecret(path, KEY, apiKey)
+    log.info({ userId: user.id, scope }, 'claude api key saved')
     return Response.json({ success: true })
   }
 
@@ -68,6 +70,7 @@ export async function action({ request }: { request: Request }) {
 
     const path = pathForScope(scope, org.id, user.id)!
     await deleteSecret(path, KEY).catch(() => {})
+    log.info({ userId: user.id, scope }, 'claude api key removed')
     return Response.json({ success: true })
   }
 

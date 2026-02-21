@@ -2,6 +2,7 @@ import { requireUser } from '~/lib/session.server'
 import { db } from '~/lib/db/index.server'
 import { organizations, orgMembers } from '~/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { log } from '~/lib/logger.server'
 
 export async function loader({ request }: { request: Request }) {
   const session = await requireUser(request)
@@ -38,6 +39,7 @@ export async function action({ request }: { request: Request }) {
     role: 'admin',
   })
 
+  log.info({ userId: session.user.id, orgId: org.id, orgName: org.name }, 'organization created')
   return Response.json({
     organization: { id: org.id, name: org.name },
   }, { status: 201 })

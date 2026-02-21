@@ -1,5 +1,6 @@
 import { requireAuth } from '~/lib/session.server'
 import { getSecret } from '~/lib/infisical.server'
+import { log } from '~/lib/logger.server'
 
 const GITHUB_TOKEN_KEY = 'GITHUB_ACCESS_TOKEN'
 
@@ -31,8 +32,10 @@ export async function loader({ request }: { request: Request }) {
 
   if (!res.ok) {
     if (res.status === 401) {
+      log.warn({ userId: user.id }, 'github repos: token invalid or expired')
       return Response.json({ error: 'GitHub token is invalid or expired' }, { status: 401 })
     }
+    log.error({ userId: user.id, status: res.status }, 'github repos: upstream error')
     return Response.json({ error: 'Failed to fetch GitHub repos' }, { status: 502 })
   }
 

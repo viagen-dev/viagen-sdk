@@ -3,6 +3,7 @@ import { db } from '~/lib/db/index.server'
 import { projects } from '~/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { setProjectSecret } from '~/lib/infisical.server'
+import { log } from '~/lib/logger.server'
 
 export async function action({ request }: { request: Request }) {
   if (request.method !== 'POST') {
@@ -68,5 +69,6 @@ export async function action({ request }: { request: Request }) {
     }
   }
 
+  log.info({ projectId: project.id, projectName: project.name, secretsStored: stored }, 'project synced')
   return Response.json({ project, secrets: { stored } })
 }
