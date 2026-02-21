@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router";
-import { Search, Plus, Ellipsis, GitBranch, Sparkles, X } from "lucide-react";
+import { Search, Plus, Ellipsis, Sparkles, X } from "lucide-react";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects } from "~/lib/db/schema";
@@ -50,7 +50,6 @@ interface Project {
   templateId: string | null;
   vercelProjectId: string | null;
   githubRepo: string | null;
-  gitBranch: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -381,9 +380,7 @@ export default function Projects({
                 </Badge>
 
                 <p className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
-                  {timeAgo(project.updatedAt)} on
-                  <GitBranch className="size-3" />
-                  {project.gitBranch ?? "main"}
+                  {timeAgo(project.updatedAt)}
                 </p>
               </CardContent>
             </Card>

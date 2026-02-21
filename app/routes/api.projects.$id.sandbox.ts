@@ -2,10 +2,35 @@ import { randomUUID } from 'crypto'
 import { Sandbox } from '@vercel/sandbox'
 import { requireAuth } from '~/lib/session.server'
 import { db } from '~/lib/db/index.server'
-import { projects } from '~/lib/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { projects, workspaces } from '~/lib/db/schema'
+import { eq, and, gt } from 'drizzle-orm'
 import { listProjectSecrets, getSecret, getProjectSecret } from '~/lib/infisical.server'
 import { log } from '~/lib/logger.server'
+
+export async function loader({ request, params }: { request: Request; params: { id: string } }) {
+  const { org } = await requireAuth(request)
+  const id = params.id
+
+  // Verify project belongs to org
+  const [project] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.id, id), eq(projects.organizationId, org.id)))
+
+  if (!project) {
+    return Response.json({ error: 'Project not found' }, { status: 404 })
+  }
+
+  // Return active workspace (not expired)
+  const [workspace] = await db
+    .select()
+    .from(workspaces)
+    .where(and(eq(workspaces.projectId, id), gt(workspaces.expiresAt, new Date())))
+    .orderBy(workspaces.createdAt)
+    .limit(1)
+
+  return Response.json({ workspace: workspace ?? null })
+}
 
 export async function action({ request, params }: { request: Request; params: { id: string } }) {
   if (request.method !== 'POST') {
@@ -34,7 +59,11 @@ export async function action({ request, params }: { request: Request; params: { 
     return Response.json({ error: 'Project must have a GitHub repo to launch a sandbox' }, { status: 400 })
   }
 
-  log.info({ projectId: id, userId: user.id, orgId: org.id, repo: project.githubRepo }, 'sandbox launch requested')
+  // Accept optional branch from request body
+  const body = await request.json().catch(() => ({}))
+  const branch = body.branch ?? 'main'
+
+  log.info({ projectId: id, userId: user.id, orgId: org.id, repo: project.githubRepo, branch }, 'sandbox launch requested')
 
   // ── Gather secrets ──────────────────────────────────
   const projectSecrets = await listProjectSecrets(org.id, id)
@@ -75,8 +104,8 @@ export async function action({ request, params }: { request: Request; params: { 
 
   // ── Build sandbox ───────────────────────────────────
   const token = randomUUID()
-  const timeoutMs = 30 * 60 * 1000
-  const branch = project.gitBranch ?? 'main'
+  const timeoutMinutes = 30
+  const timeoutMs = timeoutMinutes * 60 * 1000
   const remoteUrl = `https://github.com/${project.githubRepo}.git`
 
   try {
@@ -123,7 +152,8 @@ export async function action({ request, params }: { request: Request; params: { 
       const envMap: Record<string, string> = { ...envVars }
       envMap['VIAGEN_AUTH_TOKEN'] = token
       envMap['VIAGEN_SESSION_START'] = String(Math.floor(Date.now() / 1000))
-      envMap['VIAGEN_SESSION_TIMEOUT'] = String(30 * 60)
+      envMap['VIAGEN_SESSION_TIMEOUT'] = String(timeoutMinutes * 60)
+      envMap['VIAGEN_PROJECT_ID'] = id
 
       if (anthropicApiKey) envMap['ANTHROPIC_API_KEY'] = anthropicApiKey
       if (claudeAccessToken) envMap['CLAUDE_ACCESS_TOKEN'] = claudeAccessToken
@@ -158,17 +188,36 @@ export async function action({ request, params }: { request: Request; params: { 
         detached: true,
       })
 
-      // 7. Return result
+      // 7. Build result and save workspace
       const baseUrl = sandbox.domain(5173)
       const url = `${baseUrl}?token=${token}`
-      const durationMs = Date.now() - start
+      const expiresAt = new Date(Date.now() + timeoutMs)
 
+      const [workspace] = await db
+        .insert(workspaces)
+        .values({
+          projectId: id,
+          sandboxId: sandbox.sandboxId,
+          url,
+          expiresAt,
+          branch,
+          gitRemoteUrl: remoteUrl,
+          gitUserName: 'viagen',
+          gitUserEmail: 'bot@viagen.dev',
+          vercelTeamId: project.vercelTeamId ?? null,
+          vercelProjectId: project.vercelProjectId ?? null,
+          viagenProjectId: id,
+          createdBy: user.id,
+        })
+        .returning()
+
+      const durationMs = Date.now() - start
       log.info(
-        { projectId: id, sandboxId: sandbox.sandboxId, mode: 'git', durationMs },
+        { projectId: id, workspaceId: workspace.id, sandboxId: sandbox.sandboxId, durationMs },
         'sandbox deployed successfully',
       )
 
-      return Response.json({ url, sandboxId: sandbox.sandboxId, mode: 'git' })
+      return Response.json({ workspace })
     } catch (err) {
       await sandbox.stop().catch(() => {})
       throw err

@@ -31,7 +31,6 @@ export async function action({ request }: { request: Request }) {
         name: body.name.trim(),
         ...(body.templateId !== undefined && { templateId: body.templateId }),
         ...(body.githubRepo !== undefined && { githubRepo: body.githubRepo }),
-        ...(body.gitBranch !== undefined && { gitBranch: body.gitBranch }),
       })
       .where(and(eq(projects.id, body.id), eq(projects.organizationId, org.id)))
       .returning()
@@ -50,7 +49,6 @@ export async function action({ request }: { request: Request }) {
         name: body.name.trim(),
         templateId: body.templateId ?? null,
         githubRepo: body.githubRepo ?? null,
-        gitBranch: body.gitBranch ?? 'main',
       })
       .returning()
 

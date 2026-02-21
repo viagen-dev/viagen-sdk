@@ -44,7 +44,6 @@ interface Project {
   templateId: string | null;
   vercelProjectId: string | null;
   githubRepo: string | null;
-  gitBranch: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -300,16 +299,6 @@ export default function ProjectDetail({
             </CardContent>
           </Card>
         )}
-        <Card>
-          <CardContent className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Branch
-            </span>
-            <span className="flex items-center gap-1.5 text-sm font-medium">
-              {project.gitBranch ?? "main"}
-            </span>
-          </CardContent>
-        </Card>
         {project.vercelProjectId && (
           <Card>
             <CardContent className="flex flex-col gap-1.5">

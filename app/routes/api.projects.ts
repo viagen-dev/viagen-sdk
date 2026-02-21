@@ -40,7 +40,6 @@ export async function action({ request }: { request: Request }) {
       vercelProjectId: body.vercelProjectId ?? null,
       vercelTeamId: body.vercelTeamId ?? null,
       githubRepo: body.githubRepo ?? null,
-      gitBranch: body.gitBranch ?? 'main',
       templateId: body.templateId ?? null,
     })
     .returning()

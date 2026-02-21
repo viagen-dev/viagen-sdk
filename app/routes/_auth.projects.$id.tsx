@@ -26,7 +26,6 @@ import { Alert, AlertDescription } from "~/components/ui/alert";
 import {
   Plus,
   Sparkles,
-  GitBranch,
   Settings,
   Ellipsis,
   Circle,
@@ -68,9 +67,17 @@ interface Project {
   templateId: string | null;
   vercelProjectId: string | null;
   githubRepo: string | null;
-  gitBranch: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface Workspace {
+  id: string;
+  sandboxId: string;
+  url: string;
+  expiresAt: string;
+  branch: string;
+  createdAt: string;
 }
 
 interface ClaudeStatus {
@@ -171,8 +178,9 @@ export default function ProjectTasks({
   const [disconnecting, setDisconnecting] = useState(false);
 
   const [launching, setLaunching] = useState(false);
-  const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [sandboxError, setSandboxError] = useState<string | null>(null);
+  const [branch, setBranch] = useState("main");
 
   const [prompt, setPrompt] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -197,23 +205,35 @@ export default function ProjectTasks({
 
   useEffect(() => {
     refreshStatus();
+    // Check for active workspace
+    fetch(`/api/projects/${project.id}/sandbox`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.workspace) {
+          setWorkspace(data.workspace);
+          setBranch(data.workspace.branch);
+        }
+      })
+      .catch(() => {});
   }, [project.id]);
 
   const handleLaunch = async () => {
     setLaunching(true);
     setSandboxError(null);
-    setSandboxUrl(null);
+    setWorkspace(null);
     try {
       const res = await fetch(`/api/projects/${project.id}/sandbox`, {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branch }),
       });
       const data = await res.json();
       if (!res.ok) {
         setSandboxError(data.error ?? "Failed to launch sandbox");
         return;
       }
-      setSandboxUrl(data.url);
+      setWorkspace(data.workspace);
     } catch {
       setSandboxError("Failed to launch sandbox");
     } finally {
@@ -367,18 +387,18 @@ export default function ProjectTasks({
           </div>
         </div>
 
-        {/* Sandbox alerts */}
-        {sandboxUrl && (
+        {/* Workspace alerts */}
+        {workspace && (
           <Alert className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
             <AlertDescription>
-              Sandbox ready:{" "}
+              Workspace active on <span className="font-medium">{workspace.branch}</span>:{" "}
               <a
-                href={sandboxUrl}
+                href={workspace.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium underline"
               >
-                Open sandbox
+                Open workspace
               </a>
             </AlertDescription>
           </Alert>
