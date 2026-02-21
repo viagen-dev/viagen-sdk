@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { useRouteLoaderData, useSearchParams } from "react-router";
+import { useRouteLoaderData, useSearchParams, useNavigate } from "react-router";
 import { toast } from "sonner";
+import { Ellipsis, LogOut } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import {
   AlertDialog,
@@ -31,6 +32,15 @@ import {
   NavigationMenuLink,
 } from "~/components/ui/navigation-menu";
 import { Small, Muted } from "~/components/ui/typography";
+import { Separator } from "~/components/ui/separator";
+import {
+  Item,
+  ItemMedia,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+  ItemActions,
+} from "~/components/ui/item";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import {
   Select,
@@ -49,6 +59,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "~/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 
 interface ParentData {
   user: {
@@ -93,10 +109,11 @@ export default function Settings() {
   const parentData = useRouteLoaderData("routes/_auth") as ParentData;
   const { user, currentOrg, organizations, integrations } = parentData;
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const currentRole =
     organizations.find((o) => o.id === currentOrg.id)?.role ?? "member";
-  const isAdmin = currentRole === "admin";
+  const isAdmin = currentRole === "admin" || currentRole === "owner";
 
   // --- Profile state ---
   const [displayName, setDisplayName] = useState(user.name ?? "");
@@ -339,6 +356,34 @@ export default function Settings() {
     } catch {
       setMembersError("Failed to remove member");
       toast.error("Failed to remove member");
+    }
+  };
+
+  const handleLeaveTeam = async () => {
+    setMembersError(null);
+    try {
+      const res = await fetch("/api/orgs/members", {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to leave team");
+        return;
+      }
+      toast.success(`You left ${currentOrg.name}`);
+      // Switch to another org or redirect to onboarding
+      const otherOrg = organizations.find((o) => o.id !== currentOrg.id);
+      if (otherOrg) {
+        document.cookie = `viagen-org=${otherOrg.id}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+        window.location.href = "/";
+      } else {
+        navigate("/onboarding");
+      }
+    } catch {
+      toast.error("Failed to leave team");
     }
   };
 
@@ -818,8 +863,8 @@ export default function Settings() {
                       )}
                     </CardFooter>
                   ) : isAdmin ? (
-                    <CardContent>
-                      <div className="flex gap-2">
+                    <>
+                      <CardContent>
                         <Input
                           type="password"
                           value={orgKeyInput}
@@ -828,14 +873,17 @@ export default function Settings() {
                           className="max-w-md"
                           onKeyDown={(e) => e.key === "Enter" && saveOrgKey()}
                         />
+                      </CardContent>
+                      <CardFooter className="border-t justify-between">
+                        <Muted>Not connected</Muted>
                         <Button
                           onClick={saveOrgKey}
                           disabled={!orgKeyInput.trim() || savingOrgKey}
                         >
                           {savingOrgKey ? "Saving..." : "Save"}
                         </Button>
-                      </div>
-                    </CardContent>
+                      </CardFooter>
+                    </>
                   ) : (
                     <CardFooter className="border-t">
                       <Muted className="italic">
@@ -850,7 +898,7 @@ export default function Settings() {
               <div className="mb-8">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Members</CardTitle>
+                    <CardTitle>Team members</CardTitle>
                     <CardDescription>
                       Manage who has access to this organization.
                     </CardDescription>
@@ -864,32 +912,35 @@ export default function Settings() {
 
                     {/* Add member form */}
                     {isAdmin && (
-                      <div className="mb-4 border-b border-border pb-4">
+                      <>
                         {addError && (
                           <Alert variant="destructive" className="mb-3">
                             <AlertDescription>{addError}</AlertDescription>
                           </Alert>
                         )}
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="email"
-                            value={addEmail}
-                            onChange={(e) => setAddEmail(e.target.value)}
-                            placeholder="user@example.com"
-                            className="flex-1"
-                            onKeyDown={(e) =>
-                              e.key === "Enter" && handleAddMember()
-                            }
-                          />
-                          <Button
-                            onClick={handleAddMember}
-                            disabled={!addEmail.trim() || adding}
-                            size="sm"
-                          >
-                            {adding ? "Adding..." : "Add"}
-                          </Button>
-                        </div>
-                      </div>
+                        <Item size="sm" className="px-0 py-0 mb-4">
+                          <ItemContent>
+                            <Input
+                              type="email"
+                              value={addEmail}
+                              onChange={(e) => setAddEmail(e.target.value)}
+                              placeholder="user@example.com"
+                              onKeyDown={(e) =>
+                                e.key === "Enter" && handleAddMember()
+                              }
+                            />
+                          </ItemContent>
+                          <ItemActions>
+                            <Button
+                              onClick={handleAddMember}
+                              disabled={!addEmail.trim() || adding}
+                              size="sm"
+                            >
+                              {adding ? "Adding..." : "Add"}
+                            </Button>
+                          </ItemActions>
+                        </Item>
+                      </>
                     )}
 
                     {/* Member list */}
@@ -898,105 +949,153 @@ export default function Settings() {
                     ) : members.length === 0 ? (
                       <Muted className="py-4">No members found.</Muted>
                     ) : (
-                      <div className="flex flex-col">
+                      <div className="flex flex-col gap-2">
                         {members.map((member) => {
                           const isSelf = member.id === user.id;
                           return (
-                            <div
-                              key={member.id}
-                              className="flex items-center gap-3 border-b border-border/50 py-3 last:border-b-0"
-                            >
-                              <Avatar size="sm">
-                                {member.avatarUrl && (
-                                  <AvatarImage
-                                    src={member.avatarUrl}
-                                    alt={member.name ?? member.email}
-                                  />
-                                )}
-                                <AvatarFallback className="text-xs">
-                                  {initials(member.name, member.email)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0 flex-1">
-                                <Small className="truncate">
+                            <Item key={member.id} variant="outline" size="sm">
+                              <ItemMedia variant="image">
+                                <Avatar size="sm">
+                                  {member.avatarUrl && (
+                                    <AvatarImage
+                                      src={member.avatarUrl}
+                                      alt={member.name ?? member.email}
+                                    />
+                                  )}
+                                  <AvatarFallback className="text-xs">
+                                    {initials(member.name, member.email)}
+                                  </AvatarFallback>
+                                </Avatar>
+                              </ItemMedia>
+                              <ItemContent>
+                                <ItemTitle>
                                   {member.name ?? member.email}
                                   {isSelf && (
-                                    <span className="ml-1.5 text-xs text-muted-foreground">
+                                    <span className="text-xs font-normal text-muted-foreground">
                                       (you)
                                     </span>
                                   )}
-                                </Small>
+                                </ItemTitle>
                                 {member.name && (
-                                  <Muted className="truncate text-xs">
+                                  <ItemDescription className="truncate text-xs">
                                     {member.email}
-                                  </Muted>
+                                  </ItemDescription>
                                 )}
-                              </div>
-
-                              {isAdmin && !isSelf ? (
-                                <Select
-                                  value={member.role}
-                                  onValueChange={(val) =>
-                                    handleRoleChange(member.id, val)
-                                  }
-                                >
-                                  <SelectTrigger className="w-[110px]">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="admin">Admin</SelectItem>
-                                    <SelectItem value="member">
-                                      Member
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <Badge variant="outline">{member.role}</Badge>
-                              )}
-
-                              {isAdmin && !isSelf ? (
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
+                              </ItemContent>
+                              <ItemActions>
+                                {isAdmin &&
+                                !isSelf &&
+                                member.role !== "owner" ? (
+                                  <Select
+                                    value={member.role}
+                                    onValueChange={(val) =>
+                                      handleRoleChange(member.id, val)
+                                    }
+                                  >
+                                    <SelectTrigger
                                       size="sm"
-                                      className="text-destructive hover:text-destructive/80"
+                                      className="w-[110px]"
                                     >
-                                      Remove
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Remove member</DialogTitle>
-                                      <DialogDescription>
-                                        Remove {member.name ?? member.email}{" "}
-                                        from {currentOrg.name}? They will lose
-                                        access to all projects.
-                                      </DialogDescription>
-                                    </DialogHeader>
-                                    <DialogFooter>
-                                      <DialogClose asChild>
-                                        <Button variant="outline">
-                                          Cancel
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="admin">
+                                        Admin
+                                      </SelectItem>
+                                      <SelectItem value="member">
+                                        Member
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Badge>{member.role}</Badge>
+                                )}
+
+                                {isSelf && member.role !== "owner" ? (
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button variant="destructive" size="sm">
+                                        Leave team
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                      <DialogHeader>
+                                        <DialogTitle>Leave team</DialogTitle>
+                                        <DialogDescription>
+                                          Are you sure you want to leave{" "}
+                                          {currentOrg.name}? You will lose
+                                          access to all projects and will need
+                                          to be re-invited to rejoin.
+                                        </DialogDescription>
+                                      </DialogHeader>
+                                      <DialogFooter>
+                                        <DialogClose asChild>
+                                          <Button variant="outline">
+                                            Cancel
+                                          </Button>
+                                        </DialogClose>
+                                        <DialogClose asChild>
+                                          <Button
+                                            variant="destructive"
+                                            onClick={handleLeaveTeam}
+                                          >
+                                            Leave team
+                                          </Button>
+                                        </DialogClose>
+                                      </DialogFooter>
+                                    </DialogContent>
+                                  </Dialog>
+                                ) : null}
+
+                                {isAdmin &&
+                                !isSelf &&
+                                member.role !== "owner" ? (
+                                  <Dialog>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon-sm">
+                                          <Ellipsis />
                                         </Button>
-                                      </DialogClose>
-                                      <DialogClose asChild>
-                                        <Button
-                                          variant="destructive"
-                                          onClick={() =>
-                                            handleRemoveMember(member.id)
-                                          }
-                                        >
-                                          Remove
-                                        </Button>
-                                      </DialogClose>
-                                    </DialogFooter>
-                                  </DialogContent>
-                                </Dialog>
-                              ) : (
-                                <div className="w-[72px]" />
-                              )}
-                            </div>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DialogTrigger asChild>
+                                          <DropdownMenuItem className="text-destructive focus:text-destructive">
+                                            Remove
+                                          </DropdownMenuItem>
+                                        </DialogTrigger>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    <DialogContent>
+                                      <DialogHeader>
+                                        <DialogTitle>Remove member</DialogTitle>
+                                        <DialogDescription>
+                                          Remove {member.name ?? member.email}{" "}
+                                          from {currentOrg.name}? They will lose
+                                          access to all projects.
+                                        </DialogDescription>
+                                      </DialogHeader>
+                                      <DialogFooter>
+                                        <DialogClose asChild>
+                                          <Button variant="outline">
+                                            Cancel
+                                          </Button>
+                                        </DialogClose>
+                                        <DialogClose asChild>
+                                          <Button
+                                            variant="destructive"
+                                            onClick={() =>
+                                              handleRemoveMember(member.id)
+                                            }
+                                          >
+                                            Remove
+                                          </Button>
+                                        </DialogClose>
+                                      </DialogFooter>
+                                    </DialogContent>
+                                  </Dialog>
+                                ) : null}
+                              </ItemActions>
+                            </Item>
                           );
                         })}
                       </div>

@@ -1,27 +1,34 @@
-import { requireAuth } from '~/lib/session.server'
-import { db } from '~/lib/db/index.server'
-import { projects } from '~/lib/db/schema'
-import { eq, and } from 'drizzle-orm'
-import { setProjectSecret } from '~/lib/infisical.server'
-import { log } from '~/lib/logger.server'
+import { requireAuth, isAdminRole } from "~/lib/session.server";
+import { db } from "~/lib/db/index.server";
+import { projects } from "~/lib/db/schema";
+import { eq, and } from "drizzle-orm";
+import { setProjectSecret } from "~/lib/infisical.server";
+import { log } from "~/lib/logger.server";
 
 export async function action({ request }: { request: Request }) {
-  if (request.method !== 'POST') {
-    return Response.json({ error: 'Method not allowed' }, { status: 405 })
+  if (request.method !== "POST") {
+    return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  const { role, org } = await requireAuth(request)
-  if (role !== 'admin') {
-    return Response.json({ error: 'Admin role required' }, { status: 403 })
+  const { role, org } = await requireAuth(request);
+  if (!isAdminRole(role)) {
+    return Response.json({ error: "Admin role required" }, { status: 403 });
   }
 
-  const body = await request.json()
+  const body = await request.json();
 
-  if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
-    return Response.json({ error: 'Project name is required' }, { status: 400 })
+  if (
+    !body.name ||
+    typeof body.name !== "string" ||
+    body.name.trim().length === 0
+  ) {
+    return Response.json(
+      { error: "Project name is required" },
+      { status: 400 },
+    );
   }
 
-  let project
+  let project;
 
   // If id is provided, try to find and update the existing project
   if (body.id) {
@@ -33,10 +40,10 @@ export async function action({ request }: { request: Request }) {
         ...(body.githubRepo !== undefined && { githubRepo: body.githubRepo }),
       })
       .where(and(eq(projects.id, body.id), eq(projects.organizationId, org.id)))
-      .returning()
+      .returning();
 
     if (existing) {
-      project = existing
+      project = existing;
     }
   }
 
@@ -50,23 +57,26 @@ export async function action({ request }: { request: Request }) {
         templateId: body.templateId ?? null,
         githubRepo: body.githubRepo ?? null,
       })
-      .returning()
+      .returning();
 
-    project = created
+    project = created;
   }
 
   // Store secrets in Infisical
-  let stored = 0
-  if (body.secrets && typeof body.secrets === 'object') {
-    const entries = Object.entries(body.secrets)
+  let stored = 0;
+  if (body.secrets && typeof body.secrets === "object") {
+    const entries = Object.entries(body.secrets);
     for (const [key, value] of entries) {
-      if (typeof key === 'string' && typeof value === 'string') {
-        await setProjectSecret(org.id, project.id, key, value)
-        stored++
+      if (typeof key === "string" && typeof value === "string") {
+        await setProjectSecret(org.id, project.id, key, value);
+        stored++;
       }
     }
   }
 
-  log.info({ projectId: project.id, projectName: project.name, secretsStored: stored }, 'project synced')
-  return Response.json({ project, secrets: { stored } })
+  log.info(
+    { projectId: project.id, projectName: project.name, secretsStored: stored },
+    "project synced",
+  );
+  return Response.json({ project, secrets: { stored } });
 }

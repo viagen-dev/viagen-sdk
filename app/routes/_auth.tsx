@@ -10,6 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Separator } from "~/components/ui/separator";
 import { Plus, Check, ChevronsUpDown, ArrowLeft } from "lucide-react";
+import { ThemeToggle } from "~/components/theme-toggle";
 import {
   Popover,
   PopoverContent,
@@ -116,7 +117,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
 
   return (
     <div className="flex min-h-svh flex-col">
-      <header className="border-b border-border bg-background">
+      <header className="fixed top-0 right-0 left-0 z-50 border-b border-border bg-background">
         <div className="grid h-[60px] grid-cols-3 items-center px-6">
           <div className="flex items-center">
             {isProjectsIndex ? (
@@ -186,7 +187,8 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
               </PopoverContent>
             </Popover>
           </div>
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-2">
+            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -215,7 +217,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
         </div>
       </header>
 
-      <main className="flex-1 bg-[oklch(0.985_0_0)]">
+      <main className="mt-[60px] flex-1 bg-muted/30">
         {location.pathname === "/settings" ? (
           <Outlet />
         ) : (

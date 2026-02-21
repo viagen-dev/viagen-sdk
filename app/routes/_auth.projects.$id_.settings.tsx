@@ -60,7 +60,7 @@ export default function ProjectDetail({
   loaderData: { project: Project; role: string };
 }) {
   const { project, role } = loaderData;
-  const isAdmin = role === "admin";
+  const isAdmin = role === "admin" || role === "owner";
 
   // Project name
   const [projectName, setProjectName] = useState(project.name);
@@ -257,7 +257,9 @@ export default function ProjectDetail({
                 }}
                 placeholder="Project name"
                 className="flex-1"
-                onKeyDown={(e) => e.key === "Enter" && nameChanged && handleSaveName()}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && nameChanged && handleSaveName()
+                }
               />
               <Button
                 onClick={handleSaveName}

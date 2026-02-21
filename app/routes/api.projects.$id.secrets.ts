@@ -1,141 +1,184 @@
-import { requireAuth } from '~/lib/session.server'
-import { db } from '~/lib/db/index.server'
-import { projects } from '~/lib/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { requireAuth, isAdminRole } from "~/lib/session.server";
+import { db } from "~/lib/db/index.server";
+import { projects } from "~/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 import {
   listProjectSecrets,
   listOrgSecrets,
   setProjectSecret,
   deleteProjectSecret,
   getSecret,
-} from '~/lib/infisical.server'
+} from "~/lib/infisical.server";
 import {
   upsertVercelEnvVars,
   listVercelEnvVars,
   deleteVercelEnvVar,
-} from '~/lib/vercel.server'
-import { log } from '~/lib/logger.server'
+} from "~/lib/vercel.server";
+import { log } from "~/lib/logger.server";
 
 const INTEGRATION_KEYS = new Set([
-  'VERCEL_ACCESS_TOKEN',
-  'ANTHROPIC_API_KEY',
-  'GITHUB_ACCESS_TOKEN',
-  'CLAUDE_ACCESS_TOKEN',
-  'CLAUDE_TOKEN_EXPIRES',
-])
+  "VERCEL_ACCESS_TOKEN",
+  "ANTHROPIC_API_KEY",
+  "GITHUB_ACCESS_TOKEN",
+  "CLAUDE_ACCESS_TOKEN",
+  "CLAUDE_TOKEN_EXPIRES",
+]);
 
-export async function loader({ request, params }: { request: Request; params: { id: string } }) {
-  const { org } = await requireAuth(request)
-  const id = params.id
+export async function loader({
+  request,
+  params,
+}: {
+  request: Request;
+  params: { id: string };
+}) {
+  const { org } = await requireAuth(request);
+  const id = params.id;
 
   const [project] = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.id, id), eq(projects.organizationId, org.id)))
+    .where(and(eq(projects.id, id), eq(projects.organizationId, org.id)));
 
   if (!project) {
-    return Response.json({ error: 'Project not found' }, { status: 404 })
+    return Response.json({ error: "Project not found" }, { status: 404 });
   }
 
   const [projectSecrets, orgSecrets] = await Promise.all([
     listProjectSecrets(org.id, id),
     listOrgSecrets(org.id),
-  ])
+  ]);
 
   // Build merged list: project secrets override org secrets with same key.
   // Filter out integration-managed keys from both levels.
-  const projectKeySet = new Set(projectSecrets.map((s) => s.key))
-  const secrets: { key: string; value: string; source: 'project' | 'org' }[] = [
+  const projectKeySet = new Set(projectSecrets.map((s) => s.key));
+  const secrets: { key: string; value: string; source: "project" | "org" }[] = [
     ...projectSecrets
       .filter((s) => !INTEGRATION_KEYS.has(s.key))
-      .map((s) => ({ ...s, source: 'project' as const })),
+      .map((s) => ({ ...s, source: "project" as const })),
     ...orgSecrets
       .filter((s) => !INTEGRATION_KEYS.has(s.key) && !projectKeySet.has(s.key))
-      .map((s) => ({ ...s, source: 'org' as const })),
-  ]
+      .map((s) => ({ ...s, source: "org" as const })),
+  ];
 
-  secrets.sort((a, b) => a.key.localeCompare(b.key))
+  secrets.sort((a, b) => a.key.localeCompare(b.key));
 
-  return Response.json({ secrets })
+  return Response.json({ secrets });
 }
 
-export async function action({ request, params }: { request: Request; params: { id: string } }) {
-  const { role, user, org } = await requireAuth(request)
-  const id = params.id
+export async function action({
+  request,
+  params,
+}: {
+  request: Request;
+  params: { id: string };
+}) {
+  const { role, user, org } = await requireAuth(request);
+  const id = params.id;
 
-  if (role !== 'admin') {
-    return Response.json({ error: 'Admin role required' }, { status: 403 })
+  if (!isAdminRole(role)) {
+    return Response.json({ error: "Admin role required" }, { status: 403 });
   }
 
   const [project] = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.id, id), eq(projects.organizationId, org.id)))
+    .where(and(eq(projects.id, id), eq(projects.organizationId, org.id)));
 
   if (!project) {
-    return Response.json({ error: 'Project not found' }, { status: 404 })
+    return Response.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (request.method === 'POST') {
-    const body = await request.json()
-    const key = body.key?.trim()
-    const value = body.value
+  if (request.method === "POST") {
+    const body = await request.json();
+    const key = body.key?.trim();
+    const value = body.value;
 
-    if (!key || typeof key !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
-      return Response.json({ error: 'Invalid key. Use letters, numbers, and underscores.' }, { status: 400 })
+    if (
+      !key ||
+      typeof key !== "string" ||
+      !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)
+    ) {
+      return Response.json(
+        { error: "Invalid key. Use letters, numbers, and underscores." },
+        { status: 400 },
+      );
     }
-    if (typeof value !== 'string') {
-      return Response.json({ error: 'Value is required' }, { status: 400 })
+    if (typeof value !== "string") {
+      return Response.json({ error: "Value is required" }, { status: 400 });
     }
 
-    await setProjectSecret(org.id, id, key, value)
-    log.info({ projectId: id, key }, 'project secret set')
+    await setProjectSecret(org.id, id, key, value);
+    log.info({ projectId: id, key }, "project secret set");
 
     // Sync to Vercel if connected
     if (project.vercelProjectId) {
       try {
-        const vercelToken = await getSecret(`user/${user.id}`, 'VERCEL_ACCESS_TOKEN')
+        const vercelToken = await getSecret(
+          `user/${user.id}`,
+          "VERCEL_ACCESS_TOKEN",
+        );
         if (vercelToken) {
-          await upsertVercelEnvVars(vercelToken, project.vercelProjectId, [{ key, value }])
-          log.info({ projectId: id, key, vercelProjectId: project.vercelProjectId }, 'secret synced to vercel')
+          await upsertVercelEnvVars(vercelToken, project.vercelProjectId, [
+            { key, value },
+          ]);
+          log.info(
+            { projectId: id, key, vercelProjectId: project.vercelProjectId },
+            "secret synced to vercel",
+          );
         }
       } catch (err) {
-        log.warn({ projectId: id, key, err }, 'failed to sync secret to vercel')
+        log.warn(
+          { projectId: id, key, err },
+          "failed to sync secret to vercel",
+        );
       }
     }
 
-    return Response.json({ success: true })
+    return Response.json({ success: true });
   }
 
-  if (request.method === 'DELETE') {
-    const body = await request.json()
-    const key = body.key?.trim()
+  if (request.method === "DELETE") {
+    const body = await request.json();
+    const key = body.key?.trim();
 
-    if (!key || typeof key !== 'string') {
-      return Response.json({ error: 'Key is required' }, { status: 400 })
+    if (!key || typeof key !== "string") {
+      return Response.json({ error: "Key is required" }, { status: 400 });
     }
 
-    await deleteProjectSecret(org.id, id, key)
-    log.info({ projectId: id, key }, 'project secret deleted')
+    await deleteProjectSecret(org.id, id, key);
+    log.info({ projectId: id, key }, "project secret deleted");
 
     // Remove from Vercel if connected
     if (project.vercelProjectId) {
       try {
-        const vercelToken = await getSecret(`user/${user.id}`, 'VERCEL_ACCESS_TOKEN')
+        const vercelToken = await getSecret(
+          `user/${user.id}`,
+          "VERCEL_ACCESS_TOKEN",
+        );
         if (vercelToken) {
-          const envVars = await listVercelEnvVars(vercelToken, project.vercelProjectId)
-          const match = envVars.find((v) => v.key === key)
+          const envVars = await listVercelEnvVars(
+            vercelToken,
+            project.vercelProjectId,
+          );
+          const match = envVars.find((v) => v.key === key);
           if (match) {
-            await deleteVercelEnvVar(vercelToken, project.vercelProjectId, match.id)
+            await deleteVercelEnvVar(
+              vercelToken,
+              project.vercelProjectId,
+              match.id,
+            );
           }
         }
       } catch (err) {
-        log.warn({ projectId: id, key, err }, 'failed to delete secret from vercel')
+        log.warn(
+          { projectId: id, key, err },
+          "failed to delete secret from vercel",
+        );
       }
     }
 
-    return Response.json({ success: true })
+    return Response.json({ success: true });
   }
 
-  return Response.json({ error: 'Method not allowed' }, { status: 405 })
+  return Response.json({ error: "Method not allowed" }, { status: 405 });
 }

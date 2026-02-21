@@ -169,7 +169,7 @@ export default function ProjectTasks({
   loaderData: { project: Project; role: string };
 }) {
   const { project, role } = loaderData;
-  const isAdmin = role === "admin";
+  const isAdmin = role === "admin" || role === "owner";
 
   const [status, setStatus] = useState<ProjectStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
@@ -425,7 +425,12 @@ export default function ProjectTasks({
                   </span>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1.5 text-xs"
+                    asChild
+                  >
                     <a href={ws.url} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="size-3" />
                       View
@@ -485,7 +490,9 @@ export default function ProjectTasks({
                 : "Vercel not connected"}
           </Badge>
           <Badge
-            variant={claudeConnected && !claudeExpired ? "secondary" : "outline"}
+            variant={
+              claudeConnected && !claudeExpired ? "secondary" : "outline"
+            }
             className={`cursor-pointer ${
               claudeExpired
                 ? "gap-1.5 font-normal border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"

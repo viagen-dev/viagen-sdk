@@ -1,35 +1,45 @@
-import { requireAuth } from '~/lib/session.server'
-import { db } from '~/lib/db/index.server'
-import { projects } from '~/lib/db/schema'
-import { eq } from 'drizzle-orm'
-import { log } from '~/lib/logger.server'
+import { requireAuth, isAdminRole } from "~/lib/session.server";
+import { db } from "~/lib/db/index.server";
+import { projects } from "~/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { log } from "~/lib/logger.server";
 
 export async function loader({ request }: { request: Request }) {
-  const { org } = await requireAuth(request)
+  const { org } = await requireAuth(request);
 
   const result = await db
     .select()
     .from(projects)
     .where(eq(projects.organizationId, org.id))
-    .orderBy(projects.createdAt)
+    .orderBy(projects.createdAt);
 
-  return Response.json({ projects: result })
+  return Response.json({ projects: result });
 }
 
 export async function action({ request }: { request: Request }) {
-  if (request.method !== 'POST') {
-    return Response.json({ error: 'Method not allowed' }, { status: 405 })
+  if (request.method !== "POST") {
+    return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  const { role, org } = await requireAuth(request)
-  if (role !== 'admin') {
-    return Response.json({ error: 'Admin role required to create projects' }, { status: 403 })
+  const { role, org } = await requireAuth(request);
+  if (!isAdminRole(role)) {
+    return Response.json(
+      { error: "Admin role required to create projects" },
+      { status: 403 },
+    );
   }
 
-  const body = await request.json()
+  const body = await request.json();
 
-  if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
-    return Response.json({ error: 'Project name is required' }, { status: 400 })
+  if (
+    !body.name ||
+    typeof body.name !== "string" ||
+    body.name.trim().length === 0
+  ) {
+    return Response.json(
+      { error: "Project name is required" },
+      { status: 400 },
+    );
   }
 
   const [project] = await db
@@ -42,8 +52,11 @@ export async function action({ request }: { request: Request }) {
       githubRepo: body.githubRepo ?? null,
       templateId: body.templateId ?? null,
     })
-    .returning()
+    .returning();
 
-  log.info({ orgId: org.id, projectId: project.id, projectName: project.name }, 'project created')
-  return Response.json({ project }, { status: 201 })
+  log.info(
+    { orgId: org.id, projectId: project.id, projectName: project.name },
+    "project created",
+  );
+  return Response.json({ project }, { status: 201 });
 }
