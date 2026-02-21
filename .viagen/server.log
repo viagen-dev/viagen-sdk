@@ -1,4 +1,48 @@
-[2026-02-21T02:08:47.886Z] [INFO] Port 5173 is in use, trying another one...
-[2026-02-21T02:08:47.888Z] [INFO]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5174[22m/[39m
-[2026-02-21T02:08:47.888Z] [INFO] [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
-[2026-02-21T02:08:47.888Z] [INFO] [2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2026-02-21T01:54:19.757Z] [INFO] Re-optimizing dependencies because lockfile has changed
+[2026-02-21T01:54:19.787Z] [INFO]   ➜  Local:   http://localhost:5173/
+[2026-02-21T01:54:19.788Z] [INFO]   ➜  Network: use --host to expose
+[2026-02-21T01:55:08.472Z] [INFO] ✨ new dependencies optimized: lucide-react, drizzle-orm, dotenv/config, clsx, tailwind-merge, class-variance-authority, radix-ui, cmdk, arctic, drizzle-orm/pg-core
+[2026-02-21T01:55:08.473Z] [INFO] ✨ optimized dependencies changed. reloading
+[2026-02-21T02:04:51.405Z] [INFO] hmr update /app/routes/_auth.tsx
+[2026-02-21T02:04:51.416Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-02-21T02:04:51.418Z] [INFO] page reload app/lib/db/schema.ts
+[2026-02-21T02:04:57.990Z] [INFO] hmr update /app/routes/_auth.tsx
+[2026-02-21T02:04:57.991Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-02-21T02:04:57.991Z] [INFO] page reload app/lib/db/schema.ts
+[2026-02-21T02:05:01.981Z] [INFO] hmr update /app/routes/_auth.tsx
+[2026-02-21T02:05:01.981Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-02-21T02:05:01.981Z] [INFO] page reload app/lib/db/schema.ts
+[2026-02-21T02:05:14.291Z] [INFO] page reload app/routes/api.projects.ts
+[2026-02-21T02:05:18.843Z] [INFO] page reload app/routes/api.projects.$id.ts
+[2026-02-21T02:05:23.069Z] [INFO] page reload app/routes/api.projects.sync.ts
+[2026-02-21T02:05:26.772Z] [INFO] page reload app/routes/api.projects.sync.ts
+[2026-02-21T02:05:38.099Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-02-21T02:05:38.100Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-02-21T02:05:38.101Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-02-21T02:05:38.101Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-02-21T02:05:42.202Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-02-21T02:05:42.204Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-02-21T02:05:42.204Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-02-21T02:05:42.205Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-02-21T02:05:46.977Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-02-21T02:05:46.980Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-02-21T02:05:46.981Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-02-21T02:05:46.981Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-02-21T02:05:54.741Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-21T02:06:08.766Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-21T02:06:16.063Z] [INFO] page reload app/routes/_auth.projects.$id_.settings.tsx
+[2026-02-21T02:06:24.331Z] [INFO] page reload app/routes/_auth.projects.$id_.settings.tsx
+[2026-02-21T02:07:01.002Z] [INFO] page reload app/routes/api.projects.$id.sandbox.ts
+[2026-02-21T02:07:22.363Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-21T02:07:27.851Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-21T02:07:32.981Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-21T02:07:40.016Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-21T02:07:46.922Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-21T02:12:50.418Z] [INFO] page reload app/routes/api.projects.$id.sandbox.ts
+[2026-02-21T02:12:55.299Z] [INFO] page reload app/routes/api.projects.$id.sandbox.ts
+[2026-02-21T02:13:06.921Z] [INFO] page reload app/routes/api.projects.$id.sandbox.ts
+[2026-02-21T02:13:16.490Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-21T02:13:22.654Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-21T02:13:31.787Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-21T02:13:58.365Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-21T02:14:09.366Z] [INFO] page reload app/routes/_auth.projects.$id.tsx

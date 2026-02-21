@@ -3,7 +3,7 @@ import { Sandbox } from '@vercel/sandbox'
 import { requireAuth } from '~/lib/session.server'
 import { db } from '~/lib/db/index.server'
 import { projects, workspaces } from '~/lib/db/schema'
-import { eq, and, gt } from 'drizzle-orm'
+import { eq, and, gt, desc } from 'drizzle-orm'
 import { listProjectSecrets, getSecret, getProjectSecret } from '~/lib/infisical.server'
 import { log } from '~/lib/logger.server'
 
@@ -21,19 +21,18 @@ export async function loader({ request, params }: { request: Request; params: { 
     return Response.json({ error: 'Project not found' }, { status: 404 })
   }
 
-  // Return active workspace (not expired)
-  const [workspace] = await db
+  // Return all active workspaces (not expired)
+  const activeWorkspaces = await db
     .select()
     .from(workspaces)
     .where(and(eq(workspaces.projectId, id), gt(workspaces.expiresAt, new Date())))
-    .orderBy(workspaces.createdAt)
-    .limit(1)
+    .orderBy(desc(workspaces.createdAt))
 
-  return Response.json({ workspace: workspace ?? null })
+  return Response.json({ workspaces: activeWorkspaces })
 }
 
 export async function action({ request, params }: { request: Request; params: { id: string } }) {
-  if (request.method !== 'POST') {
+  if (request.method !== 'POST' && request.method !== 'DELETE') {
     return Response.json({ error: 'Method not allowed' }, { status: 405 })
   }
 
@@ -52,6 +51,37 @@ export async function action({ request, params }: { request: Request; params: { 
   if (!project) {
     log.warn({ userId: user.id, projectId: id }, 'sandbox launch: project not found')
     return Response.json({ error: 'Project not found' }, { status: 404 })
+  }
+
+  // ── Stop workspace ──────────────────────────────────
+  if (request.method === 'DELETE') {
+    const body = await request.json()
+    if (!body.workspaceId) {
+      return Response.json({ error: 'workspaceId is required' }, { status: 400 })
+    }
+
+    const [workspace] = await db
+      .select()
+      .from(workspaces)
+      .where(and(eq(workspaces.id, body.workspaceId), eq(workspaces.projectId, id)))
+
+    if (!workspace) {
+      return Response.json({ error: 'Workspace not found' }, { status: 404 })
+    }
+
+    // Stop the Vercel sandbox
+    try {
+      const sandbox = await Sandbox.get({ sandboxId: workspace.sandboxId })
+      await sandbox.stop()
+    } catch (err) {
+      log.warn({ workspaceId: workspace.id, sandboxId: workspace.sandboxId, err }, 'sandbox stop failed (may already be stopped)')
+    }
+
+    // Remove the workspace row
+    await db.delete(workspaces).where(eq(workspaces.id, workspace.id))
+    log.info({ workspaceId: workspace.id, sandboxId: workspace.sandboxId, projectId: id }, 'workspace stopped')
+
+    return Response.json({ success: true })
   }
 
   if (!project.githubRepo) {

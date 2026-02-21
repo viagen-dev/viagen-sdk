@@ -36,6 +36,8 @@ import {
   KeyRound,
   ExternalLink,
   GitMerge,
+  GitBranch,
+  Square,
   Triangle,
 } from "lucide-react";
 
@@ -178,9 +180,10 @@ export default function ProjectTasks({
   const [disconnecting, setDisconnecting] = useState(false);
 
   const [launching, setLaunching] = useState(false);
-  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [activeWorkspaces, setActiveWorkspaces] = useState<Workspace[]>([]);
   const [sandboxError, setSandboxError] = useState<string | null>(null);
   const [branch, setBranch] = useState("main");
+  const [stoppingId, setStoppingId] = useState<string | null>(null);
 
   const [prompt, setPrompt] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -205,13 +208,12 @@ export default function ProjectTasks({
 
   useEffect(() => {
     refreshStatus();
-    // Check for active workspace
+    // Check for active workspaces
     fetch(`/api/projects/${project.id}/sandbox`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
-        if (data.workspace) {
-          setWorkspace(data.workspace);
-          setBranch(data.workspace.branch);
+        if (data.workspaces?.length) {
+          setActiveWorkspaces(data.workspaces);
         }
       })
       .catch(() => {});
@@ -220,7 +222,6 @@ export default function ProjectTasks({
   const handleLaunch = async () => {
     setLaunching(true);
     setSandboxError(null);
-    setWorkspace(null);
     try {
       const res = await fetch(`/api/projects/${project.id}/sandbox`, {
         method: "POST",
@@ -233,11 +234,30 @@ export default function ProjectTasks({
         setSandboxError(data.error ?? "Failed to launch sandbox");
         return;
       }
-      setWorkspace(data.workspace);
+      setActiveWorkspaces((prev) => [data.workspace, ...prev]);
     } catch {
       setSandboxError("Failed to launch sandbox");
     } finally {
       setLaunching(false);
+    }
+  };
+
+  const handleStopWorkspace = async (workspaceId: string) => {
+    setStoppingId(workspaceId);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/sandbox`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId }),
+      });
+      if (res.ok) {
+        setActiveWorkspaces((prev) => prev.filter((w) => w.id !== workspaceId));
+      }
+    } catch {
+      // ignore
+    } finally {
+      setStoppingId(null);
     }
   };
 
@@ -387,21 +407,48 @@ export default function ProjectTasks({
           </div>
         </div>
 
-        {/* Workspace alerts */}
-        {workspace && (
-          <Alert className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-            <AlertDescription>
-              Workspace active on <span className="font-medium">{workspace.branch}</span>:{" "}
-              <a
-                href={workspace.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium underline"
+        {/* Active workspaces */}
+        {activeWorkspaces.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {activeWorkspaces.map((ws) => (
+              <div
+                key={ws.id}
+                className="flex items-center gap-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm dark:border-green-800 dark:bg-green-950/30"
               >
-                Open workspace
-              </a>
-            </AlertDescription>
-          </Alert>
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <GitBranch className="size-3.5 shrink-0 text-green-700 dark:text-green-400" />
+                  <span className="font-medium text-green-800 dark:text-green-300">
+                    {ws.branch}
+                  </span>
+                  <span className="text-xs text-green-600 dark:text-green-500">
+                    {timeAgo(ws.createdAt)}
+                  </span>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" asChild>
+                    <a href={ws.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="size-3" />
+                      View
+                    </a>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1.5 text-xs text-destructive hover:bg-destructive/10"
+                    disabled={stoppingId === ws.id}
+                    onClick={() => handleStopWorkspace(ws.id)}
+                  >
+                    {stoppingId === ws.id ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <Square className="size-3" />
+                    )}
+                    Stop
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
         {sandboxError && (
           <Alert variant="destructive">
