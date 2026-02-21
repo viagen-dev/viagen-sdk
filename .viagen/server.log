@@ -1,30 +1,4 @@
-[2026-02-20T19:42:49.694Z] [INFO]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
-[2026-02-20T19:42:49.694Z] [INFO] [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
-[2026-02-20T19:42:49.695Z] [INFO] [2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
-[2026-02-20T19:45:37.313Z] [INFO] [32mpage reload [39m[2mapp/routes/api.projects.$id.claude.ts[22m
-[2026-02-20T19:46:53.608Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:46:53.609Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:46:53.609Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:46:53.609Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:46:58.610Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:46:58.611Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:46:58.611Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:46:58.612Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:47:07.556Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:47:07.557Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:47:07.557Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:47:07.557Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:47:17.903Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:47:17.904Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:47:17.904Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:47:17.904Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:47:23.171Z] [INFO] [32mpage reload [39m[2mapp/routes/api.projects.$id.secrets.ts[22m
-[2026-02-20T19:47:34.748Z] [INFO] [32mpage reload [39m[2mapp/routes/api.projects.$id.secrets.ts[22m
-[2026-02-20T19:47:42.112Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:47:42.113Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:47:42.113Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:47:42.113Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:51:20.372Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:51:20.375Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:51:20.376Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.$id.tsx[22m
-[2026-02-20T19:51:20.378Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.$id.tsx[22m
+[2026-02-21T01:10:56.126Z] [INFO] [viagen] Checked out branch: main
+[2026-02-21T01:10:56.149Z] [INFO]   ➜  Local:   http://localhost:5173/
+[2026-02-21T01:10:56.150Z] [INFO]   ➜  Network: use --host to expose
+[2026-02-21T01:10:56.150Z] [INFO]   ➜  press h + enter to show help
