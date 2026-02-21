@@ -232,7 +232,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
             asChild
             className="h-auto p-0 font-semibold text-amber-800 dark:text-amber-200"
           >
-            <Link to="/settings">Go to Settings</Link>
+            <Link to="/settings?tab=user">Go to Settings</Link>
           </Button>
         </div>
       )}

@@ -1,4 +1,14 @@
-[2026-02-21T02:36:41.139Z] [INFO] Port 5173 is in use, trying another one...
-[2026-02-21T02:36:41.141Z] [INFO]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5174[22m/[39m
-[2026-02-21T02:36:41.141Z] [INFO] [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
-[2026-02-21T02:36:41.141Z] [INFO] [2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2026-02-21T15:59:43.407Z] [INFO]   ➜  Local:   http://localhost:5173/
+[2026-02-21T15:59:43.408Z] [INFO]   ➜  Network: use --host to expose
+[2026-02-21T16:07:07.962Z] [INFO] hmr update /app/routes/_auth.settings.tsx
+[2026-02-21T16:07:07.991Z] [INFO] hmr update /app/routes/_auth.settings.tsx
+[2026-02-21T16:07:07.992Z] [INFO] hmr update /app/app.css, /app/routes/_auth.settings.tsx
+[2026-02-21T16:07:07.992Z] [INFO] page reload app/routes/_auth.settings.tsx
+[2026-02-21T16:07:12.445Z] [INFO] hmr update /app/routes/_auth.settings.tsx
+[2026-02-21T16:07:12.445Z] [INFO] hmr update /app/routes/_auth.settings.tsx
+[2026-02-21T16:07:12.446Z] [INFO] hmr update /app/app.css, /app/routes/_auth.settings.tsx
+[2026-02-21T16:07:12.446Z] [INFO] page reload app/routes/_auth.settings.tsx
+[2026-02-21T16:07:15.948Z] [INFO] hmr update /app/routes/_auth.tsx
+[2026-02-21T16:07:15.949Z] [INFO] hmr update /app/routes/_auth.tsx
+[2026-02-21T16:07:15.949Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
+[2026-02-21T16:07:15.949Z] [INFO] page reload app/routes/_auth.tsx

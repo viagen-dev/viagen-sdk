@@ -118,7 +118,7 @@ export default function Settings() {
 
   // Clean up OAuth redirect params from URL
   useEffect(() => {
-    if (searchParams.has("connected") || searchParams.has("error")) {
+    if (searchParams.has("connected") || searchParams.has("error") || searchParams.has("tab")) {
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -312,9 +312,15 @@ export default function Settings() {
     setSavingOrgKey(false);
   };
 
+  const getInitialSection = (): "profile" | "user" | "team" => {
+    const tab = searchParams.get("tab");
+    if (tab === "user" || tab === "team" || tab === "profile") return tab;
+    if (searchParams.has("connected") || searchParams.has("error")) return "user";
+    return "profile";
+  };
   const [activeSection, setActiveSection] = useState<
     "profile" | "user" | "team"
-  >("profile");
+  >(getInitialSection);
 
   return (
     <div className="flex min-h-[calc(100svh-60px)]">

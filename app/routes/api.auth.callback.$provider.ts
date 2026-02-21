@@ -47,23 +47,32 @@ export async function loader({ params, request }: { params: { provider: string }
     cleanupHeaders.append('Set-Cookie', deleteCookieHeader('github-connect-org'))
     cleanupHeaders.append('Set-Cookie', deleteCookieHeader('connect-return-to'))
 
+    let connected = false
     const sessionToken = parseCookie(cookieHeader, SESSION_COOKIE)
-    if (sessionToken) {
+    if (!sessionToken) {
+      log.warn('github connect: no session cookie')
+    } else {
       const result = await validateSession(sessionToken)
-      if (result) {
+      if (!result) {
+        log.warn('github connect: invalid or expired session')
+      } else {
         const [membership] = await db
           .select()
           .from(orgMembers)
           .where(and(eq(orgMembers.userId, result.user.id), eq(orgMembers.organizationId, connectOrgId)))
 
-        if (membership) {
+        if (!membership) {
+          log.warn({ userId: result.user.id, orgId: connectOrgId }, 'github connect: user not a member of org')
+        } else {
           await setSecret(`user/${result.user.id}`, 'GITHUB_ACCESS_TOKEN', tokens.accessToken())
           log.info({ userId: result.user.id, orgId: connectOrgId }, 'github integration connected')
+          connected = true
         }
       }
     }
 
-    return redirect(`${returnTo}?error=github`, { headers: cleanupHeaders })
+    const param = connected ? 'connected=github' : 'error=github'
+    return redirect(`${returnTo}?${param}`, { headers: cleanupHeaders })
   }
 
   // Normal login flow
