@@ -123,7 +123,6 @@ Creates a client from stored credentials (`~/.config/viagen/credentials.json`). 
   templateId?: string        // e.g. 'react-router'
   vercelProjectId?: string   // link to existing Vercel project
   githubRepo?: string        // 'owner/repo'
-  gitBranch?: string         // default: 'main'
 }
 ```
 
@@ -134,7 +133,6 @@ Creates a client from stored credentials (`~/.config/viagen/credentials.json`). 
   name?: string
   vercelProjectId?: string | null
   githubRepo?: string | null
-  gitBranch?: string
 }
 ```
 
@@ -146,7 +144,6 @@ Creates a client from stored credentials (`~/.config/viagen/credentials.json`). 
   name: string
   templateId?: string
   githubRepo?: string
-  gitBranch?: string
   secrets?: Record<string, string>     // key-value env vars to store
 }
 ```

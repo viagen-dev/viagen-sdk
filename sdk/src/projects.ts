@@ -5,7 +5,6 @@ export interface Project {
   templateId: string | null
   vercelProjectId: string | null
   githubRepo: string | null
-  gitBranch: string | null
   createdAt: string
   updatedAt: string
 }
@@ -15,14 +14,12 @@ export interface CreateProjectInput {
   templateId?: string
   vercelProjectId?: string
   githubRepo?: string
-  gitBranch?: string
 }
 
 export interface UpdateProjectInput {
   name?: string
   vercelProjectId?: string | null
   githubRepo?: string | null
-  gitBranch?: string
 }
 
 export interface SyncProjectInput {
@@ -30,7 +27,6 @@ export interface SyncProjectInput {
   name: string
   templateId?: string
   githubRepo?: string
-  gitBranch?: string
   secrets?: Record<string, string>
 }
 

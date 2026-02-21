@@ -24,7 +24,7 @@ services:
       GOOGLE_CLIENT_SECRET: test
       MICROSOFT_CLIENT_ID: test
       MICROSOFT_CLIENT_SECRET: test
-    command: sh -c "npx drizzle-kit push && npm run dev -- --host"
+    command: sh -c "npx drizzle-kit push --force && npm run dev -- --host"
     healthcheck:
       test: wget -qO- http://localhost:5173/ || exit 1
       interval: 3s

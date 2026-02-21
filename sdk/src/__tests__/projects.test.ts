@@ -49,7 +49,6 @@ describe.skipIf(!TOKEN)('projects', () => {
     })
     expect(project.id).toBeTypeOf('string')
     expect(project.templateId).toBe('react-router')
-    expect(project.gitBranch).toBe('main')
     projectId = project.id
   })
 
@@ -68,10 +67,8 @@ describe.skipIf(!TOKEN)('projects', () => {
   it('update() sets optional fields', async () => {
     const project = await authed.projects.update(projectId, {
       githubRepo: 'org/repo',
-      gitBranch: 'develop',
     })
     expect(project.githubRepo).toBe('org/repo')
-    expect(project.gitBranch).toBe('develop')
   })
 
   it('delete() removes the project', async () => {
@@ -173,7 +170,6 @@ describe.skipIf(!TOKEN)('projects', () => {
       })
       expect(result.project.id).toBeTypeOf('string')
       expect(result.project.name).toContain('sync-new-')
-      expect(result.project.gitBranch).toBe('main')
       expect(result.secrets.stored).toBe(0)
     })
 
@@ -187,12 +183,10 @@ describe.skipIf(!TOKEN)('projects', () => {
       const second = await authed.projects.sync({
         id: first.project.id,
         name: newName,
-        gitBranch: 'develop',
       })
 
       expect(second.project.id).toBe(first.project.id)
       expect(second.project.name).toBe(newName)
-      expect(second.project.gitBranch).toBe('develop')
     })
 
     it('sync() creates a new project when ID is not found', async () => {
