@@ -54,10 +54,11 @@ interface Project {
   updatedAt: string;
 }
 
-interface ClaudeStatus {
-  connected: boolean;
-  source?: "project" | "org" | "user";
-  keyPrefix?: string;
+interface ProjectStatus {
+  ready: boolean;
+  github: { linked: boolean; tokenAvailable: boolean };
+  vercel: { linked: boolean; tokenAvailable: boolean };
+  claude: { connected: boolean; source?: string; keyPrefix?: string };
 }
 
 function timeAgo(dateStr: string): string {
@@ -104,26 +105,32 @@ export default function Projects({
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [claudeStatuses, setClaudeStatuses] = useState<
-    Record<string, ClaudeStatus>
-  >({});
+  const [statuses, setStatuses] = useState<Record<string, ProjectStatus>>({});
 
   useEffect(() => {
     if (projects.length === 0) return;
     Promise.all(
       projects.map(async (p) => {
         try {
-          const res = await fetch(`/api/projects/${p.id}/claude`, {
+          const res = await fetch(`/api/projects/${p.id}/status`, {
             credentials: "include",
           });
           const data = await res.json();
           return [p.id, data] as const;
         } catch {
-          return [p.id, { connected: false }] as const;
+          return [
+            p.id,
+            {
+              ready: false,
+              github: { linked: false, tokenAvailable: false },
+              vercel: { linked: false, tokenAvailable: false },
+              claude: { connected: false },
+            },
+          ] as const;
         }
       }),
     ).then((entries) => {
-      setClaudeStatuses(Object.fromEntries(entries));
+      setStatuses(Object.fromEntries(entries));
     });
   }, [projects]);
 
@@ -344,7 +351,8 @@ export default function Projects({
                 <Badge
                   variant="secondary"
                   className={
-                    project.githubRepo
+                    statuses[project.id]?.github.linked &&
+                    statuses[project.id]?.github.tokenAvailable
                       ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
                       : "gap-1.5 font-normal"
                   }
@@ -356,25 +364,29 @@ export default function Projects({
                 <Badge
                   variant="secondary"
                   className={
-                    project.vercelProjectId
+                    statuses[project.id]?.vercel.tokenAvailable
                       ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
                       : "gap-1.5 font-normal"
                   }
                 >
                   <VercelIcon />
-                  {project.vercelProjectId ?? "Vercel not connected"}
+                  {project.vercelProjectId
+                    ? project.vercelProjectId
+                    : statuses[project.id]?.vercel.tokenAvailable
+                      ? "Vercel ready"
+                      : "Vercel not connected"}
                 </Badge>
 
                 <Badge
                   variant="secondary"
                   className={
-                    claudeStatuses[project.id]?.connected
+                    statuses[project.id]?.claude.connected
                       ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
                       : "gap-1.5 font-normal"
                   }
                 >
                   <Sparkles className="size-3" />
-                  {claudeStatuses[project.id]?.connected
+                  {statuses[project.id]?.claude.connected
                     ? "Claude connected"
                     : "Claude not connected"}
                 </Badge>

@@ -118,17 +118,17 @@ export async function action({ request, params }: { request: Request; params: { 
 
   // Vercel credentials (project override > user's token)
   const vercelToken =
-    await getProjectSecret(org.id, id, 'VERCEL_ACCESS_TOKEN').catch(() => null) ??
-    await getSecret(`user/${user.id}`, 'VERCEL_ACCESS_TOKEN').catch(() => null)
+    await getProjectSecret(org.id, id, 'VERCEL_ACCESS_TOKEN').catch((err) => { log.warn({ err, projectId: id }, 'failed to fetch project VERCEL_ACCESS_TOKEN'); return null }) ??
+    await getSecret(`user/${user.id}`, 'VERCEL_ACCESS_TOKEN').catch((err) => { log.warn({ err, userId: user.id }, 'failed to fetch user VERCEL_ACCESS_TOKEN'); return null })
 
   // GitHub token (project override > user's token)
   const githubToken =
-    await getProjectSecret(org.id, id, 'GITHUB_ACCESS_TOKEN').catch(() => null) ??
-    await getSecret(`user/${user.id}`, 'GITHUB_ACCESS_TOKEN').catch(() => null)
+    await getProjectSecret(org.id, id, 'GITHUB_ACCESS_TOKEN').catch((err) => { log.warn({ err, projectId: id }, 'failed to fetch project GITHUB_ACCESS_TOKEN'); return null }) ??
+    await getSecret(`user/${user.id}`, 'GITHUB_ACCESS_TOKEN').catch((err) => { log.warn({ err, userId: user.id }, 'failed to fetch user GITHUB_ACCESS_TOKEN'); return null })
 
   const claudeAuth = claudeAccessToken ? 'oauth' : anthropicApiKey ? 'api_key' : 'none'
   log.info(
-    { projectId: id, claudeAuth, hasGithubToken: !!githubToken, hasVercelToken: !!vercelToken },
+    { projectId: id, claudeAuth, hasGithubToken: !!githubToken, hasVercelToken: !!vercelToken, hasVercelProjectId: !!project.vercelProjectId, hasVercelTeamId: !!project.vercelTeamId },
     'sandbox credentials resolved',
   )
 
@@ -167,16 +167,14 @@ export async function action({ request, params }: { request: Request; params: { 
           `echo 'https://x-access-token:${githubToken}@github.com' > ~/.git-credentials`,
         ])
         await sandbox.runCommand('git', ['config', '--global', 'credential.helper', 'store'])
-        await sandbox.runCommand('bash', [
-          '-c',
-          'apt-get update -qq && apt-get install -y -qq gh > /dev/null 2>&1 || true',
-        ])
       }
 
-      // 3. Install vercel CLI if credentials available
-      if (vercelToken && project.vercelProjectId) {
-        await sandbox.runCommand('npm', ['install', '-g', 'vercel', '--silent'])
-      }
+      // 3. Install vercel and gh CLIs
+      await sandbox.runCommand('npm', ['install', '-g', 'vercel', '--silent'])
+      await sandbox.runCommand('bash', [
+        '-c',
+        'apt-get update -qq && apt-get install -y -qq gh > /dev/null 2>&1 || true',
+      ])
 
       // 4. Build .env — use per-project vercelTeamId, NOT process.env
       const envMap: Record<string, string> = { ...envVars }
