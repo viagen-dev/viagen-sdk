@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import { requireAuth } from "~/lib/session.server";
@@ -11,8 +11,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
-  CardDescription,
   CardAction,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -26,22 +24,15 @@ import { Alert, AlertDescription } from "~/components/ui/alert";
 import {
   Plus,
   Sparkles,
-  Settings,
   Ellipsis,
   Circle,
   CheckCircle2,
-  Clock,
   Loader2,
-  Send,
   KeyRound,
-  ExternalLink,
-  GitMerge,
   GitBranch,
-  Square,
-  Triangle,
-  Copy,
-  Check,
 } from "lucide-react";
+import { WorkspaceLauncher } from "~/components/workspace-launcher";
+import { WorkspaceList } from "~/components/workspace-list";
 
 export async function loader({
   request,
@@ -181,34 +172,10 @@ export default function ProjectTasks({
   const [showClaudeManage, setShowClaudeManage] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
 
-  const [launching, setLaunching] = useState(false);
   const [launchingQuick, setLaunchingQuick] = useState(false);
-  const [launchElapsed, setLaunchElapsed] = useState(0);
-  const launchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [activeWorkspaces, setActiveWorkspaces] = useState<Workspace[]>([]);
   const [sandboxError, setSandboxError] = useState<string | null>(null);
-  const [branch, setBranch] = useState("feat");
-  const [stoppingId, setStoppingId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Tick a counter every second while launching
-  useEffect(() => {
-    if (launching) {
-      setLaunchElapsed(0);
-      launchTimerRef.current = setInterval(
-        () => setLaunchElapsed((s) => s + 1),
-        1000,
-      );
-    } else {
-      if (launchTimerRef.current) clearInterval(launchTimerRef.current);
-      setLaunchElapsed(0);
-    }
-    return () => {
-      if (launchTimerRef.current) clearInterval(launchTimerRef.current);
-    };
-  }, [launching]);
-
-  const [prompt, setPrompt] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -242,65 +209,27 @@ export default function ProjectTasks({
       .catch(() => {});
   }, [project.id]);
 
-  // Shared fetch for both launch modes
-  const launchWorkspace = async (opts?: { prompt?: string }) => {
-    const res = await fetch(`/api/projects/${project.id}/sandbox`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ branch, prompt: opts?.prompt || undefined }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Failed to launch sandbox");
-    return data.workspace;
-  };
-
   // Header button: create + auto-open
   const handleQuickLaunch = async () => {
     setLaunchingQuick(true);
     setSandboxError(null);
     try {
-      const workspace = await launchWorkspace();
-      setActiveWorkspaces((prev) => [workspace, ...prev]);
-      window.open(workspace.url, "_blank");
-    } catch (err) {
-      setSandboxError(err instanceof Error ? err.message : "Failed to launch sandbox");
-    } finally {
-      setLaunchingQuick(false);
-    }
-  };
-
-  // Task card button: create with prompt, show timer, clear form
-  const handleLaunch = async () => {
-    setLaunching(true);
-    setSandboxError(null);
-    try {
-      const workspace = await launchWorkspace({ prompt: prompt.trim() });
-      setActiveWorkspaces((prev) => [workspace, ...prev]);
-      setPrompt("");
-    } catch (err) {
-      setSandboxError(err instanceof Error ? err.message : "Failed to launch sandbox");
-    } finally {
-      setLaunching(false);
-    }
-  };
-
-  const handleStopWorkspace = async (workspaceId: string) => {
-    setStoppingId(workspaceId);
-    try {
       const res = await fetch(`/api/projects/${project.id}/sandbox`, {
-        method: "DELETE",
+        method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceId }),
+        body: JSON.stringify({ branch: "feat" }),
       });
-      if (res.ok) {
-        setActiveWorkspaces((prev) => prev.filter((w) => w.id !== workspaceId));
-      }
-    } catch {
-      // ignore
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to launch sandbox");
+      setActiveWorkspaces((prev) => [data.workspace, ...prev]);
+      window.open(data.workspace.url, "_blank");
+    } catch (err) {
+      setSandboxError(
+        err instanceof Error ? err.message : "Failed to launch sandbox",
+      );
     } finally {
-      setStoppingId(null);
+      setLaunchingQuick(false);
     }
   };
 
@@ -339,7 +268,6 @@ export default function ProjectTasks({
       }
       setApiKeyInput("");
       setShowClaudeManage(false);
-      // Re-fetch project status
       refreshStatus();
     } catch {
       setKeyError("Failed to save key");
@@ -365,23 +293,6 @@ export default function ProjectTasks({
       : !claudeConnected || claudeExpired
         ? "claude"
         : null;
-
-  const handleSubmit = () => {
-    if (!prompt.trim() || submitting) return;
-
-    setSubmitting(true);
-
-    const newTask: Task = {
-      id: crypto.randomUUID(),
-      prompt: prompt.trim(),
-      status: "pending",
-      createdAt: new Date().toISOString(),
-    };
-
-    setTasks((prev) => [newTask, ...prev]);
-    setPrompt("");
-    setSubmitting(false);
-  };
 
   const pendingCount = tasks.filter((t) => t.status === "pending").length;
   const runningCount = tasks.filter((t) => t.status === "running").length;
@@ -411,7 +322,7 @@ export default function ProjectTasks({
             <Button
               size="sm"
               className="hidden sm:inline-flex"
-              disabled={!allReady || launching || launchingQuick}
+              disabled={!allReady || launchingQuick}
               onClick={handleQuickLaunch}
             >
               {launchingQuick ? (
@@ -547,75 +458,14 @@ export default function ProjectTasks({
       </div>
 
       {/* Active workspaces */}
-      {activeWorkspaces.length > 0 && (
-        <div className="mb-6">
-          <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-            Active Workspaces
-          </h2>
-          <div className="flex flex-col gap-2">
-            {activeWorkspaces.map((ws) => (
-              <div
-                key={ws.id}
-                className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="font-medium">
-                    {ws.branch}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {timeAgo(ws.createdAt)}
-                  </span>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 gap-1.5 text-xs"
-                    asChild
-                  >
-                    <a href={ws.url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="size-3" />
-                      View
-                    </a>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 gap-1.5 text-xs"
-                    onClick={() => {
-                      navigator.clipboard.writeText(ws.url);
-                      setCopiedId(ws.id);
-                      setTimeout(() => setCopiedId(null), 2000);
-                    }}
-                  >
-                    {copiedId === ws.id ? (
-                      <Check className="size-3" />
-                    ) : (
-                      <Copy className="size-3" />
-                    )}
-                    {copiedId === ws.id ? "Copied" : "Copy"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 gap-1.5 text-xs text-destructive hover:bg-destructive/10"
-                    disabled={stoppingId === ws.id}
-                    onClick={() => handleStopWorkspace(ws.id)}
-                  >
-                    {stoppingId === ws.id ? (
-                      <Loader2 className="size-3 animate-spin" />
-                    ) : (
-                      <Square className="size-3" />
-                    )}
-                    Stop
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <WorkspaceList
+        projectId={project.id}
+        workspaces={activeWorkspaces}
+        onStopped={(id) =>
+          setActiveWorkspaces((prev) => prev.filter((w) => w.id !== id))
+        }
+      />
+
       {sandboxError && (
         <Alert variant="destructive" className="mb-6">
           <AlertDescription>{sandboxError}</AlertDescription>
@@ -726,54 +576,14 @@ export default function ProjectTasks({
           </CardContent>
         </Card>
       ) : (
-        <Card className="mb-6 border-0 shadow-none">
-          <CardContent className="flex flex-col gap-3">
-            <textarea
-              placeholder="Describe a task for Claude to work on..."
-              value={prompt}
-              onChange={(e) => {
-                setPrompt(e.target.value);
-                e.target.style.height = "auto";
-                e.target.style.height = e.target.scrollHeight + "px";
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleLaunch();
-                }
-              }}
-              rows={1}
-              className="w-full resize-none overflow-hidden rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <GitBranch className="size-3.5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  value={branch}
-                  onChange={(e) => setBranch(e.target.value)}
-                  placeholder="main"
-                  className="h-8 w-32 text-xs"
-                />
-              </div>
-              <div className="flex-1" />
-              <Button
-                size="sm"
-                disabled={!allReady || launching || launchingQuick}
-                onClick={handleLaunch}
-              >
-                {launching ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Send className="size-4" />
-                )}
-                {launching
-                  ? `Creating... ${launchElapsed}s`
-                  : "Run task"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <WorkspaceLauncher
+          projectId={project.id}
+          allReady={allReady}
+          onCreated={(workspace) =>
+            setActiveWorkspaces((prev) => [workspace, ...prev])
+          }
+          onError={(message) => setSandboxError(message)}
+        />
       )}
 
       {/* Status summary */}

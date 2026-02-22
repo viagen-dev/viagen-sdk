@@ -48,10 +48,9 @@ interface Project {
   updatedAt: string;
 }
 
-interface SecretRow {
+interface SecretEntry {
   key: string;
   value: string;
-  source: "project" | "org";
 }
 
 export default function ProjectDetail({
@@ -69,8 +68,10 @@ export default function ProjectDetail({
   const [nameSaved, setNameSaved] = useState(false);
   const nameChanged = projectName.trim() !== project.name;
 
-  // Secrets
-  const [secrets, setSecrets] = useState<SecretRow[]>([]);
+  // Secrets (3 scopes)
+  const [projectSecrets, setProjectSecrets] = useState<SecretEntry[]>([]);
+  const [orgSecrets, setOrgSecrets] = useState<SecretEntry[]>([]);
+  const [userSecrets, setUserSecrets] = useState<SecretEntry[]>([]);
   const [secretsLoading, setSecretsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,7 +121,9 @@ export default function ProjectDetail({
       });
       if (!res.ok) throw new Error("Failed to load secrets");
       const data = await res.json();
-      setSecrets(data.secrets);
+      setProjectSecrets(data.project ?? []);
+      setOrgSecrets(data.org ?? []);
+      setUserSecrets(data.user ?? []);
     } catch {
       setError("Failed to load secrets");
     } finally {
@@ -216,7 +219,7 @@ export default function ProjectDetail({
     });
   };
 
-  const startEdit = (secret: SecretRow) => {
+  const startEdit = (secret: SecretEntry) => {
     setEditingKey(secret.key);
     setEditValue(secret.value);
   };
@@ -230,6 +233,10 @@ export default function ProjectDetail({
     if (value.length <= 4) return "\u2022".repeat(8);
     return value.slice(0, 4) + "\u2022".repeat(Math.min(value.length - 4, 20));
   };
+
+  // Keys overridden by a higher-priority scope
+  const projectKeySet = new Set(projectSecrets.map((s) => s.key));
+  const orgKeySet = new Set(orgSecrets.map((s) => s.key));
 
   return (
     <div>
@@ -345,154 +352,292 @@ export default function ProjectDetail({
             </Alert>
           )}
 
-          {/* Add form */}
-          {isAdmin && (
-            <div className="mb-4 flex items-center gap-2 border-b border-border pb-4">
-              <Input
-                type="text"
-                value={newKey}
-                onChange={(e) =>
-                  setNewKey(
-                    e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""),
-                  )
-                }
-                placeholder="KEY_NAME"
-                className="w-[200px] shrink-0 font-mono"
-                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              />
-              <Input
-                type="text"
-                value={newValue}
-                onChange={(e) => setNewValue(e.target.value)}
-                placeholder="value"
-                className="min-w-0 flex-1"
-                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              />
-              <Button
-                onClick={handleAdd}
-                disabled={!newKey.trim() || saving}
-                size="sm"
-              >
-                {saving ? "Saving..." : "Add"}
-              </Button>
-            </div>
-          )}
-
-          {/* Secrets list */}
           {secretsLoading ? (
             <p className="py-4 text-sm text-muted-foreground">Loading...</p>
-          ) : secrets.length === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">
-              No environment variables set.
-            </p>
           ) : (
-            <div className="flex flex-col">
-              {secrets.map((secret) => (
-                <div
-                  key={secret.key}
-                  className="flex items-center gap-3 border-b border-border/50 py-2.5 last:border-b-0"
-                >
-                  {editingKey === secret.key ? (
-                    <>
-                      <span className="w-[200px] shrink-0 font-mono text-[0.8125rem] font-medium">
-                        {secret.key}
-                      </span>
-                      <div className="flex flex-1 items-center gap-2">
-                        <Input
-                          type="text"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          className="min-w-0 flex-1"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleEdit(secret.key);
-                            if (e.key === "Escape") cancelEdit();
-                          }}
-                        />
-                        <Button
-                          size="sm"
-                          onClick={() => handleEdit(secret.key)}
-                          disabled={editSaving}
-                        >
-                          {editSaving ? "Saving..." : "Save"}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={cancelEdit}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-[200px] shrink-0 font-mono text-[0.8125rem] font-medium">
-                        {secret.key}
-                      </span>
-                      <span
-                        className="min-w-0 flex-1 cursor-pointer truncate font-mono text-[0.8125rem] text-muted-foreground"
-                        onClick={() => toggleReveal(secret.key)}
-                        title="Click to reveal"
-                      >
-                        {revealedKeys.has(secret.key)
-                          ? secret.value
-                          : maskValue(secret.value)}
-                      </span>
-                      <Badge
-                        variant={
-                          secret.source === "org" ? "outline" : "secondary"
+            <div className="flex flex-col gap-6">
+              {/* Project secrets (editable) */}
+              <SecretSection
+                title="Project"
+                badge={<Badge variant="secondary">project</Badge>}
+                secrets={projectSecrets}
+                overriddenKeys={new Set()}
+                isAdmin={isAdmin}
+                editingKey={editingKey}
+                editValue={editValue}
+                editSaving={editSaving}
+                revealedKeys={revealedKeys}
+                onToggleReveal={toggleReveal}
+                onStartEdit={startEdit}
+                onCancelEdit={cancelEdit}
+                onSaveEdit={handleEdit}
+                onEditValueChange={setEditValue}
+                onDelete={handleDelete}
+                maskValue={maskValue}
+                addForm={
+                  isAdmin ? (
+                    <div className="flex items-center gap-2 border-b border-border pb-3">
+                      <Input
+                        type="text"
+                        value={newKey}
+                        onChange={(e) =>
+                          setNewKey(
+                            e.target.value
+                              .toUpperCase()
+                              .replace(/[^A-Z0-9_]/g, ""),
+                          )
                         }
-                        className={
-                          secret.source === "org"
-                            ? "border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"
-                            : ""
-                        }
+                        placeholder="KEY_NAME"
+                        className="w-[200px] shrink-0 font-mono"
+                        onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                      />
+                      <Input
+                        type="text"
+                        value={newValue}
+                        onChange={(e) => setNewValue(e.target.value)}
+                        placeholder="value"
+                        className="min-w-0 flex-1"
+                        onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                      />
+                      <Button
+                        onClick={handleAdd}
+                        disabled={!newKey.trim() || saving}
+                        size="sm"
                       >
-                        {secret.source === "org" ? "inherited" : "project"}
-                      </Badge>
-                      {isAdmin && secret.source === "project" && (
-                        <div className="flex shrink-0 gap-1">
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            onClick={() => startEdit(secret)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            className="text-destructive hover:text-destructive/80"
-                            onClick={() => handleDelete(secret.key)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      )}
-                      {secret.source === "org" && isAdmin && (
-                        <div className="flex shrink-0 gap-1">
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            onClick={() => {
-                              setNewKey(secret.key);
-                              setNewValue("");
-                            }}
-                            title="Create a project-level override"
-                          >
-                            Override
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
+                        {saving ? "Saving..." : "Add"}
+                      </Button>
+                    </div>
+                  ) : undefined
+                }
+              />
+
+              {/* Org secrets (read-only, override button) */}
+              <SecretSection
+                  title="Organization"
+                  badge={
+                    <Badge
+                      variant="outline"
+                      className="border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"
+                    >
+                      inherited
+                    </Badge>
+                  }
+                  secrets={orgSecrets}
+                  overriddenKeys={projectKeySet}
+                  isAdmin={false}
+                  editingKey={null}
+                  editValue=""
+                  editSaving={false}
+                  revealedKeys={revealedKeys}
+                  onToggleReveal={toggleReveal}
+                  onStartEdit={() => {}}
+                  onCancelEdit={() => {}}
+                  onSaveEdit={() => Promise.resolve()}
+                  onEditValueChange={() => {}}
+                  onDelete={() => Promise.resolve()}
+                  maskValue={maskValue}
+                  overrideAction={
+                    isAdmin
+                      ? (key: string) => {
+                          setNewKey(key);
+                          setNewValue("");
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }
+                      : undefined
+                  }
+                />
+
+              {/* User secrets (read-only, no actions) */}
+              <SecretSection
+                  title="User"
+                  badge={
+                    <Badge
+                      variant="outline"
+                      className="border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300"
+                    >
+                      user
+                    </Badge>
+                  }
+                  secrets={userSecrets}
+                  overriddenKeys={
+                    new Set([...projectKeySet, ...orgKeySet])
+                  }
+                  isAdmin={false}
+                  editingKey={null}
+                  editValue=""
+                  editSaving={false}
+                  revealedKeys={revealedKeys}
+                  onToggleReveal={toggleReveal}
+                  onStartEdit={() => {}}
+                  onCancelEdit={() => {}}
+                  onSaveEdit={() => Promise.resolve()}
+                  onEditValueChange={() => {}}
+                  onDelete={() => Promise.resolve()}
+                  maskValue={maskValue}
+                />
             </div>
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function SecretSection({
+  title,
+  badge,
+  secrets,
+  overriddenKeys,
+  isAdmin,
+  editingKey,
+  editValue,
+  editSaving,
+  revealedKeys,
+  onToggleReveal,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onEditValueChange,
+  onDelete,
+  maskValue,
+  addForm,
+  overrideAction,
+}: {
+  title: string;
+  badge: React.ReactNode;
+  secrets: SecretEntry[];
+  overriddenKeys: Set<string>;
+  isAdmin: boolean;
+  editingKey: string | null;
+  editValue: string;
+  editSaving: boolean;
+  revealedKeys: Set<string>;
+  onToggleReveal: (key: string) => void;
+  onStartEdit: (secret: SecretEntry) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (key: string) => void;
+  onEditValueChange: (value: string) => void;
+  onDelete: (key: string) => void;
+  maskValue: (value: string) => string;
+  addForm?: React.ReactNode;
+  overrideAction?: (key: string) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2">
+        <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+        {badge}
+      </div>
+      {addForm}
+      {secrets.length === 0 ? (
+        <p className="py-2 text-sm text-muted-foreground">
+          No {title.toLowerCase()} variables.
+        </p>
+      ) : (
+        <div className="flex flex-col">
+          {secrets.map((secret) => {
+            const isOverridden = overriddenKeys.has(secret.key);
+            return (
+              <div
+                key={secret.key}
+                className={`flex items-center gap-3 border-b border-border/50 py-2.5 last:border-b-0 ${
+                  isOverridden ? "opacity-50" : ""
+                }`}
+              >
+                {editingKey === secret.key ? (
+                  <>
+                    <span className="w-[200px] shrink-0 font-mono text-[0.8125rem] font-medium">
+                      {secret.key}
+                    </span>
+                    <div className="flex flex-1 items-center gap-2">
+                      <Input
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => onEditValueChange(e.target.value)}
+                        className="min-w-0 flex-1"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") onSaveEdit(secret.key);
+                          if (e.key === "Escape") onCancelEdit();
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => onSaveEdit(secret.key)}
+                        disabled={editSaving}
+                      >
+                        {editSaving ? "Saving..." : "Save"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onCancelEdit}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span
+                      className={`w-[200px] shrink-0 font-mono text-[0.8125rem] font-medium ${
+                        isOverridden ? "line-through" : ""
+                      }`}
+                    >
+                      {secret.key}
+                    </span>
+                    <span
+                      className="min-w-0 flex-1 cursor-pointer truncate font-mono text-[0.8125rem] text-muted-foreground"
+                      onClick={() => onToggleReveal(secret.key)}
+                      title="Click to reveal"
+                    >
+                      {revealedKeys.has(secret.key)
+                        ? secret.value
+                        : maskValue(secret.value)}
+                    </span>
+                    {isOverridden && (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        overridden
+                      </span>
+                    )}
+                    {isAdmin && !isOverridden && (
+                      <div className="flex shrink-0 gap-1">
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => onStartEdit(secret)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="text-destructive hover:text-destructive/80"
+                          onClick={() => onDelete(secret.key)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    )}
+                    {overrideAction && !isOverridden && (
+                      <div className="flex shrink-0 gap-1">
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => overrideAction(secret.key)}
+                          title="Create a project-level override"
+                        >
+                          Override
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

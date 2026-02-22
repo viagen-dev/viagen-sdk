@@ -38,8 +38,8 @@ export async function getProjectSecret(orgId: string, viagenProjectId: string, k
   return getSecret(`${orgId}/${viagenProjectId}`, key)
 }
 
-export async function setProjectSecret(orgId: string, viagenProjectId: string, key: string, value: string): Promise<void> {
-  return setSecret(`${orgId}/${viagenProjectId}`, key, value)
+export async function setProjectSecret(orgId: string, viagenProjectId: string, key: string, value: string, opts?: { skipEnsure?: boolean }): Promise<void> {
+  return setSecret(`${orgId}/${viagenProjectId}`, key, value, opts)
 }
 
 export async function deleteProjectSecret(orgId: string, viagenProjectId: string, key: string): Promise<void> {
@@ -67,7 +67,7 @@ export async function getSecret(orgId: string, key: string): Promise<string | nu
   return data.secret?.secretValue ?? null
 }
 
-async function ensureFolder(secretPath: string): Promise<void> {
+export async function ensureFolder(secretPath: string): Promise<void> {
   const token = await getAccessToken()
   const segments = secretPath.split('/').filter(Boolean)
   let currentPath = '/'
@@ -94,9 +94,9 @@ async function ensureFolder(secretPath: string): Promise<void> {
   }
 }
 
-export async function setSecret(orgId: string, key: string, value: string): Promise<void> {
+export async function setSecret(orgId: string, key: string, value: string, opts?: { skipEnsure?: boolean }): Promise<void> {
   const token = await getAccessToken()
-  await ensureFolder(orgId)
+  if (!opts?.skipEnsure) await ensureFolder(orgId)
 
   const existing = await getSecret(orgId, key)
 
@@ -189,6 +189,81 @@ export async function listOrgSecrets(orgId: string): Promise<{ key: string; valu
     key: s.secretKey,
     value: s.secretValue,
   }))
+}
+
+export async function listUserSecrets(userId: string): Promise<{ key: string; value: string }[]> {
+  const token = await getAccessToken()
+  const url = new URL(`${INFISICAL_API}/api/v3/secrets/raw`)
+  url.searchParams.set('workspaceId', projectId())
+  url.searchParams.set('environment', environment)
+  url.searchParams.set('secretPath', `/user/${userId}`)
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (res.status === 404) return []
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Infisical list failed (${res.status}): ${body}`)
+  }
+
+  const data = await res.json()
+  return (data.secrets ?? []).map((s: any) => ({
+    key: s.secretKey,
+    value: s.secretValue,
+  }))
+}
+
+export interface ResolvedSecrets {
+  project: { key: string; value: string }[]
+  org: { key: string; value: string }[]
+  user: { key: string; value: string }[]
+}
+
+/** Fetch secrets from all 3 scopes in parallel */
+export async function resolveAllSecrets(
+  orgId: string,
+  projectId: string,
+  userId: string,
+): Promise<ResolvedSecrets> {
+  const [project, org, user] = await Promise.all([
+    listProjectSecrets(orgId, projectId),
+    listOrgSecrets(orgId),
+    listUserSecrets(userId),
+  ])
+  return { project, org, user }
+}
+
+/**
+ * Merge secrets into a flat map: project > org > user.
+ * Handles expired Claude OAuth tokens — if CLAUDE_TOKEN_EXPIRES indicates
+ * the token is expired, CLAUDE_ACCESS_TOKEN and CLAUDE_REFRESH_TOKEN are
+ * excluded so ANTHROPIC_API_KEY is used instead.
+ */
+export function flattenSecrets(resolved: ResolvedSecrets): Record<string, string> {
+  const map: Record<string, string> = {}
+
+  // User (lowest priority)
+  for (const s of resolved.user) map[s.key] = s.value
+  // Org (overrides user)
+  for (const s of resolved.org) map[s.key] = s.value
+  // Project (highest priority)
+  for (const s of resolved.project) map[s.key] = s.value
+
+  // Handle expired OAuth: if the token is expired, remove it so
+  // consumers fall back to ANTHROPIC_API_KEY
+  const expires = map['CLAUDE_TOKEN_EXPIRES']
+  if (expires) {
+    const expiresMs = Number(expires)
+    if (!isNaN(expiresMs) && expiresMs < Date.now()) {
+      delete map['CLAUDE_ACCESS_TOKEN']
+      delete map['CLAUDE_REFRESH_TOKEN']
+      delete map['CLAUDE_TOKEN_EXPIRES']
+    }
+  }
+
+  return map
 }
 
 export async function deleteSecret(orgId: string, key: string): Promise<void> {

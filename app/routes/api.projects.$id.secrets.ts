@@ -3,8 +3,7 @@ import { db } from "~/lib/db/index.server";
 import { projects } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import {
-  listProjectSecrets,
-  listOrgSecrets,
+  resolveAllSecrets,
   setProjectSecret,
   deleteProjectSecret,
   getSecret,
@@ -16,14 +15,6 @@ import {
 } from "~/lib/vercel.server";
 import { log } from "~/lib/logger.server";
 
-const INTEGRATION_KEYS = new Set([
-  "VERCEL_ACCESS_TOKEN",
-  "ANTHROPIC_API_KEY",
-  "GITHUB_ACCESS_TOKEN",
-  "CLAUDE_ACCESS_TOKEN",
-  "CLAUDE_TOKEN_EXPIRES",
-]);
-
 export async function loader({
   request,
   params,
@@ -31,7 +22,7 @@ export async function loader({
   request: Request;
   params: { id: string };
 }) {
-  const { org } = await requireAuth(request);
+  const { org, user } = await requireAuth(request);
   const id = params.id;
 
   const [project] = await db
@@ -43,26 +34,28 @@ export async function loader({
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
 
-  const [projectSecrets, orgSecrets] = await Promise.all([
-    listProjectSecrets(org.id, id),
-    listOrgSecrets(org.id),
-  ]);
+  const resolved = await resolveAllSecrets(org.id, id, user.id);
 
-  // Build merged list: project secrets override org secrets with same key.
-  // Filter out integration-managed keys from both levels.
-  const projectKeySet = new Set(projectSecrets.map((s) => s.key));
-  const secrets: { key: string; value: string; source: "project" | "org" }[] = [
-    ...projectSecrets
-      .filter((s) => !INTEGRATION_KEYS.has(s.key))
-      .map((s) => ({ ...s, source: "project" as const })),
-    ...orgSecrets
-      .filter((s) => !INTEGRATION_KEYS.has(s.key) && !projectKeySet.has(s.key))
-      .map((s) => ({ ...s, source: "org" as const })),
-  ];
+  log.info(
+    {
+      projectId: id,
+      orgId: org.id,
+      projectCount: resolved.project.length,
+      orgCount: resolved.org.length,
+      userCount: resolved.user.length,
+    },
+    "secrets loader: resolved all secrets",
+  );
 
-  secrets.sort((a, b) => a.key.localeCompare(b.key));
 
-  return Response.json({ secrets });
+  const sort = (secrets: { key: string; value: string }[]) =>
+    [...secrets].sort((a, b) => a.key.localeCompare(b.key));
+
+  return Response.json({
+    project: sort(resolved.project),
+    org: sort(resolved.org),
+    user: sort(resolved.user),
+  });
 }
 
 export async function action({

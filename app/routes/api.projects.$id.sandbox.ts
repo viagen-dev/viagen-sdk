@@ -4,11 +4,7 @@ import { requireAuth, isAdminRole } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, workspaces } from "~/lib/db/schema";
 import { eq, and, gt, desc } from "drizzle-orm";
-import {
-  listProjectSecrets,
-  getSecret,
-  getProjectSecret,
-} from "~/lib/infisical.server";
+import { resolveAllSecrets, flattenSecrets } from "~/lib/infisical.server";
 import { log } from "~/lib/logger.server";
 
 export async function loader({
@@ -158,108 +154,38 @@ export async function action({
     "sandbox launch requested",
   );
 
-  // ── Gather secrets ──────────────────────────────────
-  const projectSecrets = await listProjectSecrets(org.id, id);
-  const envVars: Record<string, string> = {};
-  for (const s of projectSecrets) {
-    envVars[s.key] = s.value;
+  // ── Gather secrets (centralized resolution) ───────
+  const resolved = await resolveAllSecrets(org.id, id, user.id);
+  const envVars = flattenSecrets(resolved);
+
+  // Pull out integration tokens for sandbox config
+  const githubToken = envVars["GITHUB_ACCESS_TOKEN"] ?? null;
+  const vercelToken = envVars["VERCEL_ACCESS_TOKEN"] ?? null;
+
+  // Rename integration keys to what the sandbox expects
+  if (githubToken) {
+    envVars["GITHUB_TOKEN"] = githubToken;
+    delete envVars["GITHUB_ACCESS_TOKEN"];
+  }
+  if (vercelToken) {
+    envVars["VERCEL_TOKEN"] = vercelToken;
+    delete envVars["VERCEL_ACCESS_TOKEN"];
   }
 
-  // Claude credentials (project > org > user)
-  const claudeAccessToken =
-    (await getProjectSecret(org.id, id, "CLAUDE_ACCESS_TOKEN").catch(
-      () => null,
-    )) ??
-    (await getSecret(org.id, "CLAUDE_ACCESS_TOKEN").catch(() => null)) ??
-    (await getSecret(`user/${user.id}`, "CLAUDE_ACCESS_TOKEN").catch(
-      () => null,
-    ));
-  const claudeRefreshToken =
-    (await getProjectSecret(org.id, id, "CLAUDE_REFRESH_TOKEN").catch(
-      () => null,
-    )) ??
-    (await getSecret(org.id, "CLAUDE_REFRESH_TOKEN").catch(() => null)) ??
-    (await getSecret(`user/${user.id}`, "CLAUDE_REFRESH_TOKEN").catch(
-      () => null,
-    ));
-  const claudeTokenExpires =
-    (await getProjectSecret(org.id, id, "CLAUDE_TOKEN_EXPIRES").catch(
-      () => null,
-    )) ??
-    (await getSecret(org.id, "CLAUDE_TOKEN_EXPIRES").catch(() => null)) ??
-    (await getSecret(`user/${user.id}`, "CLAUDE_TOKEN_EXPIRES").catch(
-      () => null,
-    ));
-  const anthropicApiKey =
-    (await getProjectSecret(org.id, id, "ANTHROPIC_API_KEY").catch(
-      () => null,
-    )) ??
-    (await getSecret(org.id, "ANTHROPIC_API_KEY").catch(() => null)) ??
-    (await getSecret(`user/${user.id}`, "ANTHROPIC_API_KEY").catch(() => null));
-
-  // Vercel credentials (project override > user's token)
-  const vercelToken =
-    (await getProjectSecret(org.id, id, "VERCEL_ACCESS_TOKEN").catch((err) => {
-      log.warn(
-        { err, projectId: id },
-        "failed to fetch project VERCEL_ACCESS_TOKEN",
-      );
-      return null;
-    })) ??
-    (await getSecret(`user/${user.id}`, "VERCEL_ACCESS_TOKEN").catch((err) => {
-      log.warn(
-        { err, userId: user.id },
-        "failed to fetch user VERCEL_ACCESS_TOKEN",
-      );
-      return null;
-    }));
-
-  // GitHub token (project override > user's token)
-  const githubToken =
-    (await getProjectSecret(org.id, id, "GITHUB_ACCESS_TOKEN").catch((err) => {
-      log.warn(
-        { err, projectId: id },
-        "failed to fetch project GITHUB_ACCESS_TOKEN",
-      );
-      return null;
-    })) ??
-    (await getSecret(`user/${user.id}`, "GITHUB_ACCESS_TOKEN").catch((err) => {
-      log.warn(
-        { err, userId: user.id },
-        "failed to fetch user GITHUB_ACCESS_TOKEN",
-      );
-      return null;
-    }));
-
-  // Check if the Claude OAuth token is expired — if so, don't pass it to the
-  // sandbox so ANTHROPIC_API_KEY is used instead.
-  let claudeOAuthExpired = false;
-  if (claudeAccessToken && claudeTokenExpires) {
-    const expiresMs = Number(claudeTokenExpires);
-    if (!isNaN(expiresMs) && expiresMs < Date.now()) {
-      claudeOAuthExpired = true;
-      log.info(
-        { projectId: id },
-        "CLAUDE_ACCESS_TOKEN expired, falling back to ANTHROPIC_API_KEY for sandbox",
-      );
-    }
-  }
-
-  const effectiveClaudeToken = claudeOAuthExpired ? null : claudeAccessToken;
-  const claudeAuth = effectiveClaudeToken
+  const claudeAuth = envVars["CLAUDE_ACCESS_TOKEN"]
     ? "oauth"
-    : anthropicApiKey
+    : envVars["ANTHROPIC_API_KEY"]
       ? "api_key"
       : "none";
   log.info(
     {
       projectId: id,
       claudeAuth,
-      claudeOAuthExpired,
       hasGithubToken: !!githubToken,
       hasVercelToken: !!vercelToken,
       hasVercelProjectId: !!project.vercelProjectId,
       hasVercelOrgId: !!project.vercelOrgId,
+      resolvedKeyCount: Object.keys(envVars).length,
     },
     "sandbox credentials resolved",
   );
@@ -321,7 +247,7 @@ export async function action({
       // 3. Install vercel CLI
       await sandbox.runCommand("npm", ["install", "-g", "vercel", "--silent"]);
 
-      // 4. Build .env — use per-project vercelOrgId, NOT process.env
+      // 4. Build .env — layer sandbox-specific vars on top of resolved secrets
       const envMap: Record<string, string> = { ...envVars };
       envMap["VIAGEN_AUTH_TOKEN"] = token;
       envMap["VIAGEN_SESSION_START"] = String(Math.floor(Date.now() / 1000));
@@ -334,21 +260,10 @@ export async function action({
           When you are done, commit your changes push and create a pull request using github API via fetch call.`;
       }
 
-      if (anthropicApiKey) envMap["ANTHROPIC_API_KEY"] = anthropicApiKey;
-      if (effectiveClaudeToken) {
-        envMap["CLAUDE_ACCESS_TOKEN"] = effectiveClaudeToken;
-        if (claudeRefreshToken)
-          envMap["CLAUDE_REFRESH_TOKEN"] = claudeRefreshToken;
-        if (claudeTokenExpires)
-          envMap["CLAUDE_TOKEN_EXPIRES"] = claudeTokenExpires;
-      }
-
       if (githubToken) {
-        envMap["GITHUB_TOKEN"] = githubToken;
         envMap["VIAGEN_BRANCH"] = branch;
       }
 
-      if (vercelToken) envMap["VERCEL_TOKEN"] = vercelToken;
       if (project.vercelOrgId) envMap["VERCEL_ORG_ID"] = project.vercelOrgId;
       if (project.vercelProjectId)
         envMap["VERCEL_PROJECT_ID"] = project.vercelProjectId;

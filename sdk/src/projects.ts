@@ -37,13 +37,14 @@ export interface SyncProjectInput {
 
 export interface SyncResult {
   project: Project
-  secrets: { stored: number }
+  secrets: { stored: number; failed: string[] }
+  resolvedKeys: string[]
 }
 
 export interface ProjectSecret {
   key: string
   value: string
-  source: 'project' | 'org'
+  source: 'project' | 'org' | 'user'
 }
 
 export interface ProjectDatabase {
@@ -161,8 +162,16 @@ export function createProjectsClient(_baseUrl: string, request: RequestFn): Proj
     },
 
     async listSecrets(id) {
-      const data = await request<{ secrets: ProjectSecret[] }>(`/api/projects/${id}/secrets`)
-      return data.secrets
+      const data = await request<{
+        project: { key: string; value: string }[]
+        org: { key: string; value: string }[]
+        user: { key: string; value: string }[]
+      }>(`/api/projects/${id}/secrets`)
+      return [
+        ...data.project.map((s) => ({ ...s, source: 'project' as const })),
+        ...data.org.map((s) => ({ ...s, source: 'org' as const })),
+        ...data.user.map((s) => ({ ...s, source: 'user' as const })),
+      ]
     },
 
     async setSecret(id, key, value) {
