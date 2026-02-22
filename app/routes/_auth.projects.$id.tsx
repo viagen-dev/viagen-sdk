@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import { requireAuth } from "~/lib/session.server";
@@ -182,11 +182,30 @@ export default function ProjectTasks({
   const [disconnecting, setDisconnecting] = useState(false);
 
   const [launching, setLaunching] = useState(false);
+  const [launchElapsed, setLaunchElapsed] = useState(0);
+  const launchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [activeWorkspaces, setActiveWorkspaces] = useState<Workspace[]>([]);
   const [sandboxError, setSandboxError] = useState<string | null>(null);
   const [branch, setBranch] = useState("main");
   const [stoppingId, setStoppingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Tick a counter every second while launching
+  useEffect(() => {
+    if (launching) {
+      setLaunchElapsed(0);
+      launchTimerRef.current = setInterval(
+        () => setLaunchElapsed((s) => s + 1),
+        1000,
+      );
+    } else {
+      if (launchTimerRef.current) clearInterval(launchTimerRef.current);
+      setLaunchElapsed(0);
+    }
+    return () => {
+      if (launchTimerRef.current) clearInterval(launchTimerRef.current);
+    };
+  }, [launching]);
 
   const [prompt, setPrompt] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -379,7 +398,7 @@ export default function ProjectTasks({
               ) : (
                 <Plus className="size-4" />
               )}
-              {launching ? "Creating..." : "Create Workspace"}
+              {launching ? `Creating... ${launchElapsed}s` : "Create Workspace"}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -409,7 +428,7 @@ export default function ProjectTasks({
           ) : (
             <Plus className="size-4" />
           )}
-          {launching ? "Creating..." : "Create Workspace"}
+          {launching ? `Creating... ${launchElapsed}s` : "Create Workspace"}
         </Button>
 
         {/* Badges row */}
