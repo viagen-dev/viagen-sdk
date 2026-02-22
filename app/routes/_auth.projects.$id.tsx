@@ -715,6 +715,7 @@ export default function ProjectTasks({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) handleLaunch();
               }}
+              className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
             />
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5">
@@ -724,7 +725,7 @@ export default function ProjectTasks({
                   value={branch}
                   onChange={(e) => setBranch(e.target.value)}
                   placeholder="main"
-                  className="h-8 w-32 text-xs"
+                  className="h-8 w-32 border-0 bg-transparent px-1 text-xs shadow-none focus-visible:ring-0"
                 />
               </div>
               <div className="flex-1" />
@@ -736,11 +737,11 @@ export default function ProjectTasks({
                 {launching ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
-                  <Plus className="size-4" />
+                  <Send className="size-4" />
                 )}
                 {launching
                   ? `Creating... ${launchElapsed}s`
-                  : "Create Workspace"}
+                  : "Run task"}
               </Button>
             </div>
           </CardContent>
