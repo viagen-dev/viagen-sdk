@@ -703,14 +703,22 @@ export default function ProjectTasks({
       ) : (
         <Card className="mb-6 border-0 shadow-none">
           <CardContent className="flex flex-col gap-3">
-            <Input
-              type="text"
+            <textarea
               placeholder="Describe a task for Claude to work on..."
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) handleLaunch();
+              onChange={(e) => {
+                setPrompt(e.target.value);
+                e.target.style.height = "auto";
+                e.target.style.height = e.target.scrollHeight + "px";
               }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleLaunch();
+                }
+              }}
+              rows={1}
+              className="w-full resize-none overflow-hidden rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5">
