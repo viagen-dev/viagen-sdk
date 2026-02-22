@@ -405,7 +405,9 @@ export async function action({
 
       // 7. Build result and save workspace
       const baseUrl = sandbox.domain(5173);
-      const url = `${baseUrl}/t/${token}`;
+      const url = prompt
+        ? `${baseUrl}/via/iframe/t/${token}`
+        : `${baseUrl}/t/${token}`;
       log.info(
         {
           projectId: id,
