@@ -49,8 +49,8 @@ export async function action({
     if ("name" in body) updates.name = body.name;
     if ("vercelProjectId" in body)
       updates.vercelProjectId = body.vercelProjectId ?? null;
-    if ("vercelTeamId" in body)
-      updates.vercelTeamId = body.vercelTeamId ?? null;
+    if ("vercelOrgId" in body)
+      updates.vercelOrgId = body.vercelOrgId ?? null;
     if ("githubRepo" in body) updates.githubRepo = body.githubRepo ?? null;
 
     if (Object.keys(updates).length === 0) {

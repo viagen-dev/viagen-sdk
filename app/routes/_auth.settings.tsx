@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouteLoaderData, useSearchParams, useNavigate } from "react-router";
 import { toast } from "sonner";
-import { Ellipsis, LogOut } from "lucide-react";
+import { Ellipsis, LogOut, Database } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import {
   AlertDialog,
@@ -93,6 +93,15 @@ interface KeyStatus {
   keyPrefix?: string;
 }
 
+interface DatabaseInfo {
+  id: string;
+  name: string;
+  type: string;
+  provider: string;
+  status: string;
+  createdAt: string;
+}
+
 function initials(name: string | null, email: string): string {
   if (name) {
     return name
@@ -154,6 +163,18 @@ export default function Settings() {
   const [orgKeyInput, setOrgKeyInput] = useState("");
   const [savingOrgKey, setSavingOrgKey] = useState(false);
 
+  // Data sources state
+  const [dbList, setDbList] = useState<DatabaseInfo[]>([]);
+  const [dbLoading, setDbLoading] = useState(true);
+  const [showDbForm, setShowDbForm] = useState(false);
+  const [dbProvider, setDbProvider] = useState<"manual" | "neon">("manual");
+  const [dbName, setDbName] = useState("");
+  const [dbType, setDbType] = useState("pg");
+  const [dbConnectionString, setDbConnectionString] = useState("");
+  const [savingDb, setSavingDb] = useState(false);
+  const [deletingDbId, setDeletingDbId] = useState<string | null>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
+
   // Clean up OAuth redirect params from URL (but preserve tab)
   useEffect(() => {
     if (searchParams.has("connected") || searchParams.has("error")) {
@@ -186,6 +207,81 @@ export default function Settings() {
   useEffect(() => {
     fetchMembers();
   }, []);
+
+  // Fetch data sources
+  const fetchDatabases = () => {
+    fetch("/api/databases", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => setDbList(data.databases ?? []))
+      .catch(() => setDbError("Failed to load data sources"))
+      .finally(() => setDbLoading(false));
+  };
+
+  useEffect(() => {
+    fetchDatabases();
+  }, []);
+
+  // --- Data sources handlers ---
+  const handleAddDatabase = async () => {
+    if (!dbName.trim()) return;
+    if (dbProvider === "manual" && !dbConnectionString.trim()) return;
+    setSavingDb(true);
+    setDbError(null);
+    try {
+      const body: Record<string, string> = {
+        name: dbName.trim(),
+        type: dbType,
+        provider: dbProvider,
+      };
+      if (dbProvider === "manual") {
+        body.connectionString = dbConnectionString;
+      }
+      const res = await fetch("/api/databases", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDbError(data.error ?? "Failed to add data source");
+        return;
+      }
+      setDbList((prev) => [...prev, data.database]);
+      setShowDbForm(false);
+      setDbName("");
+      setDbConnectionString("");
+      toast.success("Data source added");
+    } catch {
+      setDbError("Failed to add data source");
+    } finally {
+      setSavingDb(false);
+    }
+  };
+
+  const handleDeleteDatabase = async (id: string) => {
+    setDeletingDbId(id);
+    setDbError(null);
+    try {
+      const res = await fetch("/api/databases", {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        setDbList((prev) => prev.filter((d) => d.id !== id));
+        toast.success("Data source deleted");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setDbError(data.error ?? "Failed to delete data source");
+      }
+    } catch {
+      setDbError("Failed to delete data source");
+    } finally {
+      setDeletingDbId(null);
+    }
+  };
 
   // --- Profile handlers ---
   const saveDisplayName = async () => {
@@ -440,18 +536,25 @@ export default function Settings() {
     toast.success("Organization Claude key removed");
   };
 
-  const getInitialSection = (): "profile" | "user" | "team" => {
+  type Section = "profile" | "user" | "team" | "data-sources";
+  const getInitialSection = (): Section => {
     const tab = searchParams.get("tab");
-    if (tab === "user" || tab === "team" || tab === "profile") return tab;
+    if (
+      tab === "user" ||
+      tab === "team" ||
+      tab === "profile" ||
+      tab === "data-sources"
+    )
+      return tab;
     if (searchParams.has("connected") || searchParams.has("error"))
       return "user";
     return "profile";
   };
-  const [activeSection, setActiveSection] = useState<
-    "profile" | "user" | "team"
-  >(getInitialSection);
+  const [activeSection, setActiveSection] = useState<Section>(
+    getInitialSection,
+  );
 
-  const handleSectionChange = (section: "profile" | "user" | "team") => {
+  const handleSectionChange = (section: Section) => {
     setActiveSection(section);
     setSearchParams({ tab: section }, { replace: true });
   };
@@ -490,6 +593,15 @@ export default function Settings() {
                 onSelect={() => handleSectionChange("team")}
               >
                 Team Settings
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
+              <NavigationMenuLink
+                data-active={activeSection === "data-sources"}
+                className="cursor-pointer hover:bg-[oklch(0.94_0_0)] data-[active=true]:bg-[oklch(0.94_0_0)] data-[active=true]:hover:bg-[oklch(0.94_0_0)]"
+                onSelect={() => handleSectionChange("data-sources")}
+              >
+                Data Sources
               </NavigationMenuLink>
             </NavigationMenuItem>
           </NavigationMenuList>
@@ -1098,6 +1210,227 @@ export default function Settings() {
                             </Item>
                           );
                         })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+
+          {/* ===== DATA SOURCES SECTION ===== */}
+          {activeSection === "data-sources" && (
+            <>
+              <div className="mb-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Data Sources</CardTitle>
+                    <CardDescription>
+                      Manage databases and data sources for{" "}
+                      {currentOrg.name}. Connection strings are stored
+                      securely and available to all projects.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {dbError && (
+                      <Alert variant="destructive" className="mb-4">
+                        <AlertDescription>{dbError}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Add data source form */}
+                    {isAdmin && !showDbForm && (
+                      <div className="mb-4">
+                        <Button onClick={() => setShowDbForm(true)} size="sm">
+                          Add Data Source
+                        </Button>
+                      </div>
+                    )}
+
+                    {showDbForm && (
+                      <div className="mb-6 rounded-lg border border-border p-4">
+                        <div className="flex flex-col gap-4">
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setDbProvider("manual")}
+                              className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+                                dbProvider === "manual"
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border bg-background text-muted-foreground hover:bg-muted"
+                              }`}
+                            >
+                              Manual
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDbProvider("neon")}
+                              className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+                                dbProvider === "neon"
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border bg-background text-muted-foreground hover:bg-muted"
+                              }`}
+                            >
+                              Neon (auto-provision)
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Input
+                              type="text"
+                              value={dbName}
+                              onChange={(e) => setDbName(e.target.value)}
+                              placeholder="Data source name"
+                              className="flex-1"
+                            />
+                            <Select
+                              value={dbType}
+                              onValueChange={(val) => setDbType(val)}
+                            >
+                              <SelectTrigger className="w-[150px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pg">PostgreSQL</SelectItem>
+                                <SelectItem value="mysql">MySQL</SelectItem>
+                                <SelectItem value="sqlite">SQLite</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {dbProvider === "manual" && (
+                            <Input
+                              type="text"
+                              value={dbConnectionString}
+                              onChange={(e) =>
+                                setDbConnectionString(e.target.value)
+                              }
+                              placeholder="Connection string (e.g. postgres://user:pass@host/db)"
+                              className="font-mono text-[0.8125rem]"
+                            />
+                          )}
+                          {dbProvider === "neon" && (
+                            <Muted>
+                              A new Neon PostgreSQL project will be created
+                              automatically. Requires NEON_API_KEY in team
+                              settings.
+                            </Muted>
+                          )}
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={handleAddDatabase}
+                              disabled={
+                                savingDb ||
+                                !dbName.trim() ||
+                                (dbProvider === "manual" &&
+                                  !dbConnectionString.trim())
+                              }
+                              size="sm"
+                            >
+                              {savingDb
+                                ? dbProvider === "neon"
+                                  ? "Provisioning..."
+                                  : "Saving..."
+                                : dbProvider === "neon"
+                                  ? "Provision"
+                                  : "Add"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setShowDbForm(false);
+                                setDbError(null);
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Data sources list */}
+                    {dbLoading ? (
+                      <Muted className="py-4">Loading...</Muted>
+                    ) : dbList.length === 0 && !showDbForm ? (
+                      <div className="flex flex-col items-center gap-3 py-8">
+                        <Database className="size-8 text-muted-foreground/50" />
+                        <Muted>No data sources connected yet.</Muted>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {dbList.map((database) => (
+                          <Item key={database.id} variant="outline" size="sm">
+                            <ItemMedia variant="icon">
+                              <Database className="size-4" />
+                            </ItemMedia>
+                            <ItemContent>
+                              <ItemTitle>{database.name}</ItemTitle>
+                              <ItemDescription>
+                                {database.provider === "neon"
+                                  ? "Neon"
+                                  : "Manual"}{" "}
+                                &middot; {database.type}
+                              </ItemDescription>
+                            </ItemContent>
+                            <ItemActions>
+                              <Badge
+                                className={
+                                  database.status === "ready"
+                                    ? "border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
+                                    : database.status === "error"
+                                      ? "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
+                                      : "border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"
+                                }
+                              >
+                                {database.status}
+                              </Badge>
+                              {isAdmin && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="xs"
+                                      className="text-destructive hover:text-destructive/80"
+                                      disabled={deletingDbId === database.id}
+                                    >
+                                      {deletingDbId === database.id
+                                        ? "Deleting..."
+                                        : "Delete"}
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        Delete data source
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Delete &ldquo;{database.name}&rdquo;?
+                                        This is permanent
+                                        {database.provider === "neon" &&
+                                          " and will destroy the Neon project"}
+                                        .
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <CardFooter className="border-t justify-end gap-2 -mx-6 -mb-6 mt-2">
+                                      <AlertDialogCancel size="sm">
+                                        Cancel
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleDeleteDatabase(database.id)
+                                        }
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </CardFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </ItemActions>
+                          </Item>
+                        ))}
                       </div>
                     )}
                   </CardContent>

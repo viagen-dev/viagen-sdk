@@ -225,7 +225,7 @@ export async function action({
       hasGithubToken: !!githubToken,
       hasVercelToken: !!vercelToken,
       hasVercelProjectId: !!project.vercelProjectId,
-      hasVercelTeamId: !!project.vercelTeamId,
+      hasVercelOrgId: !!project.vercelOrgId,
     },
     "sandbox credentials resolved",
   );
@@ -291,7 +291,7 @@ export async function action({
         "apt-get update -qq && apt-get install -y -qq gh > /dev/null 2>&1 || true",
       ]);
 
-      // 4. Build .env — use per-project vercelTeamId, NOT process.env
+      // 4. Build .env — use per-project vercelOrgId, NOT process.env
       const envMap: Record<string, string> = { ...envVars };
       envMap["VIAGEN_AUTH_TOKEN"] = token;
       envMap["VIAGEN_SESSION_START"] = String(Math.floor(Date.now() / 1000));
@@ -311,7 +311,7 @@ export async function action({
       }
 
       if (vercelToken) envMap["VERCEL_TOKEN"] = vercelToken;
-      if (project.vercelTeamId) envMap["VERCEL_ORG_ID"] = project.vercelTeamId;
+      if (project.vercelOrgId) envMap["VERCEL_ORG_ID"] = project.vercelOrgId;
       if (project.vercelProjectId)
         envMap["VERCEL_PROJECT_ID"] = project.vercelProjectId;
 
@@ -344,7 +344,7 @@ export async function action({
 
       // 7. Build result and save workspace
       const baseUrl = sandbox.domain(5173);
-      const url = `${baseUrl}?token=${token}`;
+      const url = `${baseUrl}/t/${token}`;
       log.info(
         { projectId: id, baseUrl, hasToken: !!token, envKeysWritten: Object.keys(envMap).length },
         "sandbox URL constructed",
@@ -362,7 +362,7 @@ export async function action({
           gitRemoteUrl: remoteUrl,
           gitUserName: "viagen",
           gitUserEmail: "bot@viagen.dev",
-          vercelTeamId: project.vercelTeamId ?? null,
+          vercelOrgId: project.vercelOrgId ?? null,
           vercelProjectId: project.vercelProjectId ?? null,
           viagenProjectId: id,
           createdBy: user.id,

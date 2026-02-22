@@ -37,7 +37,7 @@ export const projects = pgTable('projects', {
   organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 255 }).notNull(),
   vercelProjectId: varchar('vercel_project_id', { length: 255 }),
-  vercelTeamId: varchar('vercel_team_id', { length: 255 }),
+  vercelOrgId: varchar('vercel_org_id', { length: 255 }),
   githubRepo: varchar('github_repo', { length: 255 }),
   templateId: varchar('template_id', { length: 64 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -54,11 +54,24 @@ export const workspaces = pgTable('workspaces', {
   gitRemoteUrl: varchar('git_remote_url', { length: 1024 }),
   gitUserName: varchar('git_user_name', { length: 255 }),
   gitUserEmail: varchar('git_user_email', { length: 255 }),
-  vercelTeamId: varchar('vercel_team_id', { length: 255 }),
+  vercelOrgId: varchar('vercel_org_id', { length: 255 }),
   vercelProjectId: varchar('vercel_project_id', { length: 255 }),
   viagenProjectId: uuid('viagen_project_id'),
   createdBy: uuid('created_by').notNull().references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export const databases = pgTable('databases', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  type: varchar('type', { length: 32 }).notNull().default('pg'),
+  provider: varchar('provider', { length: 32 }).notNull().default('neon'),
+  providerMeta: text('provider_meta'),
+  status: varchar('status', { length: 32 }).notNull().default('provisioning'),
+  createdBy: uuid('created_by').notNull().references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull().$onUpdate(() => new Date()),
 })
 
 export const apiTokens = pgTable('api_tokens', {
@@ -77,4 +90,5 @@ export type Organization = typeof organizations.$inferSelect
 export type OrgMember = typeof orgMembers.$inferSelect
 export type Project = typeof projects.$inferSelect
 export type Workspace = typeof workspaces.$inferSelect
+export type Database = typeof databases.$inferSelect
 export type ApiToken = typeof apiTokens.$inferSelect

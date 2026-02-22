@@ -37,6 +37,7 @@ export default [
   route("api/projects/:id/claude", "routes/api.projects.$id.claude.ts"),
   route("api/projects/:id/secrets", "routes/api.projects.$id.secrets.ts"),
   route("api/projects/:id/sandbox", "routes/api.projects.$id.sandbox.ts"),
+  route("api/databases", "routes/api.databases.ts"),
   route("api/projects/:id/status", "routes/api.projects.$id.status.ts"),
   route("api/vercel/projects", "routes/api.vercel.projects.ts"),
   route("api/github/repos", "routes/api.github.repos.ts"),
