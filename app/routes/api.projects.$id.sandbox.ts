@@ -321,32 +321,8 @@ export async function action({
         ]);
       }
 
-      // 3. Install vercel and gh CLIs
+      // 3. Install vercel CLI
       await sandbox.runCommand("npm", ["install", "-g", "vercel", "--silent"]);
-      // Install gh CLI — try apt-get first, fall back to direct binary download
-      const ghInstall = await sandbox.runCommand("bash", [
-        "-c",
-        [
-          'set -e',
-          'if command -v gh &>/dev/null; then exit 0; fi',
-          // Try apt-get (Debian/Ubuntu)
-          'if command -v apt-get &>/dev/null; then',
-          '  apt-get update -qq 2>/dev/null && apt-get install -y -qq gh 2>/dev/null && exit 0',
-          'fi',
-          // Fallback: download gh binary directly
-          'GH_VERSION="2.67.0"',
-          'ARCH=$(uname -m | sed "s/x86_64/amd64/;s/aarch64/arm64/")',
-          'curl -sSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${ARCH}.tar.gz" | tar xz -C /tmp',
-          'cp /tmp/gh_${GH_VERSION}_linux_${ARCH}/bin/gh /usr/local/bin/gh',
-          'chmod +x /usr/local/bin/gh',
-        ].join("\n"),
-      ]);
-      if (ghInstall.exitCode !== 0) {
-        log.warn(
-          { projectId: id, exitCode: ghInstall.exitCode },
-          "gh CLI installation failed",
-        );
-      }
 
       // 4. Build .env — use per-project vercelOrgId, NOT process.env
       const envMap: Record<string, string> = { ...envVars };
