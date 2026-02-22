@@ -386,6 +386,20 @@ export default function ProjectTasks({
           <h1 className="min-w-0 flex-1 truncate text-xl font-semibold leading-tight sm:text-2xl">
             {project.name}
           </h1>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              size="sm"
+              className="hidden sm:inline-flex"
+              disabled={!allReady || launching}
+              onClick={handleLaunch}
+            >
+              {launching ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Plus className="size-4" />
+              )}
+              {launching ? `Creating... ${launchElapsed}s` : "Create Workspace"}
+            </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
@@ -400,6 +414,7 @@ export default function ProjectTasks({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
 
         {/* Badges row */}
