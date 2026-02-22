@@ -143,10 +143,7 @@ export async function action({
   const prompt: string | null = body.prompt?.trim() || null;
 
   if (rawBranch !== branch) {
-    log.info(
-      { rawBranch, branch },
-      "sanitized branch name",
-    );
+    log.info({ rawBranch, branch }, "sanitized branch name");
   }
 
   log.info(
@@ -332,8 +329,9 @@ export async function action({
       envMap["VIAGEN_PROJECT_ID"] = id;
 
       if (prompt) {
-        envMap["VIAGEN_PROMPT"] =
-          `${prompt}. When you are done, commit your changes, push and create a pull request against main using the gh command`;
+        envMap["VIAGEN_PROMPT"] = `${prompt}.
+
+          When you are done, commit your changes push and create a pull request using github API via fetch call.`;
       }
 
       if (anthropicApiKey) envMap["ANTHROPIC_API_KEY"] = anthropicApiKey;
