@@ -133,8 +133,21 @@ export async function action({
 
   // Accept branch + optional prompt from request body
   const body = await request.json().catch(() => ({}));
-  const branch = body.branch ?? "main";
+  const rawBranch: string = body.branch?.trim() || "main";
+  // Sanitize branch name: lowercase, replace spaces/invalid chars with dashes, collapse runs
+  const branch = rawBranch
+    .toLowerCase()
+    .replace(/[^a-z0-9._/-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-|-$/g, "");
   const prompt: string | null = body.prompt?.trim() || null;
+
+  if (rawBranch !== branch) {
+    log.info(
+      { rawBranch, branch },
+      "sanitized branch name",
+    );
+  }
 
   log.info(
     {
@@ -338,7 +351,11 @@ export async function action({
       envMap["VIAGEN_SESSION_START"] = String(Math.floor(Date.now() / 1000));
       envMap["VIAGEN_SESSION_TIMEOUT"] = String(timeoutMinutes * 60);
       envMap["VIAGEN_PROJECT_ID"] = id;
-      if (prompt) envMap["VIAGEN_PROMPT"] = prompt;
+
+      if (prompt) {
+        envMap["VIAGEN_PROMPT"] =
+          `${prompt}. When you are done, commit your changes, push and create a pull request against main using the gh command`;
+      }
 
       if (anthropicApiKey) envMap["ANTHROPIC_API_KEY"] = anthropicApiKey;
       if (effectiveClaudeToken) {
