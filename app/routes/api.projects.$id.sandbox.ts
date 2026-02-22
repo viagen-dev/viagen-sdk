@@ -131,9 +131,10 @@ export async function action({
     );
   }
 
-  // Accept optional branch from request body
+  // Accept branch + optional prompt from request body
   const body = await request.json().catch(() => ({}));
   const branch = body.branch ?? "main";
+  const prompt: string | null = body.prompt?.trim() || null;
 
   log.info(
     {
@@ -142,6 +143,7 @@ export async function action({
       orgId: org.id,
       repo: project.githubRepo,
       branch,
+      hasPrompt: !!prompt,
     },
     "sandbox launch requested",
   );
@@ -159,19 +161,25 @@ export async function action({
       () => null,
     )) ??
     (await getSecret(org.id, "CLAUDE_ACCESS_TOKEN").catch(() => null)) ??
-    (await getSecret(`user/${user.id}`, "CLAUDE_ACCESS_TOKEN").catch(() => null));
+    (await getSecret(`user/${user.id}`, "CLAUDE_ACCESS_TOKEN").catch(
+      () => null,
+    ));
   const claudeRefreshToken =
     (await getProjectSecret(org.id, id, "CLAUDE_REFRESH_TOKEN").catch(
       () => null,
     )) ??
     (await getSecret(org.id, "CLAUDE_REFRESH_TOKEN").catch(() => null)) ??
-    (await getSecret(`user/${user.id}`, "CLAUDE_REFRESH_TOKEN").catch(() => null));
+    (await getSecret(`user/${user.id}`, "CLAUDE_REFRESH_TOKEN").catch(
+      () => null,
+    ));
   const claudeTokenExpires =
     (await getProjectSecret(org.id, id, "CLAUDE_TOKEN_EXPIRES").catch(
       () => null,
     )) ??
     (await getSecret(org.id, "CLAUDE_TOKEN_EXPIRES").catch(() => null)) ??
-    (await getSecret(`user/${user.id}`, "CLAUDE_TOKEN_EXPIRES").catch(() => null));
+    (await getSecret(`user/${user.id}`, "CLAUDE_TOKEN_EXPIRES").catch(
+      () => null,
+    ));
   const anthropicApiKey =
     (await getProjectSecret(org.id, id, "ANTHROPIC_API_KEY").catch(
       () => null,
@@ -213,7 +221,22 @@ export async function action({
       return null;
     }));
 
-  const claudeAuth = claudeAccessToken
+  // Check if the Claude OAuth token is expired — if so, don't pass it to the
+  // sandbox so ANTHROPIC_API_KEY is used instead.
+  let claudeOAuthExpired = false;
+  if (claudeAccessToken && claudeTokenExpires) {
+    const expiresMs = Number(claudeTokenExpires);
+    if (!isNaN(expiresMs) && expiresMs < Date.now()) {
+      claudeOAuthExpired = true;
+      log.info(
+        { projectId: id },
+        "CLAUDE_ACCESS_TOKEN expired, falling back to ANTHROPIC_API_KEY for sandbox",
+      );
+    }
+  }
+
+  const effectiveClaudeToken = claudeOAuthExpired ? null : claudeAccessToken;
+  const claudeAuth = effectiveClaudeToken
     ? "oauth"
     : anthropicApiKey
       ? "api_key"
@@ -222,6 +245,7 @@ export async function action({
     {
       projectId: id,
       claudeAuth,
+      claudeOAuthExpired,
       hasGithubToken: !!githubToken,
       hasVercelToken: !!vercelToken,
       hasVercelProjectId: !!project.vercelProjectId,
@@ -286,10 +310,27 @@ export async function action({
 
       // 3. Install vercel and gh CLIs
       await sandbox.runCommand("npm", ["install", "-g", "vercel", "--silent"]);
-      await sandbox.runCommand("bash", [
+      // Install gh CLI — try apt-get first, fall back to direct binary download
+      const ghInstall = await sandbox.runCommand("bash", [
         "-c",
-        "apt-get update -qq && apt-get install -y -qq gh > /dev/null 2>&1 || true",
+        [
+          "if command -v gh &>/dev/null; then exit 0; fi",
+          // Try apt-get (Debian/Ubuntu)
+          "if command -v apt-get &>/dev/null; then apt-get update -qq && apt-get install -y -qq gh 2>/dev/null && exit 0; fi",
+          // Fallback: download gh binary directly
+          'GH_VERSION="2.67.0"',
+          'ARCH=$(uname -m | sed "s/x86_64/amd64/;s/aarch64/arm64/")',
+          'curl -sSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${ARCH}.tar.gz" | tar xz -C /tmp',
+          "cp /tmp/gh_${GH_VERSION}_linux_${ARCH}/bin/gh /usr/local/bin/gh",
+          "chmod +x /usr/local/bin/gh",
+        ].join(" && "),
       ]);
+      if (ghInstall.exitCode !== 0) {
+        log.warn(
+          { projectId: id, exitCode: ghInstall.exitCode },
+          "gh CLI installation failed",
+        );
+      }
 
       // 4. Build .env — use per-project vercelOrgId, NOT process.env
       const envMap: Record<string, string> = { ...envVars };
@@ -297,13 +338,16 @@ export async function action({
       envMap["VIAGEN_SESSION_START"] = String(Math.floor(Date.now() / 1000));
       envMap["VIAGEN_SESSION_TIMEOUT"] = String(timeoutMinutes * 60);
       envMap["VIAGEN_PROJECT_ID"] = id;
+      if (prompt) envMap["VIAGEN_PROMPT"] = prompt;
 
       if (anthropicApiKey) envMap["ANTHROPIC_API_KEY"] = anthropicApiKey;
-      if (claudeAccessToken) envMap["CLAUDE_ACCESS_TOKEN"] = claudeAccessToken;
-      if (claudeRefreshToken)
-        envMap["CLAUDE_REFRESH_TOKEN"] = claudeRefreshToken;
-      if (claudeTokenExpires)
-        envMap["CLAUDE_TOKEN_EXPIRES"] = claudeTokenExpires;
+      if (effectiveClaudeToken) {
+        envMap["CLAUDE_ACCESS_TOKEN"] = effectiveClaudeToken;
+        if (claudeRefreshToken)
+          envMap["CLAUDE_REFRESH_TOKEN"] = claudeRefreshToken;
+        if (claudeTokenExpires)
+          envMap["CLAUDE_TOKEN_EXPIRES"] = claudeTokenExpires;
+      }
 
       if (githubToken) {
         envMap["GITHUB_TOKEN"] = githubToken;
@@ -346,7 +390,12 @@ export async function action({
       const baseUrl = sandbox.domain(5173);
       const url = `${baseUrl}/t/${token}`;
       log.info(
-        { projectId: id, baseUrl, hasToken: !!token, envKeysWritten: Object.keys(envMap).length },
+        {
+          projectId: id,
+          baseUrl,
+          hasToken: !!token,
+          envKeysWritten: Object.keys(envMap).length,
+        },
         "sandbox URL constructed",
       );
       const expiresAt = new Date(Date.now() + timeoutMs);
