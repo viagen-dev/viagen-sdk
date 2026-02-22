@@ -1,8 +1,12 @@
 import * as schema from './schema'
 
-const url = process.env.DATABASE_URL!
+const url = process.env.DATABASE_URL
 
 async function createDb() {
+  if (!url) {
+    throw new Error('[db] DATABASE_URL environment variable is not set')
+  }
+
   if (url.includes('neon.tech')) {
     const { neon } = await import('@neondatabase/serverless')
     const { drizzle } = await import('drizzle-orm/neon-http')
