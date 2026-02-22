@@ -153,23 +153,31 @@ export async function action({
     envVars[s.key] = s.value;
   }
 
-  // Claude credentials (project > org)
+  // Claude credentials (project > org > user)
   const claudeAccessToken =
     (await getProjectSecret(org.id, id, "CLAUDE_ACCESS_TOKEN").catch(
       () => null,
-    )) ?? (await getSecret(org.id, "CLAUDE_ACCESS_TOKEN").catch(() => null));
+    )) ??
+    (await getSecret(org.id, "CLAUDE_ACCESS_TOKEN").catch(() => null)) ??
+    (await getSecret(`user/${user.id}`, "CLAUDE_ACCESS_TOKEN").catch(() => null));
   const claudeRefreshToken =
     (await getProjectSecret(org.id, id, "CLAUDE_REFRESH_TOKEN").catch(
       () => null,
-    )) ?? (await getSecret(org.id, "CLAUDE_REFRESH_TOKEN").catch(() => null));
+    )) ??
+    (await getSecret(org.id, "CLAUDE_REFRESH_TOKEN").catch(() => null)) ??
+    (await getSecret(`user/${user.id}`, "CLAUDE_REFRESH_TOKEN").catch(() => null));
   const claudeTokenExpires =
     (await getProjectSecret(org.id, id, "CLAUDE_TOKEN_EXPIRES").catch(
       () => null,
-    )) ?? (await getSecret(org.id, "CLAUDE_TOKEN_EXPIRES").catch(() => null));
+    )) ??
+    (await getSecret(org.id, "CLAUDE_TOKEN_EXPIRES").catch(() => null)) ??
+    (await getSecret(`user/${user.id}`, "CLAUDE_TOKEN_EXPIRES").catch(() => null));
   const anthropicApiKey =
     (await getProjectSecret(org.id, id, "ANTHROPIC_API_KEY").catch(
       () => null,
-    )) ?? (await getSecret(org.id, "ANTHROPIC_API_KEY").catch(() => null));
+    )) ??
+    (await getSecret(org.id, "ANTHROPIC_API_KEY").catch(() => null)) ??
+    (await getSecret(`user/${user.id}`, "ANTHROPIC_API_KEY").catch(() => null));
 
   // Vercel credentials (project override > user's token)
   const vercelToken =
@@ -307,9 +315,15 @@ export async function action({
       if (project.vercelProjectId)
         envMap["VERCEL_PROJECT_ID"] = project.vercelProjectId;
 
-      const envLines = Object.entries(envMap).map(([k, v]) => `${k}=${v}`);
+      const escapeEnvValue = (v: string) =>
+        v.includes("\n") || v.includes('"') || v.includes("'")
+          ? `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`
+          : v;
+      const envLines = Object.entries(envMap).map(
+        ([k, v]) => `${k}=${escapeEnvValue(v)}`,
+      );
       await sandbox.writeFiles([
-        { path: ".env", content: Buffer.from(envLines.join("\n")) },
+        { path: ".env", content: Buffer.from(envLines.join("\n") + "\n") },
       ]);
 
       // 5. Install dependencies
@@ -331,6 +345,10 @@ export async function action({
       // 7. Build result and save workspace
       const baseUrl = sandbox.domain(5173);
       const url = `${baseUrl}?token=${token}`;
+      log.info(
+        { projectId: id, baseUrl, hasToken: !!token, envKeysWritten: Object.keys(envMap).length },
+        "sandbox URL constructed",
+      );
       const expiresAt = new Date(Date.now() + timeoutMs);
 
       const [workspace] = await db
