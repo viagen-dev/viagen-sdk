@@ -393,12 +393,8 @@ export default function ProjectTasks({
               disabled={!allReady || launching}
               onClick={handleLaunch}
             >
-              {launching ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Plus className="size-4" />
-              )}
-              {launching ? `Creating... ${launchElapsed}s` : "Create Workspace"}
+              <Plus className="size-4" />
+              Create Workspace
             </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
