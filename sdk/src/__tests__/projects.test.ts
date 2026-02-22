@@ -189,6 +189,16 @@ describe.skipIf(!TOKEN)('projects', () => {
       expect(second.project.name).toBe(newName)
     })
 
+    it('sync() sets vercel fields', async () => {
+      const result = await authed.projects.sync({
+        name: `sync-vercel-${Date.now()}`,
+        vercelProjectId: 'prj_test123',
+        vercelOrgId: 'team_test456',
+      })
+      expect(result.project.vercelProjectId).toBe('prj_test123')
+      expect(result.project.vercelOrgId).toBe('team_test456')
+    })
+
     it('sync() creates a new project when ID is not found', async () => {
       const result = await authed.projects.sync({
         id: '00000000-0000-0000-0000-000000000000',

@@ -38,6 +38,8 @@ export async function action({ request }: { request: Request }) {
         name: body.name.trim(),
         ...(body.templateId !== undefined && { templateId: body.templateId }),
         ...(body.githubRepo !== undefined && { githubRepo: body.githubRepo }),
+        ...(body.vercelProjectId !== undefined && { vercelProjectId: body.vercelProjectId }),
+        ...(body.vercelOrgId !== undefined && { vercelOrgId: body.vercelOrgId }),
       })
       .where(and(eq(projects.id, body.id), eq(projects.organizationId, org.id)))
       .returning();
@@ -56,6 +58,8 @@ export async function action({ request }: { request: Request }) {
         name: body.name.trim(),
         templateId: body.templateId ?? null,
         githubRepo: body.githubRepo ?? null,
+        vercelProjectId: body.vercelProjectId ?? null,
+        vercelOrgId: body.vercelOrgId ?? null,
       })
       .returning();
 

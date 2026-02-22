@@ -4,6 +4,7 @@ export interface Project {
   name: string
   templateId: string | null
   vercelProjectId: string | null
+  vercelOrgId: string | null
   githubRepo: string | null
   createdAt: string
   updatedAt: string
@@ -13,12 +14,14 @@ export interface CreateProjectInput {
   name: string
   templateId?: string
   vercelProjectId?: string
+  vercelOrgId?: string
   githubRepo?: string
 }
 
 export interface UpdateProjectInput {
   name?: string
   vercelProjectId?: string | null
+  vercelOrgId?: string | null
   githubRepo?: string | null
 }
 
@@ -27,6 +30,8 @@ export interface SyncProjectInput {
   name: string
   templateId?: string
   githubRepo?: string
+  vercelProjectId?: string
+  vercelOrgId?: string
   secrets?: Record<string, string>
 }
 
@@ -39,6 +44,25 @@ export interface ProjectSecret {
   key: string
   value: string
   source: 'project' | 'org'
+}
+
+export interface ProjectDatabase {
+  id: string
+  projectId: string
+  name: string
+  type: string
+  provider: string
+  providerMeta: string | null
+  status: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProvisionDatabaseInput {
+  name?: string
+  provider?: string
+  region?: string
 }
 
 export interface ClaudeStatus {
@@ -72,6 +96,12 @@ export interface ProjectsClient {
   setSecret(id: string, key: string, value: string): Promise<void>
   /** Delete a project secret. Admin only. */
   deleteSecret(id: string, key: string): Promise<void>
+  /** Get the database for a project. */
+  getDatabase(id: string): Promise<ProjectDatabase | null>
+  /** Provision a database for a project. Admin only. */
+  provisionDatabase(id: string, input?: ProvisionDatabaseInput): Promise<ProjectDatabase>
+  /** Delete the database for a project. Admin only. */
+  deleteDatabase(id: string): Promise<void>
 }
 
 export function createProjectsClient(_baseUrl: string, request: RequestFn): ProjectsClient {
@@ -147,6 +177,23 @@ export function createProjectsClient(_baseUrl: string, request: RequestFn): Proj
         method: 'DELETE',
         body: JSON.stringify({ key }),
       })
+    },
+
+    async getDatabase(id) {
+      const data = await request<{ database: ProjectDatabase | null }>(`/api/projects/${id}/database`)
+      return data.database
+    },
+
+    async provisionDatabase(id, input = {}) {
+      const data = await request<{ database: ProjectDatabase }>(`/api/projects/${id}/database`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      })
+      return data.database
+    },
+
+    async deleteDatabase(id) {
+      await request<{ success: boolean }>(`/api/projects/${id}/database`, { method: 'DELETE' })
     },
   }
 }

@@ -39,6 +39,8 @@ import {
   GitBranch,
   Square,
   Triangle,
+  Copy,
+  Check,
 } from "lucide-react";
 
 export async function loader({
@@ -184,6 +186,7 @@ export default function ProjectTasks({
   const [sandboxError, setSandboxError] = useState<string | null>(null);
   const [branch, setBranch] = useState("main");
   const [stoppingId, setStoppingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [prompt, setPrompt] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -374,21 +377,9 @@ export default function ProjectTasks({
               {launching ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
-                <ExternalLink className="size-4" />
+                <Plus className="size-4" />
               )}
-              {launching ? "Opening..." : "Open Workspace"}
-            </Button>
-            <Button
-              size="icon"
-              className="sm:hidden"
-              disabled={!allReady || launching}
-              onClick={handleLaunch}
-            >
-              {launching ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <ExternalLink className="size-4" />
-              )}
+              {launching ? "Creating..." : "Create Workspace"}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -407,57 +398,19 @@ export default function ProjectTasks({
           </div>
         </div>
 
-        {/* Active workspaces */}
-        {activeWorkspaces.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {activeWorkspaces.map((ws) => (
-              <div
-                key={ws.id}
-                className="flex items-center gap-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm dark:border-green-800 dark:bg-green-950/30"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <GitBranch className="size-3.5 shrink-0 text-green-700 dark:text-green-400" />
-                  <span className="font-medium text-green-800 dark:text-green-300">
-                    {ws.branch}
-                  </span>
-                  <span className="text-xs text-green-600 dark:text-green-500">
-                    {timeAgo(ws.createdAt)}
-                  </span>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 gap-1.5 text-xs"
-                    onClick={() => window.open(ws.url, "_blank", "noopener,noreferrer")}
-                  >
-                    <ExternalLink className="size-3" />
-                    View
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 gap-1.5 text-xs text-destructive hover:bg-destructive/10"
-                    disabled={stoppingId === ws.id}
-                    onClick={() => handleStopWorkspace(ws.id)}
-                  >
-                    {stoppingId === ws.id ? (
-                      <Loader2 className="size-3 animate-spin" />
-                    ) : (
-                      <Square className="size-3" />
-                    )}
-                    Stop
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {sandboxError && (
-          <Alert variant="destructive">
-            <AlertDescription>{sandboxError}</AlertDescription>
-          </Alert>
-        )}
+        {/* Mobile create workspace button */}
+        <Button
+          className="w-full sm:hidden"
+          disabled={!allReady || launching}
+          onClick={handleLaunch}
+        >
+          {launching ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Plus className="size-4" />
+          )}
+          {launching ? "Creating..." : "Create Workspace"}
+        </Button>
 
         {/* Badges row */}
         <div className="flex flex-wrap items-center gap-1.5">
@@ -566,6 +519,82 @@ export default function ProjectTasks({
           </Card>
         )}
       </div>
+
+      {/* Active workspaces */}
+      {activeWorkspaces.length > 0 && (
+        <div className="mb-6">
+          <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+            Active Workspaces
+          </h2>
+          <div className="flex flex-col gap-2">
+            {activeWorkspaces.map((ws) => (
+              <div
+                key={ws.id}
+                className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="font-medium">
+                    {ws.branch}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {timeAgo(ws.createdAt)}
+                  </span>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1.5 text-xs"
+                    asChild
+                  >
+                    <a href={ws.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="size-3" />
+                      View
+                    </a>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1.5 text-xs"
+                    onClick={() => {
+                      navigator.clipboard.writeText(ws.url);
+                      setCopiedId(ws.id);
+                      setTimeout(() => setCopiedId(null), 2000);
+                    }}
+                  >
+                    {copiedId === ws.id ? (
+                      <Check className="size-3" />
+                    ) : (
+                      <Copy className="size-3" />
+                    )}
+                    {copiedId === ws.id ? "Copied" : "Copy"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1.5 text-xs text-destructive hover:bg-destructive/10"
+                    disabled={stoppingId === ws.id}
+                    onClick={() => handleStopWorkspace(ws.id)}
+                  >
+                    {stoppingId === ws.id ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <Square className="size-3" />
+                    )}
+                    Stop
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {sandboxError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>{sandboxError}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Task input or connection prompts */}
       {statusLoading ? (
