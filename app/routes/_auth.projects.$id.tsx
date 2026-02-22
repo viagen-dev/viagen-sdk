@@ -186,7 +186,7 @@ export default function ProjectTasks({
   const launchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [activeWorkspaces, setActiveWorkspaces] = useState<Workspace[]>([]);
   const [sandboxError, setSandboxError] = useState<string | null>(null);
-  const [branch, setBranch] = useState("main");
+  const [branch, setBranch] = useState("feat");
   const [stoppingId, setStoppingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
