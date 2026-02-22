@@ -705,7 +705,7 @@ export default function ProjectTasks({
           </CardContent>
         </Card>
       ) : (
-        <Card className="mb-6">
+        <Card className="mb-6 border-0 shadow-none">
           <CardContent className="flex flex-col gap-3">
             <Input
               type="text"
@@ -715,7 +715,6 @@ export default function ProjectTasks({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) handleLaunch();
               }}
-              className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
             />
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5">
@@ -725,7 +724,7 @@ export default function ProjectTasks({
                   value={branch}
                   onChange={(e) => setBranch(e.target.value)}
                   placeholder="main"
-                  className="h-8 w-32 border-0 bg-transparent px-1 text-xs shadow-none focus-visible:ring-0"
+                  className="h-8 w-32 text-xs"
                 />
               </div>
               <div className="flex-1" />
