@@ -64,7 +64,7 @@ export async function loader({ params, request }: { params: { provider: string }
         if (!membership) {
           log.warn({ userId: result.user.id, orgId: connectOrgId }, 'github connect: user not a member of org')
         } else {
-          await setSecret(`user/${result.user.id}`, 'GITHUB_ACCESS_TOKEN', tokens.accessToken())
+          await setSecret(connectOrgId, 'GITHUB_TOKEN', tokens.accessToken())
           log.info({ userId: result.user.id, orgId: connectOrgId }, 'github integration connected')
           connected = true
         }

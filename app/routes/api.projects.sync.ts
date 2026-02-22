@@ -110,7 +110,7 @@ export async function action({ request }: { request: Request }) {
   // Resolve all secrets across scopes so the CLI can verify what's available
   let resolvedKeys: string[] = [];
   try {
-    const resolved = await resolveAllSecrets(org.id, project.id, user.id);
+    const resolved = await resolveAllSecrets(org.id, project.id);
     const flat = flattenSecrets(resolved);
     resolvedKeys = Object.keys(flat).sort();
   } catch (err) {

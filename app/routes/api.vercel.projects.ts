@@ -3,9 +3,9 @@ import { getSecret } from '~/lib/infisical.server'
 import { listVercelProjects } from '~/lib/vercel.server'
 
 export async function loader({ request }: { request: Request }) {
-  const { user } = await requireAuth(request)
+  const { org } = await requireAuth(request)
 
-  const token = await getSecret(`user/${user.id}`, 'VERCEL_ACCESS_TOKEN').catch(() => null)
+  const token = await getSecret(org.id, 'VERCEL_TOKEN').catch(() => null)
   if (!token) {
     return Response.json({ error: 'Vercel not connected' }, { status: 400 })
   }

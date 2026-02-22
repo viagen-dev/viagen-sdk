@@ -44,7 +44,7 @@ export interface SyncResult {
 export interface ProjectSecret {
   key: string
   value: string
-  source: 'project' | 'org' | 'user'
+  source: 'project' | 'org'
 }
 
 export interface ProjectDatabase {
@@ -68,7 +68,7 @@ export interface ProvisionDatabaseInput {
 
 export interface ClaudeStatus {
   connected: boolean
-  source?: 'project' | 'org' | 'user'
+  source?: 'project' | 'org'
   keyPrefix?: string
 }
 
@@ -83,7 +83,7 @@ export interface ProjectsClient {
   update(id: string, input: UpdateProjectInput): Promise<Project>
   /** Delete a project by ID. Admin only. */
   delete(id: string): Promise<void>
-  /** Get Claude API key status for a project (resolves project > org > user). */
+  /** Get Claude API key status for a project (resolves project > org). */
   getClaudeStatus(id: string): Promise<ClaudeStatus>
   /** Set Anthropic API key for a project. Admin only. */
   setClaudeKey(id: string, apiKey: string): Promise<void>
@@ -165,12 +165,10 @@ export function createProjectsClient(_baseUrl: string, request: RequestFn): Proj
       const data = await request<{
         project: { key: string; value: string }[]
         org: { key: string; value: string }[]
-        user: { key: string; value: string }[]
       }>(`/api/projects/${id}/secrets`)
       return [
         ...data.project.map((s) => ({ ...s, source: 'project' as const })),
         ...data.org.map((s) => ({ ...s, source: 'org' as const })),
-        ...data.user.map((s) => ({ ...s, source: 'user' as const })),
       ]
     },
 

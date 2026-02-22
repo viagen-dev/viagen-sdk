@@ -4,7 +4,7 @@ import { validateSession } from '~/lib/auth.server'
 import { parseCookie, deleteCookieHeader } from '~/lib/session.server'
 import { log } from '~/lib/logger.server'
 
-const VERCEL_TOKEN_KEY = 'VERCEL_ACCESS_TOKEN'
+const VERCEL_TOKEN_KEY = 'VERCEL_TOKEN'
 const SESSION_COOKIE = 'viagen-session'
 const redirectBase = process.env.AUTH_REDIRECT_BASE ?? 'http://localhost:5173'
 
@@ -55,8 +55,13 @@ export async function loader({ request }: { request: Request }) {
     }
 
     const data = await res.json()
-    await setSecret(`user/${session.user.id}`, VERCEL_TOKEN_KEY, data.access_token)
-    log.info({ userId: session.user.id }, 'vercel integration connected')
+    const orgId = parseCookie(cookieHeader, 'vercel-connect-org')
+    if (!orgId) {
+      log.warn('vercel callback: missing org cookie')
+      return redirect(`${returnTo}?error=vercel`, { headers })
+    }
+    await setSecret(orgId, VERCEL_TOKEN_KEY, data.access_token)
+    log.info({ userId: session.user.id, orgId }, 'vercel integration connected')
 
     return redirect(`${returnTo}?connected=vercel`, { headers })
   } catch (err) {

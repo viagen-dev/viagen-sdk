@@ -2,12 +2,12 @@ import { requireAuth } from '~/lib/session.server'
 import { getSecret } from '~/lib/infisical.server'
 import { log } from '~/lib/logger.server'
 
-const GITHUB_TOKEN_KEY = 'GITHUB_ACCESS_TOKEN'
+const GITHUB_TOKEN_KEY = 'GITHUB_TOKEN'
 
 export async function loader({ request }: { request: Request }) {
-  const { user } = await requireAuth(request)
+  const { user, org } = await requireAuth(request)
 
-  const token = await getSecret(`user/${user.id}`, GITHUB_TOKEN_KEY)
+  const token = await getSecret(org.id, GITHUB_TOKEN_KEY)
   if (!token) {
     return Response.json({ error: 'GitHub access token not configured' }, { status: 400 })
   }

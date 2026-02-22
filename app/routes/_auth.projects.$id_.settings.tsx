@@ -68,10 +68,9 @@ export default function ProjectDetail({
   const [nameSaved, setNameSaved] = useState(false);
   const nameChanged = projectName.trim() !== project.name;
 
-  // Secrets (3 scopes)
+  // Secrets (2 scopes)
   const [projectSecrets, setProjectSecrets] = useState<SecretEntry[]>([]);
   const [orgSecrets, setOrgSecrets] = useState<SecretEntry[]>([]);
-  const [userSecrets, setUserSecrets] = useState<SecretEntry[]>([]);
   const [secretsLoading, setSecretsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,7 +122,6 @@ export default function ProjectDetail({
       const data = await res.json();
       setProjectSecrets(data.project ?? []);
       setOrgSecrets(data.org ?? []);
-      setUserSecrets(data.user ?? []);
     } catch {
       setError("Failed to load secrets");
     } finally {
@@ -236,7 +234,6 @@ export default function ProjectDetail({
 
   // Keys overridden by a higher-priority scope
   const projectKeySet = new Set(projectSecrets.map((s) => s.key));
-  const orgKeySet = new Set(orgSecrets.map((s) => s.key));
 
   return (
     <div>
@@ -447,34 +444,7 @@ export default function ProjectDetail({
                   }
                 />
 
-              {/* User secrets (read-only, no actions) */}
-              <SecretSection
-                  title="User"
-                  badge={
-                    <Badge
-                      variant="outline"
-                      className="border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300"
-                    >
-                      user
-                    </Badge>
-                  }
-                  secrets={userSecrets}
-                  overriddenKeys={
-                    new Set([...projectKeySet, ...orgKeySet])
-                  }
-                  isAdmin={false}
-                  editingKey={null}
-                  editValue=""
-                  editSaving={false}
-                  revealedKeys={revealedKeys}
-                  onToggleReveal={toggleReveal}
-                  onStartEdit={() => {}}
-                  onCancelEdit={() => {}}
-                  onSaveEdit={() => Promise.resolve()}
-                  onEditValueChange={() => {}}
-                  onDelete={() => Promise.resolve()}
-                  maskValue={maskValue}
-                />
+
             </div>
           )}
         </CardContent>

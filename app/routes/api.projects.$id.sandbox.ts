@@ -155,22 +155,12 @@ export async function action({
   );
 
   // ── Gather secrets (centralized resolution) ───────
-  const resolved = await resolveAllSecrets(org.id, id, user.id);
+  const resolved = await resolveAllSecrets(org.id, id);
   const envVars = flattenSecrets(resolved);
 
   // Pull out integration tokens for sandbox config
-  const githubToken = envVars["GITHUB_ACCESS_TOKEN"] ?? null;
-  const vercelToken = envVars["VERCEL_ACCESS_TOKEN"] ?? null;
-
-  // Rename integration keys to what the sandbox expects
-  if (githubToken) {
-    envVars["GITHUB_TOKEN"] = githubToken;
-    delete envVars["GITHUB_ACCESS_TOKEN"];
-  }
-  if (vercelToken) {
-    envVars["VERCEL_TOKEN"] = vercelToken;
-    delete envVars["VERCEL_ACCESS_TOKEN"];
-  }
+  const githubToken = envVars["GITHUB_TOKEN"] ?? null;
+  const vercelToken = envVars["VERCEL_TOKEN"] ?? null;
 
   const claudeAuth = envVars["CLAUDE_ACCESS_TOKEN"]
     ? "oauth"

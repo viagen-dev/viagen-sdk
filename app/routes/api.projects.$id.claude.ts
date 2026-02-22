@@ -20,7 +20,7 @@ export async function loader({
   request: Request;
   params: { id: string };
 }) {
-  const { user, org } = await requireAuth(request);
+  const { org } = await requireAuth(request);
   const id = params.id;
 
   const [project] = await db
@@ -32,7 +32,7 @@ export async function loader({
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
 
-  // Check in priority order: project > org > user
+  // Check in priority order: project > org
   for (const key of CLAUDE_KEYS) {
     const projectKey = await getProjectSecret(org.id, id, key).catch(
       () => null,
@@ -53,17 +53,6 @@ export async function loader({
         connected: true,
         source: "org",
         keyPrefix: orgKey.slice(0, 12) + "...",
-      });
-    }
-  }
-
-  for (const key of CLAUDE_KEYS) {
-    const userKey = await getSecret(`user/${user.id}`, key).catch(() => null);
-    if (userKey) {
-      return Response.json({
-        connected: true,
-        source: "user",
-        keyPrefix: userKey.slice(0, 12) + "...",
       });
     }
   }

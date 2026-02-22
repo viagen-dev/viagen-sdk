@@ -22,7 +22,7 @@ export async function loader({
   request: Request;
   params: { id: string };
 }) {
-  const { org, user } = await requireAuth(request);
+  const { org } = await requireAuth(request);
   const id = params.id;
 
   const [project] = await db
@@ -34,7 +34,7 @@ export async function loader({
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
 
-  const resolved = await resolveAllSecrets(org.id, id, user.id);
+  const resolved = await resolveAllSecrets(org.id, id);
 
   log.info(
     {
@@ -42,11 +42,9 @@ export async function loader({
       orgId: org.id,
       projectCount: resolved.project.length,
       orgCount: resolved.org.length,
-      userCount: resolved.user.length,
     },
     "secrets loader: resolved all secrets",
   );
-
 
   const sort = (secrets: { key: string; value: string }[]) =>
     [...secrets].sort((a, b) => a.key.localeCompare(b.key));
@@ -54,7 +52,6 @@ export async function loader({
   return Response.json({
     project: sort(resolved.project),
     org: sort(resolved.org),
-    user: sort(resolved.user),
   });
 }
 
@@ -107,8 +104,8 @@ export async function action({
     if (project.vercelProjectId) {
       try {
         const vercelToken = await getSecret(
-          `user/${user.id}`,
-          "VERCEL_ACCESS_TOKEN",
+          org.id,
+          "VERCEL_TOKEN",
         );
         if (vercelToken) {
           await upsertVercelEnvVars(vercelToken, project.vercelProjectId, [
@@ -145,8 +142,8 @@ export async function action({
     if (project.vercelProjectId) {
       try {
         const vercelToken = await getSecret(
-          `user/${user.id}`,
-          "VERCEL_ACCESS_TOKEN",
+          org.id,
+          "VERCEL_TOKEN",
         );
         if (vercelToken) {
           const envVars = await listVercelEnvVars(

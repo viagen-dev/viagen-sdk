@@ -36,18 +36,18 @@ import {
 export async function loader({ request }: { request: Request }) {
   const auth = await requireAuth(request);
 
-  // Check integration status (user-scoped — each user connects their own accounts)
+  // Check integration status (org-scoped)
   const safeGet = async (key: string): Promise<boolean> => {
     try {
-      const val = await getSecret(`user/${auth.user.id}`, key);
+      const val = await getSecret(auth.org.id, key);
       return !!val;
     } catch {
       return false;
     }
   };
   const [github, vercel] = await Promise.all([
-    safeGet("GITHUB_ACCESS_TOKEN"),
-    safeGet("VERCEL_ACCESS_TOKEN"),
+    safeGet("GITHUB_TOKEN"),
+    safeGet("VERCEL_TOKEN"),
   ]);
 
   return {

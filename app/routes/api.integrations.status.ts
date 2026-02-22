@@ -1,15 +1,15 @@
 import { requireAuth } from '~/lib/session.server'
 import { getSecret } from '~/lib/infisical.server'
 
-const GITHUB_TOKEN_KEY = 'GITHUB_ACCESS_TOKEN'
-const VERCEL_TOKEN_KEY = 'VERCEL_ACCESS_TOKEN'
+const GITHUB_TOKEN_KEY = 'GITHUB_TOKEN'
+const VERCEL_TOKEN_KEY = 'VERCEL_TOKEN'
 
 export async function loader({ request }: { request: Request }) {
-  const { user } = await requireAuth(request)
+  const { org } = await requireAuth(request)
 
   const safeGet = async (key: string): Promise<boolean> => {
     try {
-      const val = await getSecret(`user/${user.id}`, key)
+      const val = await getSecret(org.id, key)
       return !!val
     } catch {
       return false

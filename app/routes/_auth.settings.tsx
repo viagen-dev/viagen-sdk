@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouteLoaderData, useSearchParams, useNavigate } from "react-router";
 import { toast } from "sonner";
-import { Ellipsis, LogOut, Database } from "lucide-react";
+import { Ellipsis, Database } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import {
   AlertDialog,
@@ -137,11 +137,6 @@ export default function Settings() {
   const [githubConnected, setGithubConnected] = useState(integrations.github);
   const [vercelConnected, setVercelConnected] = useState(integrations.vercel);
 
-  // Claude key state (personal)
-  const [userKey, setUserKey] = useState<KeyStatus | null>(null);
-  const [userKeyInput, setUserKeyInput] = useState("");
-  const [savingUserKey, setSavingUserKey] = useState(false);
-
   // --- Team state ---
   // Org name
   const [orgName, setOrgName] = useState(currentOrg.name);
@@ -185,10 +180,6 @@ export default function Settings() {
 
   // Fetch Claude key status
   useEffect(() => {
-    fetch("/api/claude-key?scope=user", { credentials: "include" })
-      .then((r) => r.json())
-      .then(setUserKey)
-      .catch(() => {});
     fetch("/api/claude-key?scope=org", { credentials: "include" })
       .then((r) => r.json())
       .then(setOrgKey)
@@ -349,35 +340,6 @@ export default function Settings() {
     toast.success("Vercel disconnected");
   };
 
-  const saveUserKey = async () => {
-    if (!userKeyInput.trim()) return;
-    setSavingUserKey(true);
-    await fetch("/api/claude-key", {
-      method: "PUT",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apiKey: userKeyInput.trim(), scope: "user" }),
-    });
-    const res = await fetch("/api/claude-key?scope=user", {
-      credentials: "include",
-    });
-    setUserKey(await res.json());
-    setUserKeyInput("");
-    setSavingUserKey(false);
-    toast.success("Personal Claude key saved");
-  };
-
-  const removeUserKey = async () => {
-    setSavingUserKey(true);
-    await fetch("/api/claude-key?scope=user", {
-      method: "DELETE",
-      credentials: "include",
-    });
-    setUserKey({ connected: false, scope: "user" });
-    setSavingUserKey(false);
-    toast.success("Personal Claude key removed");
-  };
-
   // --- Team handlers ---
   const handleRenameOrg = async () => {
     if (!orgName.trim() || savingName) return;
@@ -536,18 +498,14 @@ export default function Settings() {
     toast.success("Organization Claude key removed");
   };
 
-  type Section = "profile" | "user" | "team" | "data-sources";
+  type Section = "profile" | "settings" | "data-sources";
   const getInitialSection = (): Section => {
     const tab = searchParams.get("tab");
-    if (
-      tab === "user" ||
-      tab === "team" ||
-      tab === "profile" ||
-      tab === "data-sources"
-    )
-      return tab;
+    if (tab === "profile" || tab === "data-sources") return tab;
+    if (tab === "settings" || tab === "user" || tab === "team")
+      return "settings";
     if (searchParams.has("connected") || searchParams.has("error"))
-      return "user";
+      return "settings";
     return "profile";
   };
   const [activeSection, setActiveSection] = useState<Section>(
@@ -579,20 +537,11 @@ export default function Settings() {
             </NavigationMenuItem>
             <NavigationMenuItem>
               <NavigationMenuLink
-                data-active={activeSection === "user"}
+                data-active={activeSection === "settings"}
                 className="cursor-pointer hover:bg-[oklch(0.94_0_0)] data-[active=true]:bg-[oklch(0.94_0_0)] data-[active=true]:hover:bg-[oklch(0.94_0_0)]"
-                onSelect={() => handleSectionChange("user")}
+                onSelect={() => handleSectionChange("settings")}
               >
-                User Settings
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <NavigationMenuLink
-                data-active={activeSection === "team"}
-                className="cursor-pointer hover:bg-[oklch(0.94_0_0)] data-[active=true]:bg-[oklch(0.94_0_0)] data-[active=true]:hover:bg-[oklch(0.94_0_0)]"
-                onSelect={() => handleSectionChange("team")}
-              >
-                Team Settings
+                Settings
               </NavigationMenuLink>
             </NavigationMenuItem>
             <NavigationMenuItem>
@@ -735,8 +684,8 @@ export default function Settings() {
             </>
           )}
 
-          {/* ===== USER SETTINGS SECTION ===== */}
-          {activeSection === "user" && (
+          {/* ===== SETTINGS SECTION ===== */}
+          {activeSection === "settings" && (
             <>
               {/* GitHub */}
               <div className="mb-8">
@@ -747,7 +696,8 @@ export default function Settings() {
                       GitHub
                     </CardTitle>
                     <CardDescription>
-                      Connect your GitHub account to access your repositories.
+                      Connect GitHub to access repositories for{" "}
+                      {currentOrg.name}.
                     </CardDescription>
                   </CardHeader>
                   <CardFooter className="border-t justify-between">
@@ -756,22 +706,26 @@ export default function Settings() {
                         <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
                           Connected
                         </Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={disconnectGithub}
-                        >
-                          Disconnect
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={disconnectGithub}
+                          >
+                            Disconnect
+                          </Button>
+                        )}
                       </>
                     ) : (
                       <>
                         <Muted>Not connected</Muted>
-                        <Button asChild>
-                          <a href="/api/integrations/github/start?return_to=/settings">
-                            Connect
-                          </a>
-                        </Button>
+                        {isAdmin && (
+                          <Button asChild>
+                            <a href="/api/integrations/github/start?return_to=/settings">
+                              Connect
+                            </a>
+                          </Button>
+                        )}
                       </>
                     )}
                   </CardFooter>
@@ -787,7 +741,7 @@ export default function Settings() {
                       Vercel
                     </CardTitle>
                     <CardDescription>
-                      Connect your Vercel account to deploy projects.
+                      Connect Vercel to deploy projects for {currentOrg.name}.
                     </CardDescription>
                   </CardHeader>
                   <CardFooter className="border-t justify-between">
@@ -796,101 +750,94 @@ export default function Settings() {
                         <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
                           Connected
                         </Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={disconnectVercel}
-                        >
-                          Disconnect
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={disconnectVercel}
+                          >
+                            Disconnect
+                          </Button>
+                        )}
                       </>
                     ) : (
                       <>
                         <Muted>Not connected</Muted>
-                        <Button asChild>
-                          <a href="/api/integrations/vercel/start?return_to=/settings">
-                            Connect
-                          </a>
-                        </Button>
+                        {isAdmin && (
+                          <Button asChild>
+                            <a href="/api/integrations/vercel/start?return_to=/settings">
+                              Connect
+                            </a>
+                          </Button>
+                        )}
                       </>
                     )}
                   </CardFooter>
                 </Card>
               </div>
 
-              {/* Personal Claude Key */}
+              <Separator className="my-8" />
+
+              {/* Claude Key */}
               <div className="mb-8">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Personal Claude Key</CardTitle>
+                    <CardTitle>Claude Key</CardTitle>
                     <CardDescription>
-                      Your personal Anthropic API key. Used as fallback when no
-                      org or project key is set. Keys are resolved per project
-                      in priority order: project &gt; organization &gt;
-                      personal.
+                      Shared Anthropic API key for all projects in{" "}
+                      {currentOrg.name}. Projects can override with their own
+                      key.
                     </CardDescription>
                   </CardHeader>
-                  {!userKey?.connected ? (
+                  {orgKey?.connected ? (
+                    <CardFooter className="border-t justify-between">
+                      <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                        {orgKey.keyPrefix}
+                      </Badge>
+                      {isAdmin && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={removeOrgKey}
+                          disabled={savingOrgKey}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </CardFooter>
+                  ) : isAdmin ? (
                     <>
                       <CardContent>
                         <Input
                           type="password"
-                          value={userKeyInput}
-                          onChange={(e) => setUserKeyInput(e.target.value)}
+                          value={orgKeyInput}
+                          onChange={(e) => setOrgKeyInput(e.target.value)}
                           placeholder="sk-ant-api..."
                           className="max-w-md"
-                          onKeyDown={(e) => e.key === "Enter" && saveUserKey()}
+                          onKeyDown={(e) => e.key === "Enter" && saveOrgKey()}
                         />
                       </CardContent>
                       <CardFooter className="border-t justify-between">
                         <Muted>Not connected</Muted>
                         <Button
-                          onClick={saveUserKey}
-                          disabled={!userKeyInput.trim() || savingUserKey}
+                          onClick={saveOrgKey}
+                          disabled={!orgKeyInput.trim() || savingOrgKey}
                         >
-                          {savingUserKey ? "Saving..." : "Save"}
+                          {savingOrgKey ? "Saving..." : "Save"}
                         </Button>
                       </CardFooter>
                     </>
                   ) : (
-                    <CardFooter className="border-t justify-between">
-                      <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                        {userKey.keyPrefix}
-                      </Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={removeUserKey}
-                        disabled={savingUserKey}
-                      >
-                        Remove
-                      </Button>
+                    <CardFooter className="border-t">
+                      <Muted className="italic">
+                        Only admins can set the organization key.
+                      </Muted>
                     </CardFooter>
                   )}
                 </Card>
               </div>
 
-              {/* API Keys */}
-              <div className="mb-8">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>API Keys</CardTitle>
-                    <CardDescription>
-                      Manage your API keys for authentication.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardFooter className="border-t justify-end">
-                    <Button variant="outline">Generate New Key</Button>
-                  </CardFooter>
-                </Card>
-              </div>
-            </>
-          )}
-
-          {/* ===== TEAM SETTINGS SECTION ===== */}
-          {activeSection === "team" && (
-            <>
-              {/* Rename Organization */}
+              {/* Organization Name */}
               <div className="mb-8">
                 <Card>
                   <CardHeader>
@@ -944,64 +891,6 @@ export default function Settings() {
                     <CardContent>
                       <Small>{currentOrg.name}</Small>
                     </CardContent>
-                  )}
-                </Card>
-              </div>
-
-              {/* Organization Claude Key */}
-              <div className="mb-8">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Organization Claude Key</CardTitle>
-                    <CardDescription>
-                      Shared Anthropic API key for all projects in{" "}
-                      {currentOrg.name}. Overrides personal keys.
-                    </CardDescription>
-                  </CardHeader>
-                  {orgKey?.connected ? (
-                    <CardFooter className="border-t justify-between">
-                      <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                        {orgKey.keyPrefix}
-                      </Badge>
-                      {isAdmin && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={removeOrgKey}
-                          disabled={savingOrgKey}
-                        >
-                          Remove
-                        </Button>
-                      )}
-                    </CardFooter>
-                  ) : isAdmin ? (
-                    <>
-                      <CardContent>
-                        <Input
-                          type="password"
-                          value={orgKeyInput}
-                          onChange={(e) => setOrgKeyInput(e.target.value)}
-                          placeholder="sk-ant-api..."
-                          className="max-w-md"
-                          onKeyDown={(e) => e.key === "Enter" && saveOrgKey()}
-                        />
-                      </CardContent>
-                      <CardFooter className="border-t justify-between">
-                        <Muted>Not connected</Muted>
-                        <Button
-                          onClick={saveOrgKey}
-                          disabled={!orgKeyInput.trim() || savingOrgKey}
-                        >
-                          {savingOrgKey ? "Saving..." : "Save"}
-                        </Button>
-                      </CardFooter>
-                    </>
-                  ) : (
-                    <CardFooter className="border-t">
-                      <Muted className="italic">
-                        Only admins can set the organization key.
-                      </Muted>
-                    </CardFooter>
                   )}
                 </Card>
               </div>

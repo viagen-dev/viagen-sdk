@@ -14,7 +14,7 @@ export async function loader({
   request: Request;
   params: { id: string };
 }) {
-  const { user, org } = await requireAuth(request);
+  const { org } = await requireAuth(request);
   const id = params.id;
 
   const [project] = await db
@@ -26,27 +26,27 @@ export async function loader({
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
 
-  // Helper: check if a secret exists at project or user level
+  // Helper: check if a secret exists at project or org level
   const hasToken = async (key: string): Promise<boolean> => {
     const projectVal = await getProjectSecret(org.id, id, key).catch(
       () => null,
     );
     if (projectVal) return true;
-    const userVal = await getSecret(`user/${user.id}`, key).catch(() => null);
-    return !!userVal;
+    const orgVal = await getSecret(org.id, key).catch(() => null);
+    return !!orgVal;
   };
 
   // GitHub: linked (has repo in DB) + token available
   const githubLinked = !!project.githubRepo;
-  const githubToken = await hasToken("GITHUB_ACCESS_TOKEN");
+  const githubToken = await hasToken("GITHUB_TOKEN");
 
   // Vercel: linked (has vercelProjectId in DB) + token available
   const vercelLinked = !!project.vercelProjectId;
-  const vercelToken = await hasToken("VERCEL_ACCESS_TOKEN");
+  const vercelToken = await hasToken("VERCEL_TOKEN");
 
-  // Claude: check project > org > user cascade, plus expiration.
+  // Claude: check project > org cascade, plus expiration.
   // If a higher-priority OAuth token is expired, fall through to lower
-  // scopes so a valid user-level API key can still mark us as ready.
+  // scope so a valid org-level API key can still mark us as ready.
 
   const isOAuthExpired = async (
     source: "project" | "org",
@@ -62,7 +62,7 @@ export async function loader({
     return !isNaN(expiresMs) && expiresMs < Date.now();
   };
 
-  // Build ordered list of candidates: project > org > user
+  // Build ordered list of candidates: project > org
   const candidates: { source: string; key: string; val: string }[] = [];
 
   for (const key of CLAUDE_KEYS) {
@@ -73,10 +73,6 @@ export async function loader({
     const val = await getSecret(org.id, key).catch(() => null);
     if (val) candidates.push({ source: "org", key, val });
   }
-  for (const key of CLAUDE_KEYS) {
-    const val = await getSecret(`user/${user.id}`, key).catch(() => null);
-    if (val) candidates.push({ source: "user", key, val });
-  }
 
   let claudeConnected = false;
   let claudeSource: string | null = null;
@@ -85,7 +81,7 @@ export async function loader({
 
   for (const c of candidates) {
     // OAuth tokens (CLAUDE_ACCESS_TOKEN) at project/org level can expire —
-    // if expired, skip to the next candidate so a user API key wins.
+    // if expired, skip to the next candidate so an org API key wins.
     if (
       c.key === "CLAUDE_ACCESS_TOKEN" &&
       (c.source === "project" || c.source === "org")
