@@ -249,7 +249,7 @@ export default function ProjectTasks({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ branch }),
+        body: JSON.stringify({ branch, prompt: prompt.trim() || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -386,50 +386,21 @@ export default function ProjectTasks({
           <h1 className="min-w-0 flex-1 truncate text-xl font-semibold leading-tight sm:text-2xl">
             {project.name}
           </h1>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              size="sm"
-              className="hidden sm:inline-flex"
-              disabled={!allReady || launching}
-              onClick={handleLaunch}
-            >
-              {launching ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Plus className="size-4" />
-              )}
-              {launching ? `Creating... ${launchElapsed}s` : "Create Workspace"}
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <Ellipsis className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link to={`/projects/${project.id}/settings`}>
-                    Project settings
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Ellipsis className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link to={`/projects/${project.id}/settings`}>
+                  Project settings
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-
-        {/* Mobile create workspace button */}
-        <Button
-          className="w-full sm:hidden"
-          disabled={!allReady || launching}
-          onClick={handleLaunch}
-        >
-          {launching ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Plus className="size-4" />
-          )}
-          {launching ? `Creating... ${launchElapsed}s` : "Create Workspace"}
-        </Button>
 
         {/* Badges row */}
         <div className="flex flex-wrap items-center gap-1.5">
@@ -720,26 +691,41 @@ export default function ProjectTasks({
         </Card>
       ) : (
         <Card className="mb-6">
-          <CardContent>
-            <div className="flex items-center gap-3">
-              <Sparkles className="size-5 shrink-0 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Describe a task for Claude to work on..."
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSubmit();
-                }}
-                className="flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-              />
+          <CardContent className="flex flex-col gap-3">
+            <Input
+              type="text"
+              placeholder="Describe a task for Claude to work on..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) handleLaunch();
+              }}
+            />
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <GitBranch className="size-3.5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                  placeholder="main"
+                  className="h-8 w-32 text-xs"
+                />
+              </div>
+              <div className="flex-1" />
               <Button
                 size="sm"
-                onClick={handleSubmit}
-                disabled={!prompt.trim() || submitting}
+                disabled={!allReady || launching}
+                onClick={handleLaunch}
               >
-                <Send className="size-4" />
-                Send
+                {launching ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Plus className="size-4" />
+                )}
+                {launching
+                  ? `Creating... ${launchElapsed}s`
+                  : "Create Workspace"}
               </Button>
             </div>
           </CardContent>
