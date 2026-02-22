@@ -429,12 +429,10 @@ export default function ProjectTasks({
                     size="sm"
                     variant="outline"
                     className="h-7 gap-1.5 text-xs"
-                    asChild
+                    onClick={() => window.open(ws.url, "_blank", "noopener,noreferrer")}
                   >
-                    <a href={ws.url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="size-3" />
-                      View
-                    </a>
+                    <ExternalLink className="size-3" />
+                    View
                   </Button>
                   <Button
                     size="sm"
