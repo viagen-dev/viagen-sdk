@@ -486,7 +486,14 @@ export default function Projects({
                           : "Vercel not connected"}
                     </Badge>
 
-                    <Badge variant="secondary" className="gap-1.5 font-normal">
+                    <Badge
+                      variant="secondary"
+                      className={
+                        statuses[project.id]?.claude.connected
+                          ? "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300"
+                          : "gap-1.5 font-normal"
+                      }
+                    >
                       <Sparkles className="size-3" />
                       {statuses[project.id]?.claude.connected
                         ? "Claude connected"
