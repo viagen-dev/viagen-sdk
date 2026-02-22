@@ -327,16 +327,19 @@ export async function action({
       const ghInstall = await sandbox.runCommand("bash", [
         "-c",
         [
-          "if command -v gh &>/dev/null; then exit 0; fi",
+          'set -e',
+          'if command -v gh &>/dev/null; then exit 0; fi',
           // Try apt-get (Debian/Ubuntu)
-          "if command -v apt-get &>/dev/null; then apt-get update -qq && apt-get install -y -qq gh 2>/dev/null && exit 0; fi",
+          'if command -v apt-get &>/dev/null; then',
+          '  apt-get update -qq 2>/dev/null && apt-get install -y -qq gh 2>/dev/null && exit 0',
+          'fi',
           // Fallback: download gh binary directly
           'GH_VERSION="2.67.0"',
           'ARCH=$(uname -m | sed "s/x86_64/amd64/;s/aarch64/arm64/")',
           'curl -sSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${ARCH}.tar.gz" | tar xz -C /tmp',
-          "cp /tmp/gh_${GH_VERSION}_linux_${ARCH}/bin/gh /usr/local/bin/gh",
-          "chmod +x /usr/local/bin/gh",
-        ].join(" && "),
+          'cp /tmp/gh_${GH_VERSION}_linux_${ARCH}/bin/gh /usr/local/bin/gh',
+          'chmod +x /usr/local/bin/gh',
+        ].join("\n"),
       ]);
       if (ghInstall.exitCode !== 0) {
         log.warn(
