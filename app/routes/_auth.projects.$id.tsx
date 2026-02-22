@@ -182,6 +182,7 @@ export default function ProjectTasks({
   const [disconnecting, setDisconnecting] = useState(false);
 
   const [launching, setLaunching] = useState(false);
+  const [launchingQuick, setLaunchingQuick] = useState(false);
   const [launchElapsed, setLaunchElapsed] = useState(0);
   const launchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [activeWorkspaces, setActiveWorkspaces] = useState<Workspace[]>([]);
@@ -241,24 +242,44 @@ export default function ProjectTasks({
       .catch(() => {});
   }, [project.id]);
 
+  // Shared fetch for both launch modes
+  const launchWorkspace = async (opts?: { prompt?: string }) => {
+    const res = await fetch(`/api/projects/${project.id}/sandbox`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ branch, prompt: opts?.prompt || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Failed to launch sandbox");
+    return data.workspace;
+  };
+
+  // Header button: create + auto-open
+  const handleQuickLaunch = async () => {
+    setLaunchingQuick(true);
+    setSandboxError(null);
+    try {
+      const workspace = await launchWorkspace();
+      setActiveWorkspaces((prev) => [workspace, ...prev]);
+      window.open(workspace.url, "_blank");
+    } catch (err) {
+      setSandboxError(err instanceof Error ? err.message : "Failed to launch sandbox");
+    } finally {
+      setLaunchingQuick(false);
+    }
+  };
+
+  // Task card button: create with prompt, show timer, clear form
   const handleLaunch = async () => {
     setLaunching(true);
     setSandboxError(null);
     try {
-      const res = await fetch(`/api/projects/${project.id}/sandbox`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ branch, prompt: prompt.trim() || undefined }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setSandboxError(data.error ?? "Failed to launch sandbox");
-        return;
-      }
-      setActiveWorkspaces((prev) => [data.workspace, ...prev]);
-    } catch {
-      setSandboxError("Failed to launch sandbox");
+      const workspace = await launchWorkspace({ prompt: prompt.trim() });
+      setActiveWorkspaces((prev) => [workspace, ...prev]);
+      setPrompt("");
+    } catch (err) {
+      setSandboxError(err instanceof Error ? err.message : "Failed to launch sandbox");
     } finally {
       setLaunching(false);
     }
@@ -390,11 +411,15 @@ export default function ProjectTasks({
             <Button
               size="sm"
               className="hidden sm:inline-flex"
-              disabled={!allReady || launching}
-              onClick={handleLaunch}
+              disabled={!allReady || launching || launchingQuick}
+              onClick={handleQuickLaunch}
             >
-              <Plus className="size-4" />
-              Create Workspace
+              {launchingQuick ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Plus className="size-4" />
+              )}
+              {launchingQuick ? "Creating..." : "Create Workspace"}
             </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -734,7 +759,7 @@ export default function ProjectTasks({
               <div className="flex-1" />
               <Button
                 size="sm"
-                disabled={!allReady || launching}
+                disabled={!allReady || launching || launchingQuick}
                 onClick={handleLaunch}
               >
                 {launching ? (
