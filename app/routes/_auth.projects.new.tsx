@@ -290,7 +290,7 @@ export default function NewProject() {
         return;
       }
 
-      navigate("/projects");
+      navigate("/");
     } catch {
       setError("Something went wrong");
     } finally {
