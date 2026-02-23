@@ -15,6 +15,8 @@ export interface ViagenConfig {
   baseUrl: string
   /** API token for CLI/server-side usage. When set, uses Bearer auth instead of cookies. */
   token?: string
+  /** Organization ID to scope requests to. Maps to the X-Organization header. */
+  orgId?: string
 }
 
 export interface ViagenClient {
@@ -50,6 +52,9 @@ export function createViagen(config: ViagenConfig): ViagenClient {
 
     if (config.token) {
       headers['Authorization'] = `Bearer ${config.token}`
+    }
+    if (config.orgId) {
+      headers['X-Organization'] = config.orgId
     }
 
     const res = await fetch(`${baseUrl}${path}`, {

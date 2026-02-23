@@ -6,6 +6,7 @@ export interface StoredCredentials {
   token: string
   baseUrl: string
   expiresAt?: string
+  orgId?: string
 }
 
 function credentialsDir(): string {
