@@ -22,21 +22,6 @@ import { Switch } from "~/components/ui/switch";
 import { Small, Muted } from "~/components/ui/typography";
 
 // ---------------------------------------------------------------------------
-// Known integration keys — managed by integration cards, hidden from env vars
-// ---------------------------------------------------------------------------
-
-const INTEGRATION_KEYS = new Set([
-  "GITHUB_TOKEN",
-  "GITHUB_ACCESS_TOKEN",
-  "VERCEL_TOKEN",
-  "VERCEL_ACCESS_TOKEN",
-  "CLAUDE_ACCESS_TOKEN",
-  "CLAUDE_TOKEN_EXPIRES",
-  "CLAUDE_REFRESH_TOKEN",
-  "ANTHROPIC_API_KEY",
-]);
-
-// ---------------------------------------------------------------------------
 // Loader
 // ---------------------------------------------------------------------------
 
@@ -161,23 +146,9 @@ export default function ProjectSettings({
     return map;
   }, [syncKeys]);
 
-  // -----------------------------------------------------------------------
-  // Derived — filter integration keys out of the raw secrets lists
-  // -----------------------------------------------------------------------
-
-  const filteredProjectSecrets = useMemo(
-    () => projectSecrets.filter((s) => !INTEGRATION_KEYS.has(s.key)),
-    [projectSecrets],
-  );
-
-  const filteredOrgSecrets = useMemo(
-    () => orgSecrets.filter((s) => !INTEGRATION_KEYS.has(s.key)),
-    [orgSecrets],
-  );
-
   const projectKeySet = useMemo(
-    () => new Set(filteredProjectSecrets.map((s) => s.key)),
-    [filteredProjectSecrets],
+    () => new Set(projectSecrets.map((s) => s.key)),
+    [projectSecrets],
   );
 
   // -----------------------------------------------------------------------
@@ -930,7 +901,7 @@ export default function ProjectSettings({
               <SecretSection
                 title="Project"
                 badge={<Badge variant="secondary">project</Badge>}
-                secrets={filteredProjectSecrets}
+                secrets={projectSecrets}
                 overriddenKeys={new Set()}
                 isAdmin={isAdmin}
                 syncMap={syncMap}
@@ -949,7 +920,7 @@ export default function ProjectSettings({
                     inherited
                   </Badge>
                 }
-                secrets={filteredOrgSecrets}
+                secrets={orgSecrets}
                 overriddenKeys={projectKeySet}
                 isAdmin={isAdmin}
                 syncMap={syncMap}
