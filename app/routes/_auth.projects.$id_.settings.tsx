@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useRouteLoaderData } from "react-router";
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { requireAuth } from "~/lib/session.server";
@@ -20,6 +21,7 @@ import { Badge } from "~/components/ui/badge";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Switch } from "~/components/ui/switch";
 import { Small, Muted } from "~/components/ui/typography";
+import { ResourcePicker } from "~/components/resource-picker";
 
 // ---------------------------------------------------------------------------
 // Loader
@@ -73,6 +75,28 @@ interface SecretEntry {
   value: string;
 }
 
+interface GithubRepo {
+  id: number;
+  fullName: string;
+  name: string;
+  owner: string;
+  private: boolean;
+  defaultBranch: string;
+  url: string;
+}
+
+interface VercelProjectItem {
+  id: string;
+  name: string;
+  framework: string | null;
+  accountId?: string;
+  link?: { type: string; org: string; repo: string };
+}
+
+interface AuthLoaderData {
+  integrations: { github: boolean; vercel: boolean; claude: boolean };
+}
+
 interface ConnectionStatus {
   github: {
     linked: boolean;
@@ -103,7 +127,43 @@ export default function ProjectSettings({
 }) {
   const { project, role } = loaderData;
   const isAdmin = role === "admin" || role === "owner";
-  const vercelConnected = !!project.vercelProjectId;
+  const parentData = useRouteLoaderData("routes/_auth") as
+    | AuthLoaderData
+    | undefined;
+  const githubIntegration = parentData?.integrations.github ?? false;
+  const vercelIntegration = parentData?.integrations.vercel ?? false;
+
+  // --- Optimistic overrides for GitHub/Vercel linkage ---
+  const [localGithubRepo, setLocalGithubRepo] = useState<string | undefined>(
+    undefined,
+  );
+  const [localVercelProjectId, setLocalVercelProjectId] = useState<
+    string | undefined
+  >(undefined);
+  const [localVercelProjectName, setLocalVercelProjectName] = useState<
+    string | undefined
+  >(undefined);
+
+  const effectiveGithubRepo = localGithubRepo ?? project.githubRepo;
+  const effectiveVercelProjectId =
+    localVercelProjectId ?? project.vercelProjectId;
+  const vercelConnected = !!effectiveVercelProjectId;
+
+  // --- GitHub picker state ---
+  const [githubRepos, setGithubRepos] = useState<GithubRepo[]>([]);
+  const [githubReposLoading, setGithubReposLoading] = useState(false);
+  const [githubReposError, setGithubReposError] = useState<string | null>(null);
+  const [githubReposFetched, setGithubReposFetched] = useState(false);
+  const [savingGithub, setSavingGithub] = useState(false);
+
+  // --- Vercel picker state ---
+  const [vercelProjects, setVercelProjects] = useState<VercelProjectItem[]>([]);
+  const [vercelProjectsLoading, setVercelProjectsLoading] = useState(false);
+  const [vercelProjectsError, setVercelProjectsError] = useState<string | null>(
+    null,
+  );
+  const [vercelProjectsFetched, setVercelProjectsFetched] = useState(false);
+  const [savingVercel, setSavingVercel] = useState(false);
 
   // --- Project name ---
   const [projectName, setProjectName] = useState(project.name);
@@ -281,6 +341,120 @@ export default function ProjectSettings({
     }
   };
 
+  // -----------------------------------------------------------------------
+  // Handlers — GitHub/Vercel pickers
+  // -----------------------------------------------------------------------
+
+  const loadGithubRepos = async () => {
+    if (githubReposFetched) return;
+    setGithubReposLoading(true);
+    setGithubReposError(null);
+    try {
+      const res = await fetch("/api/github/repos?per_page=100", {
+        credentials: "include",
+      });
+      if (res.status === 400) {
+        setGithubReposError("not_connected");
+        return;
+      }
+      if (res.status === 401) {
+        setGithubReposError("expired");
+        return;
+      }
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setGithubRepos(data.repos);
+    } catch {
+      setGithubReposError("failed");
+    } finally {
+      setGithubReposLoading(false);
+      setGithubReposFetched(true);
+    }
+  };
+
+  const loadVercelProjects = async () => {
+    if (vercelProjectsFetched) return;
+    setVercelProjectsLoading(true);
+    setVercelProjectsError(null);
+    try {
+      const res = await fetch("/api/vercel/projects?limit=50", {
+        credentials: "include",
+      });
+      if (res.status === 400) {
+        setVercelProjectsError("not_connected");
+        return;
+      }
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setVercelProjects(data.projects);
+    } catch {
+      setVercelProjectsError("failed");
+    } finally {
+      setVercelProjectsLoading(false);
+      setVercelProjectsFetched(true);
+    }
+  };
+
+  const handleChangeGithubRepo = async (repo: GithubRepo) => {
+    setSavingGithub(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ githubRepo: repo.fullName }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to update GitHub repository");
+        return;
+      }
+      setLocalGithubRepo(repo.fullName);
+      toast.success("GitHub repository updated");
+    } catch {
+      toast.error("Failed to update GitHub repository");
+    } finally {
+      setSavingGithub(false);
+    }
+  };
+
+  const handleChangeVercelProject = async (vp: VercelProjectItem) => {
+    setSavingVercel(true);
+    try {
+      const body: Record<string, string | null> = {
+        vercelProjectId: vp.id,
+        vercelOrgId: vp.accountId ?? null,
+      };
+      // Auto-set GitHub repo if Vercel project has a link and no repo linked
+      if (vp.link?.org && vp.link?.repo && !effectiveGithubRepo) {
+        body.githubRepo = `${vp.link.org}/${vp.link.repo}`;
+      }
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to update Vercel project");
+        return;
+      }
+      setLocalVercelProjectId(vp.id);
+      setLocalVercelProjectName(vp.name);
+      if (body.githubRepo) {
+        setLocalGithubRepo(body.githubRepo);
+        toast.success("Vercel project and GitHub repository updated");
+      } else {
+        toast.success("Vercel project updated");
+      }
+    } catch {
+      toast.error("Failed to update Vercel project");
+    } finally {
+      setSavingVercel(false);
+    }
+  };
+
   // Vercel sync handlers
   const handleToggleSync = async (key: string, enabled: boolean) => {
     // Optimistic update
@@ -406,21 +580,47 @@ export default function ProjectSettings({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {project.githubRepo ? (
+          {effectiveGithubRepo ? (
             <div className="flex items-center gap-2">
               <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
                 Linked
               </Badge>
-              <span className="font-mono text-sm">{project.githubRepo}</span>
+              <span className="font-mono text-sm">{effectiveGithubRepo}</span>
             </div>
           ) : (
-            <Muted>
-              No repository linked. Run{" "}
-              <span className="font-mono">npx viagen sync</span> from your
-              project to link it.
-            </Muted>
+            <Muted>No repository linked.</Muted>
           )}
         </CardContent>
+        {isAdmin && (
+          <CardFooter className="border-t justify-end">
+            {githubIntegration ? (
+              <ResourcePicker
+                items={githubRepos}
+                loading={githubReposLoading}
+                error={githubReposError}
+                renderItem={(repo) => (
+                  <span className="truncate">{repo.fullName}</span>
+                )}
+                getItemValue={(repo) => repo.fullName}
+                getItemKey={(repo) => String(repo.id)}
+                selectedKey={null}
+                onSelect={handleChangeGithubRepo}
+                onOpen={loadGithubRepos}
+                triggerLabel={
+                  effectiveGithubRepo ? "Change" : "Link repository"
+                }
+                disabled={savingGithub}
+                placeholder="Search repositories..."
+                emptyMessage="No repositories found."
+                notConnectedMessage="GitHub token not configured."
+              />
+            ) : (
+              <Muted className="text-xs">
+                Connect GitHub in org settings to link a repository.
+              </Muted>
+            )}
+          </CardFooter>
+        )}
       </Card>
 
       {/* ================================================================= */}
@@ -436,23 +636,57 @@ export default function ProjectSettings({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {project.vercelProjectId ? (
+          {effectiveVercelProjectId ? (
             <div className="flex items-center gap-2">
               <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
                 Linked
               </Badge>
               <span className="font-mono text-sm">
-                {project.vercelProjectId}
+                {localVercelProjectName ?? effectiveVercelProjectId}
               </span>
             </div>
           ) : (
-            <Muted>
-              No Vercel project linked. Run{" "}
-              <span className="font-mono">npx viagen sync</span> from your
-              project to link it.
-            </Muted>
+            <Muted>No Vercel project linked.</Muted>
           )}
         </CardContent>
+        {isAdmin && (
+          <CardFooter className="border-t justify-end">
+            {vercelIntegration ? (
+              <ResourcePicker
+                items={vercelProjects}
+                loading={vercelProjectsLoading}
+                error={vercelProjectsError}
+                renderItem={(vp) => (
+                  <div className="flex flex-col">
+                    <span className="truncate">{vp.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {vp.framework ?? "No framework"}
+                      {vp.link
+                        ? ` \u00b7 ${vp.link.org}/${vp.link.repo}`
+                        : ""}
+                    </span>
+                  </div>
+                )}
+                getItemValue={(vp) => vp.name}
+                getItemKey={(vp) => vp.id}
+                selectedKey={effectiveVercelProjectId}
+                onSelect={handleChangeVercelProject}
+                onOpen={loadVercelProjects}
+                triggerLabel={
+                  effectiveVercelProjectId ? "Change" : "Link project"
+                }
+                disabled={savingVercel}
+                placeholder="Search projects..."
+                emptyMessage="No Vercel projects found."
+                notConnectedMessage="Vercel token not configured."
+              />
+            ) : (
+              <Muted className="text-xs">
+                Connect Vercel in org settings to link a project.
+              </Muted>
+            )}
+          </CardFooter>
+        )}
       </Card>
 
       {/* ================================================================= */}

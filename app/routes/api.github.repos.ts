@@ -1,8 +1,87 @@
-import { requireAuth } from '~/lib/session.server'
+import { requireAuth, isAdminRole } from '~/lib/session.server'
 import { getSecret } from '~/lib/infisical.server'
 import { log } from '~/lib/logger.server'
 
 const GITHUB_TOKEN_KEY = 'GITHUB_TOKEN'
+
+// ── POST: Create a new GitHub repository ──────────────────────────────────
+
+export async function action({ request }: { request: Request }) {
+  if (request.method !== 'POST') {
+    return Response.json({ error: 'Method not allowed' }, { status: 405 })
+  }
+
+  const { user, org, role } = await requireAuth(request)
+
+  if (!isAdminRole(role)) {
+    return Response.json({ error: 'Admin role required' }, { status: 403 })
+  }
+
+  const token = await getSecret(org.id, GITHUB_TOKEN_KEY)
+  if (!token) {
+    log.warn({ userId: user.id, orgId: org.id }, 'github create repo: token not configured')
+    return Response.json({ error: 'GitHub access token not configured' }, { status: 400 })
+  }
+
+  const body = await request.json()
+  const repoName = body.name?.trim()
+  if (!repoName) {
+    return Response.json({ error: 'Repository name is required' }, { status: 400 })
+  }
+
+  log.info(
+    { userId: user.id, orgId: org.id, repoName, private: body.private ?? true },
+    'github create repo: creating repository',
+  )
+
+  const res = await fetch('https://api.github.com/user/repos', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'viagen-sdk',
+    },
+    body: JSON.stringify({
+      name: repoName,
+      private: body.private ?? true,
+      description: body.description ?? '',
+      auto_init: true,
+    }),
+  })
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    if (res.status === 401) {
+      log.warn({ userId: user.id }, 'github create repo: token invalid or expired')
+      return Response.json({ error: 'GitHub token is invalid or expired' }, { status: 401 })
+    }
+    if (res.status === 422) {
+      log.warn({ userId: user.id, repoName }, 'github create repo: name already exists or invalid')
+      return Response.json(
+        { error: data.message ?? 'Repository name already exists or is invalid' },
+        { status: 422 },
+      )
+    }
+    log.error({ userId: user.id, status: res.status, body: data }, 'github create repo: upstream error')
+    return Response.json({ error: 'Failed to create GitHub repository' }, { status: 502 })
+  }
+
+  const r = await res.json()
+  const repo = {
+    id: r.id,
+    fullName: r.full_name,
+    name: r.name,
+    owner: r.owner.login,
+    private: r.private,
+    defaultBranch: r.default_branch,
+    url: r.html_url,
+  }
+
+  log.info({ userId: user.id, repo: repo.fullName }, 'github create repo: success')
+  return Response.json({ repo }, { status: 201 })
+}
+
+// ── GET: List GitHub repositories ─────────────────────────────────────────
 
 export async function loader({ request }: { request: Request }) {
   const { user, org } = await requireAuth(request)
