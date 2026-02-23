@@ -989,7 +989,7 @@ function SecretSection({
                 }`}
               >
                 <span
-                  className={`w-50 shrink-0 font-mono text-[0.8125rem] font-medium ${
+                  className={`w-72 shrink-0 font-mono text-[0.8125rem] font-medium ${
                     isOverridden ? "line-through" : ""
                   }`}
                 >
