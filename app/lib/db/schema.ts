@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, primaryKey } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, text, timestamp, primaryKey, jsonb } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -40,6 +40,7 @@ export const projects = pgTable('projects', {
   vercelOrgId: varchar('vercel_org_id', { length: 255 }),
   githubRepo: varchar('github_repo', { length: 255 }),
   templateId: varchar('template_id', { length: 64 }),
+  vercelEnvSync: jsonb('vercel_env_sync').$type<Record<string, boolean>>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull().$onUpdate(() => new Date()),
 })

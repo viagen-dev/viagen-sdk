@@ -240,6 +240,7 @@ export async function action({
       // 4. Build .env — layer sandbox-specific vars on top of resolved secrets
       const envMap: Record<string, string> = { ...envVars };
       envMap["VIAGEN_AUTH_TOKEN"] = token;
+      envMap["VIAGEN_AUTH_EMAIL"] = user.email;
       envMap["VIAGEN_SESSION_START"] = String(Math.floor(Date.now() / 1000));
       envMap["VIAGEN_SESSION_TIMEOUT"] = String(timeoutMinutes * 60);
       envMap["VIAGEN_PROJECT_ID"] = id;

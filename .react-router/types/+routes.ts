@@ -91,6 +91,11 @@ type Pages = {
       "id": string;
     };
   };
+  "/api/projects/:id/vercel-sync": {
+    params: {
+      "id": string;
+    };
+  };
   "/api/projects/:id/sandbox": {
     params: {
       "id": string;
@@ -136,7 +141,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/onboarding" | "/cli/authorize" | "/projects/new" | "/projects/:id" | "/projects/:id/settings" | "/settings" | "/billing" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/profile" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/sync" | "/api/projects/:id" | "/api/projects/:id/claude" | "/api/projects/:id/secrets" | "/api/projects/:id/sandbox" | "/api/databases" | "/api/projects/:id/status" | "/api/vercel/projects" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
+    page: "/" | "/login" | "/onboarding" | "/cli/authorize" | "/projects/new" | "/projects/:id" | "/projects/:id/settings" | "/settings" | "/billing" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/profile" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/sync" | "/api/projects/:id" | "/api/projects/:id/claude" | "/api/projects/:id/secrets" | "/api/projects/:id/vercel-sync" | "/api/projects/:id/sandbox" | "/api/databases" | "/api/projects/:id/status" | "/api/vercel/projects" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
   };
   "routes/login.tsx": {
     id: "routes/login";
@@ -230,6 +235,10 @@ type RouteFiles = {
     id: "routes/api.projects.$id.secrets";
     page: "/api/projects/:id/secrets";
   };
+  "routes/api.projects.$id.vercel-sync.ts": {
+    id: "routes/api.projects.$id.vercel-sync";
+    page: "/api/projects/:id/vercel-sync";
+  };
   "routes/api.projects.$id.sandbox.ts": {
     id: "routes/api.projects.$id.sandbox";
     page: "/api/projects/:id/sandbox";
@@ -305,6 +314,7 @@ type RouteModules = {
   "routes/api.projects.$id": typeof import("./app/routes/api.projects.$id.ts");
   "routes/api.projects.$id.claude": typeof import("./app/routes/api.projects.$id.claude.ts");
   "routes/api.projects.$id.secrets": typeof import("./app/routes/api.projects.$id.secrets.ts");
+  "routes/api.projects.$id.vercel-sync": typeof import("./app/routes/api.projects.$id.vercel-sync.ts");
   "routes/api.projects.$id.sandbox": typeof import("./app/routes/api.projects.$id.sandbox.ts");
   "routes/api.databases": typeof import("./app/routes/api.databases.ts");
   "routes/api.projects.$id.status": typeof import("./app/routes/api.projects.$id.status.ts");

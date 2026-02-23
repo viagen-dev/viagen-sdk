@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
@@ -15,6 +15,8 @@ import {
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Alert, AlertDescription } from "~/components/ui/alert";
+import { Switch } from "~/components/ui/switch";
+import { toast } from "sonner";
 
 export async function loader({
   request,
@@ -44,8 +46,15 @@ interface Project {
   templateId: string | null;
   vercelProjectId: string | null;
   githubRepo: string | null;
+  vercelEnvSync: Record<string, boolean> | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface VercelSyncKey {
+  key: string;
+  syncEnabled: boolean;
+  isDenylisted: boolean;
 }
 
 interface SecretEntry {
@@ -60,6 +69,7 @@ export default function ProjectDetail({
 }) {
   const { project, role } = loaderData;
   const isAdmin = role === "admin" || role === "owner";
+  const vercelConnected = !!project.vercelProjectId;
 
   // Project name
   const [projectName, setProjectName] = useState(project.name);
@@ -86,6 +96,17 @@ export default function ProjectDetail({
 
   // Reveal state
   const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
+
+  // Vercel sync state
+  const [syncKeys, setSyncKeys] = useState<VercelSyncKey[]>([]);
+  const [syncing, setSyncing] = useState(false);
+
+  // Build a lookup map: key → { syncEnabled, isDenylisted }
+  const syncMap = useMemo(() => {
+    const map = new Map<string, VercelSyncKey>();
+    for (const sk of syncKeys) map.set(sk.key, sk);
+    return map;
+  }, [syncKeys]);
 
   // Save project name
   const handleSaveName = async () => {
@@ -129,8 +150,23 @@ export default function ProjectDetail({
     }
   };
 
+  // Fetch vercel sync state
+  const fetchSyncState = async () => {
+    try {
+      const res = await fetch(`/api/projects/${project.id}/vercel-sync`, {
+        credentials: "include",
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setSyncKeys(data.keys ?? []);
+    } catch {
+      // non-critical — switches just won't have state
+    }
+  };
+
   useEffect(() => {
     fetchSecrets();
+    fetchSyncState();
   }, [project.id]);
 
   // Secret handlers
@@ -153,7 +189,7 @@ export default function ProjectDetail({
       }
       setNewKey("");
       setNewValue("");
-      await fetchSecrets();
+      await Promise.all([fetchSecrets(), fetchSyncState()]);
     } catch {
       setError("Failed to save secret");
     } finally {
@@ -202,7 +238,7 @@ export default function ProjectDetail({
         setError(data.error ?? "Failed to delete secret");
         return;
       }
-      await fetchSecrets();
+      await Promise.all([fetchSecrets(), fetchSyncState()]);
     } catch {
       setError("Failed to delete secret");
     }
@@ -230,6 +266,62 @@ export default function ProjectDetail({
   const maskValue = (value: string) => {
     if (value.length <= 4) return "\u2022".repeat(8);
     return value.slice(0, 4) + "\u2022".repeat(Math.min(value.length - 4, 20));
+  };
+
+  // Vercel sync handlers
+  const handleToggleSync = async (key: string, enabled: boolean) => {
+    // Optimistic update
+    setSyncKeys((prev) =>
+      prev.map((k) => (k.key === key ? { ...k, syncEnabled: enabled } : k)),
+    );
+    try {
+      const res = await fetch(`/api/projects/${project.id}/vercel-sync`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, enabled }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to update sync config");
+        // Revert
+        setSyncKeys((prev) =>
+          prev.map((k) =>
+            k.key === key ? { ...k, syncEnabled: !enabled } : k,
+          ),
+        );
+      }
+    } catch {
+      toast.error("Failed to update sync config");
+      setSyncKeys((prev) =>
+        prev.map((k) =>
+          k.key === key ? { ...k, syncEnabled: !enabled } : k,
+        ),
+      );
+    }
+  };
+
+  const handleBulkSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/vercel-sync`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Sync failed");
+        return;
+      }
+      toast.success(
+        `Synced ${data.synced} keys to Vercel (${data.skipped} skipped, ${data.denylisted} blocked)`,
+      );
+    } catch {
+      toast.error("Sync failed");
+    } finally {
+      setSyncing(false);
+    }
   };
 
   // Keys overridden by a higher-priority scope
@@ -333,13 +425,24 @@ export default function ProjectDetail({
       <Card>
         <CardHeader>
           <CardTitle>Environment Variables</CardTitle>
-          {project.vercelProjectId && (
-            <CardAction>
-              <Badge variant="outline" className="gap-1.5">
-                <VercelIcon /> Syncs to Vercel
-              </Badge>
-            </CardAction>
-          )}
+          <CardAction>
+            <div className="flex items-center gap-2">
+              {vercelConnected && (
+                <Badge variant="outline" className="gap-1.5">
+                  <VercelIcon /> Vercel
+                </Badge>
+              )}
+              <Button
+                size="sm"
+                variant={vercelConnected ? "default" : "outline"}
+                onClick={handleBulkSync}
+                disabled={!vercelConnected || !isAdmin || syncing}
+              >
+                <VercelIcon />
+                {syncing ? "Syncing..." : "Sync to Vercel"}
+              </Button>
+            </div>
+          </CardAction>
         </CardHeader>
 
         <CardContent>
@@ -371,6 +474,9 @@ export default function ProjectDetail({
                 onEditValueChange={setEditValue}
                 onDelete={handleDelete}
                 maskValue={maskValue}
+                syncMap={syncMap}
+                vercelConnected={vercelConnected}
+                onToggleSync={handleToggleSync}
                 addForm={
                   isAdmin ? (
                     <div className="flex items-center gap-2 border-b border-border pb-3">
@@ -433,6 +539,9 @@ export default function ProjectDetail({
                   onEditValueChange={() => {}}
                   onDelete={() => Promise.resolve()}
                   maskValue={maskValue}
+                  syncMap={syncMap}
+                  vercelConnected={vercelConnected}
+                  onToggleSync={handleToggleSync}
                   overrideAction={
                     isAdmin
                       ? (key: string) => {
@@ -470,6 +579,9 @@ function SecretSection({
   onEditValueChange,
   onDelete,
   maskValue,
+  syncMap,
+  vercelConnected,
+  onToggleSync,
   addForm,
   overrideAction,
 }: {
@@ -489,6 +601,9 @@ function SecretSection({
   onEditValueChange: (value: string) => void;
   onDelete: (key: string) => void;
   maskValue: (value: string) => string;
+  syncMap: Map<string, VercelSyncKey>;
+  vercelConnected: boolean;
+  onToggleSync: (key: string, enabled: boolean) => void;
   addForm?: React.ReactNode;
   overrideAction?: (key: string) => void;
 }) {
@@ -507,6 +622,9 @@ function SecretSection({
         <div className="flex flex-col">
           {secrets.map((secret) => {
             const isOverridden = overriddenKeys.has(secret.key);
+            const sync = syncMap.get(secret.key);
+            const isDenylisted = sync?.isDenylisted ?? false;
+            const syncEnabled = sync?.syncEnabled ?? true;
             return (
               <div
                 key={secret.key}
@@ -565,6 +683,26 @@ function SecretSection({
                         ? secret.value
                         : maskValue(secret.value)}
                     </span>
+                    {/* Vercel sync toggle */}
+                    <Switch
+                      checked={!isDenylisted && syncEnabled}
+                      onCheckedChange={(checked) =>
+                        onToggleSync(secret.key, checked)
+                      }
+                      disabled={
+                        !vercelConnected || isDenylisted || !isAdmin
+                      }
+                      size="sm"
+                      title={
+                        isDenylisted
+                          ? "System variable — blocked from Vercel"
+                          : !vercelConnected
+                            ? "Connect Vercel to enable sync"
+                            : syncEnabled
+                              ? "Syncs to Vercel"
+                              : "Not syncing to Vercel"
+                      }
+                    />
                     {isOverridden && (
                       <span className="shrink-0 text-xs text-muted-foreground">
                         overridden

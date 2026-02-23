@@ -15,6 +15,21 @@ import {
 } from "~/lib/vercel.server";
 import { log } from "~/lib/logger.server";
 
+const VERCEL_SYNC_DENYLIST_PREFIX = "VIAGEN_";
+
+function isDenylisted(key: string): boolean {
+  return key.startsWith(VERCEL_SYNC_DENYLIST_PREFIX);
+}
+
+function shouldSyncToVercel(
+  key: string,
+  config: Record<string, boolean> | null,
+): boolean {
+  if (isDenylisted(key)) return false;
+  if (config && config[key] === false) return false;
+  return true;
+}
+
 export async function loader({
   request,
   params,
@@ -100,8 +115,9 @@ export async function action({
     await setProjectSecret(org.id, id, key, value);
     log.info({ projectId: id, key }, "project secret set");
 
-    // Sync to Vercel if connected
-    if (project.vercelProjectId) {
+    // Sync to Vercel if connected, not denylisted, and not disabled
+    const syncConfig = (project.vercelEnvSync as Record<string, boolean>) ?? null;
+    if (project.vercelProjectId && shouldSyncToVercel(key, syncConfig)) {
       try {
         const vercelToken = await getSecret(
           org.id,
@@ -122,6 +138,11 @@ export async function action({
           "failed to sync secret to vercel",
         );
       }
+    } else if (project.vercelProjectId) {
+      log.info(
+        { projectId: id, key, denylisted: isDenylisted(key) },
+        "skipped vercel sync for secret (denylisted or disabled)",
+      );
     }
 
     return Response.json({ success: true });
@@ -138,8 +159,9 @@ export async function action({
     await deleteProjectSecret(org.id, id, key);
     log.info({ projectId: id, key }, "project secret deleted");
 
-    // Remove from Vercel if connected
-    if (project.vercelProjectId) {
+    // Remove from Vercel if connected and not denylisted/disabled
+    const deleteSyncConfig = (project.vercelEnvSync as Record<string, boolean>) ?? null;
+    if (project.vercelProjectId && shouldSyncToVercel(key, deleteSyncConfig)) {
       try {
         const vercelToken = await getSecret(
           org.id,
@@ -165,6 +187,11 @@ export async function action({
           "failed to delete secret from vercel",
         );
       }
+    } else if (project.vercelProjectId) {
+      log.info(
+        { projectId: id, key, denylisted: isDenylisted(key) },
+        "skipped vercel delete for secret (denylisted or disabled)",
+      );
     }
 
     return Response.json({ success: true });
