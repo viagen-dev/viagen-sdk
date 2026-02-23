@@ -924,13 +924,6 @@ export default function ProjectSettings({
           )}
         </CardContent>
 
-        {project.vercelProjectId && (
-          <CardFooter className="border-t">
-            <Badge variant="outline" className="gap-1.5">
-              <VercelIcon /> Syncs to Vercel
-            </Badge>
-          </CardFooter>
-        )}
       </Card>
     </div>
   );
