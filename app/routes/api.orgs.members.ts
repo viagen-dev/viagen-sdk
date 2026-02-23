@@ -3,6 +3,7 @@ import { db } from "~/lib/db/index.server";
 import { users, orgMembers } from "~/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { log } from "~/lib/logger.server";
+import { sendOrgInviteEmail } from "~/lib/email.server";
 
 export async function loader({ request }: { request: Request }) {
   const { org } = await requireAuth(request);
@@ -44,7 +45,7 @@ export async function action({ request }: { request: Request }) {
 
 /** POST — Add a new member to the org by email */
 async function handleAddMember(request: Request) {
-  const { role, org } = await requireAuth(request);
+  const { role, user, org } = await requireAuth(request);
   if (!isAdminRole(role)) {
     log.warn({ orgId: org.id }, "add member denied: not admin/owner");
     return Response.json({ error: "Admin role required" }, { status: 403 });
@@ -103,6 +104,16 @@ async function handleAddMember(request: Request) {
     { orgId: org.id, targetUserId: targetUser.id, role: assignedRole, email },
     "member added to org",
   );
+
+  // Fire-and-forget: send invitation email
+  sendOrgInviteEmail({
+    to: email,
+    orgName: org.name,
+    inviterName: user.name ?? user.email,
+  }).catch((err) =>
+    log.error({ orgId: org.id, email, err }, "invite email send threw"),
+  );
+
   return Response.json({ success: true }, { status: 201 });
 }
 
