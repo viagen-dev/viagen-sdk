@@ -116,15 +116,6 @@ export default function ProjectSettings({
   const [connections, setConnections] = useState<ConnectionStatus | null>(null);
   const [connectionsLoading, setConnectionsLoading] = useState(true);
 
-  // --- Per-integration override inputs ---
-  const [githubInput, setGithubInput] = useState("");
-  const [showGithubInput, setShowGithubInput] = useState(false);
-  const [savingGithub, setSavingGithub] = useState(false);
-
-  const [vercelInput, setVercelInput] = useState("");
-  const [showVercelInput, setShowVercelInput] = useState(false);
-  const [savingVercel, setSavingVercel] = useState(false);
-
   const [claudeInput, setClaudeInput] = useState("");
   const [showClaudeInput, setShowClaudeInput] = useState(false);
   const [savingClaude, setSavingClaude] = useState(false);
@@ -235,71 +226,6 @@ export default function ProjectSettings({
     fetchSecrets();
     fetchSyncState();
   }, [project.id]);
-
-  // -----------------------------------------------------------------------
-  // Handlers — token overrides (GitHub / Vercel via secrets API)
-  // -----------------------------------------------------------------------
-
-  const handleSaveToken = async (
-    key: string,
-    value: string,
-    label: string,
-    setSavingFn: (v: boolean) => void,
-    setInputFn: (v: string) => void,
-    setShowFn: (v: boolean) => void,
-  ) => {
-    if (!value.trim()) return;
-    setSavingFn(true);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/secrets`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, value: value.trim() }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error ?? `Failed to save ${label}`);
-        return;
-      }
-      setInputFn("");
-      setShowFn(false);
-      toast.success(`Project ${label} saved`);
-      await fetchConnections();
-    } catch {
-      toast.error(`Failed to save ${label}`);
-    } finally {
-      setSavingFn(false);
-    }
-  };
-
-  const handleRemoveToken = async (
-    key: string,
-    label: string,
-    setSavingFn: (v: boolean) => void,
-    setShowFn: (v: boolean) => void,
-  ) => {
-    setSavingFn(true);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/secrets`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key }),
-      });
-      if (!res.ok) {
-        toast.error(`Failed to remove ${label} override`);
-        return;
-      }
-      toast.success(`${label} override removed — using org default`);
-      setShowFn(false);
-      await fetchConnections();
-    } catch {
-      toast.error(`Failed to remove ${label} override`);
-    } finally {
-      setSavingFn(false);
-    }
-  };
 
   // -----------------------------------------------------------------------
   // Handlers — Claude override (dedicated endpoint)
@@ -476,133 +402,25 @@ export default function ProjectSettings({
             <GitHubIcon /> GitHub
           </CardTitle>
           <CardDescription>
-            {project.githubRepo ? (
-              <>
-                Repository{" "}
-                <span className="font-mono text-foreground">
-                  {project.githubRepo}
-                </span>
-                . Used for sandbox source code and pushing changes.
-              </>
-            ) : (
-              "Repository access for sandbox source code and pushing changes."
-            )}
+            Source repository for sandbox code and pushing changes.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {connectionsLoading ? (
-            <Muted>Loading...</Muted>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                {connections?.github.tokenAvailable ? (
-                  <>
-                    <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                      Connected
-                    </Badge>
-                    <Badge>{connections.github.tokenSource ?? "org"}</Badge>
-                  </>
-                ) : connections?.github.linked ? (
-                  <Badge
-                    variant="outline"
-                    className="border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"
-                  >
-                    Linked — no token
-                  </Badge>
-                ) : (
-                  <Muted>Not connected</Muted>
-                )}
-              </div>
-
-              {showGithubInput && isAdmin && (
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="password"
-                    value={githubInput}
-                    onChange={(e) => setGithubInput(e.target.value)}
-                    placeholder="ghp_... or GitHub access token"
-                    className="min-w-0 flex-1 max-w-md"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter")
-                        handleSaveToken(
-                          "GITHUB_TOKEN",
-                          githubInput,
-                          "GitHub token",
-                          setSavingGithub,
-                          setGithubInput,
-                          setShowGithubInput,
-                        );
-                      if (e.key === "Escape") {
-                        setShowGithubInput(false);
-                        setGithubInput("");
-                      }
-                    }}
-                    autoFocus
-                  />
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      handleSaveToken(
-                        "GITHUB_TOKEN",
-                        githubInput,
-                        "GitHub token",
-                        setSavingGithub,
-                        setGithubInput,
-                        setShowGithubInput,
-                      )
-                    }
-                    disabled={!githubInput.trim() || savingGithub}
-                  >
-                    {savingGithub ? "Saving..." : "Save"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setShowGithubInput(false);
-                      setGithubInput("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
+          {project.githubRepo ? (
+            <div className="flex items-center gap-2">
+              <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                Linked
+              </Badge>
+              <span className="font-mono text-sm">{project.githubRepo}</span>
             </div>
+          ) : (
+            <Muted>
+              No repository linked. Run{" "}
+              <span className="font-mono">npx viagen sync</span> from your
+              project to link it.
+            </Muted>
           )}
         </CardContent>
-        {isAdmin && !connectionsLoading && (
-          <CardFooter className="border-t justify-end">
-            {connections?.github.tokenAvailable &&
-            connections.github.tokenSource === "project" ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  handleRemoveToken(
-                    "GITHUB_TOKEN",
-                    "GitHub token",
-                    setSavingGithub,
-                    setShowGithubInput,
-                  )
-                }
-                disabled={savingGithub}
-              >
-                Remove override
-              </Button>
-            ) : !showGithubInput ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setShowGithubInput(true);
-                  setGithubInput("");
-                }}
-              >
-                {connections?.github.tokenAvailable ? "Override" : "Add token"}
-              </Button>
-            ) : null}
-          </CardFooter>
-        )}
       </Card>
 
       {/* ================================================================= */}
@@ -614,133 +432,27 @@ export default function ProjectSettings({
             <VercelIcon /> Vercel
           </CardTitle>
           <CardDescription>
-            {project.vercelProjectId ? (
-              <>
-                Vercel project{" "}
-                <span className="font-mono text-foreground">
-                  {project.vercelProjectId}
-                </span>
-                . Used for deployments and environment sync.
-              </>
-            ) : (
-              "Deployments and environment variable sync."
-            )}
+            Deployments and environment variable sync.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {connectionsLoading ? (
-            <Muted>Loading...</Muted>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                {connections?.vercel.tokenAvailable ? (
-                  <>
-                    <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                      Connected
-                    </Badge>
-                    <Badge>{connections.vercel.tokenSource ?? "org"}</Badge>
-                  </>
-                ) : connections?.vercel.linked ? (
-                  <Badge
-                    variant="outline"
-                    className="border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"
-                  >
-                    Linked — no token
-                  </Badge>
-                ) : (
-                  <Muted>Not connected</Muted>
-                )}
-              </div>
-
-              {showVercelInput && isAdmin && (
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="password"
-                    value={vercelInput}
-                    onChange={(e) => setVercelInput(e.target.value)}
-                    placeholder="Vercel access token"
-                    className="min-w-0 flex-1 max-w-md"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter")
-                        handleSaveToken(
-                          "VERCEL_TOKEN",
-                          vercelInput,
-                          "Vercel token",
-                          setSavingVercel,
-                          setVercelInput,
-                          setShowVercelInput,
-                        );
-                      if (e.key === "Escape") {
-                        setShowVercelInput(false);
-                        setVercelInput("");
-                      }
-                    }}
-                    autoFocus
-                  />
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      handleSaveToken(
-                        "VERCEL_TOKEN",
-                        vercelInput,
-                        "Vercel token",
-                        setSavingVercel,
-                        setVercelInput,
-                        setShowVercelInput,
-                      )
-                    }
-                    disabled={!vercelInput.trim() || savingVercel}
-                  >
-                    {savingVercel ? "Saving..." : "Save"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setShowVercelInput(false);
-                      setVercelInput("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
+          {project.vercelProjectId ? (
+            <div className="flex items-center gap-2">
+              <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                Linked
+              </Badge>
+              <span className="font-mono text-sm">
+                {project.vercelProjectId}
+              </span>
             </div>
+          ) : (
+            <Muted>
+              No Vercel project linked. Run{" "}
+              <span className="font-mono">npx viagen sync</span> from your
+              project to link it.
+            </Muted>
           )}
         </CardContent>
-        {isAdmin && !connectionsLoading && (
-          <CardFooter className="border-t justify-end">
-            {connections?.vercel.tokenAvailable &&
-            connections.vercel.tokenSource === "project" ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  handleRemoveToken(
-                    "VERCEL_TOKEN",
-                    "Vercel token",
-                    setSavingVercel,
-                    setShowVercelInput,
-                  )
-                }
-                disabled={savingVercel}
-              >
-                Remove override
-              </Button>
-            ) : !showVercelInput ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setShowVercelInput(true);
-                  setVercelInput("");
-                }}
-              >
-                {connections?.vercel.tokenAvailable ? "Override" : "Add token"}
-              </Button>
-            ) : null}
-          </CardFooter>
-        )}
       </Card>
 
       {/* ================================================================= */}
