@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { redirect } from "react-router";
 import { requireAuth } from "~/lib/session.server";
@@ -100,6 +100,24 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
   const navigate = useNavigate();
 
   const [teamOpen, setTeamOpen] = useState(false);
+
+  // Auto-switch org when ?org= is in the URL (e.g. from invite emails)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const targetOrg = params.get("org");
+    if (
+      targetOrg &&
+      targetOrg !== currentOrg.id &&
+      organizations.some((o) => o.id === targetOrg)
+    ) {
+      document.cookie = `viagen-org=${targetOrg}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+      // Strip the ?org param and reload
+      params.delete("org");
+      const clean = params.toString();
+      window.location.href =
+        location.pathname + (clean ? `?${clean}` : "");
+    }
+  }, []);
 
   const handleOrgSwitch = (value: string) => {
     if (value === "__add_team__") {

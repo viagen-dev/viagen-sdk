@@ -6,15 +6,17 @@ const resend = process.env.RESEND_API_KEY
   : null;
 
 const FROM = "Viagen <boa@viagen.dev>";
-const DASHBOARD_URL = "https://viagen.dev/settings?tab=settings";
+const APP_URL = "https://app.viagen.dev";
 
 export async function sendOrgInviteEmail({
   to,
   orgName,
+  orgId,
   inviterName,
 }: {
   to: string;
   orgName: string;
+  orgId: string;
   inviterName: string;
 }) {
   if (!resend) {
@@ -38,7 +40,7 @@ export async function sendOrgInviteEmail({
   <p style="line-height: 1.6; margin: 0 0 24px;">
     You can now access shared projects, launch sandboxes, and manage secrets for the team.
   </p>
-  <a href="${DASHBOARD_URL}"
+  <a href="${APP_URL}/?org=${orgId}"
      style="display: inline-block; background: #18181b; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">
     Open Dashboard
   </a>

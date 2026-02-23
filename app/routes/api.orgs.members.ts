@@ -109,6 +109,7 @@ async function handleAddMember(request: Request) {
   sendOrgInviteEmail({
     to: email,
     orgName: org.name,
+    orgId: org.id,
     inviterName: user.name ?? user.email,
   }).catch((err) =>
     log.error({ orgId: org.id, email, err }, "invite email send threw"),
