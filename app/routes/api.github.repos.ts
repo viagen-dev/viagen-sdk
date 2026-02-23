@@ -29,25 +29,47 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ error: 'Repository name is required' }, { status: 400 })
   }
 
+  const templateRepo = body.templateRepo?.trim() // e.g. "viagen-dev/viagen-react-router"
+
   log.info(
-    { userId: user.id, orgId: org.id, repoName, private: body.private ?? true },
-    'github create repo: creating repository',
+    { userId: user.id, orgId: org.id, repoName, private: body.private ?? true, templateRepo: templateRepo ?? null },
+    templateRepo ? 'github create repo: generating from template' : 'github create repo: creating repository',
   )
 
-  const res = await fetch('https://api.github.com/user/repos', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-      'User-Agent': 'viagen-sdk',
-    },
-    body: JSON.stringify({
-      name: repoName,
-      private: body.private ?? true,
-      description: body.description ?? '',
-      auto_init: true,
-    }),
-  })
+  let res: Response
+
+  if (templateRepo) {
+    // Use GitHub's template repository API: POST /repos/{template_owner}/{template_repo}/generate
+    const ghUrl = `https://api.github.com/repos/${templateRepo}/generate`
+    res = await fetch(ghUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'viagen-sdk',
+      },
+      body: JSON.stringify({
+        name: repoName,
+        private: body.private ?? true,
+        description: body.description ?? '',
+      }),
+    })
+  } else {
+    res = await fetch('https://api.github.com/user/repos', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'viagen-sdk',
+      },
+      body: JSON.stringify({
+        name: repoName,
+        private: body.private ?? true,
+        description: body.description ?? '',
+        auto_init: true,
+      }),
+    })
+  }
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))

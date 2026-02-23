@@ -204,7 +204,13 @@ export default function NewProject() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: repoName, private: true }),
+        body: JSON.stringify({
+          name: repoName,
+          private: true,
+          templateRepo: selectedTemplate
+            ? TEMPLATES.find((t) => t.id === selectedTemplate)?.repo ?? undefined
+            : undefined,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -439,8 +445,12 @@ export default function NewProject() {
                 </Button>
               </div>
               <Muted className="text-xs">
-                Creates a private repository. Leave blank to use the project
-                name.
+                Creates a private repository
+                {selectedTemplate &&
+                TEMPLATES.find((t) => t.id === selectedTemplate)?.repo
+                  ? " from the selected template"
+                  : ""}
+                . Leave blank to use the project name.
               </Muted>
             </div>
           ) : (
