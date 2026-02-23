@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { useRouteLoaderData } from "react-router";
-import { Sparkles } from "lucide-react";
+import { useRouteLoaderData, useNavigate } from "react-router";
+import { Sparkles, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
@@ -21,6 +21,17 @@ import { Badge } from "~/components/ui/badge";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Switch } from "~/components/ui/switch";
 import { Small, Muted } from "~/components/ui/typography";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
 import { ResourcePicker } from "~/components/resource-picker";
 
 // ---------------------------------------------------------------------------
@@ -512,6 +523,49 @@ export default function ProjectSettings({
   };
 
   // -----------------------------------------------------------------------
+  // Handlers — delete project
+  // -----------------------------------------------------------------------
+
+  const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(false);
+  const [deleteGithub, setDeleteGithub] = useState(true);
+  const [deleteVercelPrj, setDeleteVercelPrj] = useState(true);
+  const [confirmText, setConfirmText] = useState("");
+
+  const canDelete = confirmText === project.name;
+
+  const handleDeleteProject = async () => {
+    if (!canDelete || deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deleteGithubRepo: deleteGithub && !!effectiveGithubRepo,
+          deleteVercelProject: deleteVercelPrj && !!effectiveVercelProjectId,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to delete project");
+        return;
+      }
+      const data = await res.json();
+      if (data.warnings?.length) {
+        for (const w of data.warnings) toast.warning(w);
+      }
+      toast.success("Project deleted");
+      navigate("/");
+    } catch {
+      toast.error("Failed to delete project");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // -----------------------------------------------------------------------
   // Render
   // -----------------------------------------------------------------------
 
@@ -871,6 +925,116 @@ export default function ProjectSettings({
         </CardContent>
 
       </Card>
+
+      {/* ================================================================= */}
+      {/* Danger Zone                                                       */}
+      {/* ================================================================= */}
+      {isAdmin && (
+        <Card className="border-destructive/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <TriangleAlert className="size-4" /> Danger Zone
+            </CardTitle>
+            <CardDescription>
+              Permanently delete this project and optionally its linked GitHub
+              repository and Vercel project. This action cannot be undone.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="border-t border-destructive/30 justify-end">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">Delete Project</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete {project.name}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the project from Viagen.
+                    {(effectiveGithubRepo || effectiveVercelProjectId) &&
+                      " You can also delete the linked external resources."}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                <div className="flex flex-col gap-3 py-2">
+                  {effectiveGithubRepo && (
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={deleteGithub}
+                        onChange={(e) => setDeleteGithub(e.target.checked)}
+                        className="size-4 rounded border-border accent-destructive"
+                      />
+                      <span>
+                        Delete GitHub repo{" "}
+                        <span className="font-mono text-muted-foreground">
+                          {effectiveGithubRepo}
+                        </span>
+                      </span>
+                    </label>
+                  )}
+                  {effectiveVercelProjectId && (
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={deleteVercelPrj}
+                        onChange={(e) => setDeleteVercelPrj(e.target.checked)}
+                        className="size-4 rounded border-border accent-destructive"
+                      />
+                      <span>
+                        Delete Vercel project{" "}
+                        <span className="font-mono text-muted-foreground">
+                          {localVercelProjectName ?? effectiveVercelProjectId}
+                        </span>
+                      </span>
+                    </label>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Small>
+                    Type{" "}
+                    <span className="font-mono font-bold">{project.name}</span>{" "}
+                    to confirm
+                  </Small>
+                  <input
+                    type="text"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    placeholder={project.name}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && canDelete && handleDeleteProject()
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+
+                <AlertDialogFooter>
+                  <AlertDialogCancel
+                    onClick={() => {
+                      setConfirmText("");
+                      setDeleteGithub(true);
+                      setDeleteVercelPrj(true);
+                    }}
+                  >
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    disabled={!canDelete || deleting}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleDeleteProject();
+                    }}
+                  >
+                    {deleting ? "Deleting..." : "Delete everything"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardFooter>
+        </Card>
+      )}
     </div>
   );
 }

@@ -149,6 +149,25 @@ export async function upsertVercelEnvVars(
   }
 }
 
+export async function deleteVercelProject(
+  token: string,
+  vercelProjectId: string,
+  teamId?: string,
+): Promise<void> {
+  const url = new URL(`${VERCEL_API}/v9/projects/${vercelProjectId}`)
+  if (teamId) url.searchParams.set('teamId', teamId)
+
+  const res = await fetch(url.toString(), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (!res.ok && res.status !== 404) {
+    const body = await res.json().catch(() => ({}))
+    throw new VercelApiError(res.status, body.error?.message ?? 'Vercel API error')
+  }
+}
+
 export async function deleteVercelEnvVar(
   token: string,
   vercelProjectId: string,
