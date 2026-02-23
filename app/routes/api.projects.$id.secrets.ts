@@ -30,6 +30,11 @@ function shouldSyncToVercel(
   return true;
 }
 
+function maskValue(value: string): string {
+  if (value.length <= 4) return "••••";
+  return value.slice(0, 4) + "••••••";
+}
+
 export async function loader({
   request,
   params,
@@ -37,8 +42,17 @@ export async function loader({
   request: Request;
   params: { id: string };
 }) {
-  const { org } = await requireAuth(request);
+  const { org, role } = await requireAuth(request);
   const id = params.id;
+  const url = new URL(request.url);
+  const reveal = url.searchParams.get("reveal") === "true";
+
+  if (reveal && !isAdminRole(role)) {
+    return Response.json(
+      { error: "Admin role required to reveal secrets" },
+      { status: 403 },
+    );
+  }
 
   const [project] = await db
     .select()
@@ -57,6 +71,7 @@ export async function loader({
       orgId: org.id,
       projectCount: resolved.project.length,
       orgCount: resolved.org.length,
+      reveal,
     },
     "secrets loader: resolved all secrets",
   );
@@ -64,9 +79,12 @@ export async function loader({
   const sort = (secrets: { key: string; value: string }[]) =>
     [...secrets].sort((a, b) => a.key.localeCompare(b.key));
 
+  const mask = (secrets: { key: string; value: string }[]) =>
+    secrets.map((s) => ({ key: s.key, value: reveal ? s.value : maskValue(s.value) }));
+
   return Response.json({
-    project: sort(resolved.project),
-    org: sort(resolved.org),
+    project: mask(sort(resolved.project)),
+    org: mask(sort(resolved.org)),
   });
 }
 

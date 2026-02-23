@@ -2,10 +2,8 @@ import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getProjectSecret, getSecret } from "~/lib/infisical.server";
+import { resolveAllSecrets } from "~/lib/infisical.server";
 import { log } from "~/lib/logger.server";
-
-const CLAUDE_KEYS = ["CLAUDE_ACCESS_TOKEN", "ANTHROPIC_API_KEY"];
 
 export async function loader({
   request,
@@ -26,123 +24,111 @@ export async function loader({
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
 
-  // Helper: check if a secret exists at project or org level, returning the source
-  const resolveToken = async (
+  // Single call to resolve all secrets at both project and org level
+  const resolved = await resolveAllSecrets(org.id, id);
+
+  const projectKeys = new Set(resolved.project.map((s) => s.key));
+  const orgKeys = new Set(resolved.org.map((s) => s.key));
+
+  // Helper: check if a key exists and where it comes from (project wins)
+  const check = (
     key: string,
-  ): Promise<{ available: boolean; source: "project" | "org" | null }> => {
-    const projectVal = await getProjectSecret(org.id, id, key).catch(
-      () => null,
-    );
-    if (projectVal) return { available: true, source: "project" };
-    const orgVal = await getSecret(org.id, key).catch(() => null);
-    if (orgVal) return { available: true, source: "org" };
+  ): { available: boolean; source: "project" | "org" | null } => {
+    if (projectKeys.has(key)) return { available: true, source: "project" };
+    if (orgKeys.has(key)) return { available: true, source: "org" };
     return { available: false, source: null };
   };
 
-  // GitHub: linked (has repo in DB) + token available + source
-  const githubLinked = !!project.githubRepo;
-  const githubResult = await resolveToken("GITHUB_TOKEN");
-
-  // Vercel: linked (has vercelProjectId in DB) + token available + source
-  const vercelLinked = !!project.vercelProjectId;
-  const vercelResult = await resolveToken("VERCEL_TOKEN");
-
-  // Claude: check project > org cascade, plus expiration.
-  // If a higher-priority OAuth token is expired, fall through to lower
-  // scope so a valid org-level API key can still mark us as ready.
-
-  const isOAuthExpired = async (
-    source: "project" | "org",
-  ): Promise<boolean> => {
-    const expires =
-      source === "project"
-        ? await getProjectSecret(org.id, id, "CLAUDE_TOKEN_EXPIRES").catch(
-            () => null,
-          )
-        : await getSecret(org.id, "CLAUDE_TOKEN_EXPIRES").catch(() => null);
-    if (!expires) return false;
-    const expiresMs = Number(expires);
-    return !isNaN(expiresMs) && expiresMs < Date.now();
+  // Helper: get a secret value (project > org)
+  const getValue = (key: string): string | null => {
+    const p = resolved.project.find((s) => s.key === key);
+    if (p) return p.value;
+    const o = resolved.org.find((s) => s.key === key);
+    if (o) return o.value;
+    return null;
   };
 
-  // Build ordered list of candidates: project > org
-  const candidates: { source: string; key: string; val: string }[] = [];
+  // GitHub
+  const githubLinked = !!project.githubRepo;
+  const github = check("GITHUB_TOKEN");
 
-  for (const key of CLAUDE_KEYS) {
-    const val = await getProjectSecret(org.id, id, key).catch(() => null);
-    if (val) candidates.push({ source: "project", key, val });
-  }
-  for (const key of CLAUDE_KEYS) {
-    const val = await getSecret(org.id, key).catch(() => null);
-    if (val) candidates.push({ source: "org", key, val });
-  }
+  // Vercel
+  const vercelLinked = !!project.vercelProjectId;
+  const vercel = check("VERCEL_TOKEN");
 
+  // Claude: check for OAuth token first, then API key.
+  // If OAuth token is expired, skip it so API key wins.
   let claudeConnected = false;
   let claudeSource: string | null = null;
   let claudeKeyPrefix: string | null = null;
   let claudeExpired = false;
 
-  for (const c of candidates) {
-    // OAuth tokens (CLAUDE_ACCESS_TOKEN) at project/org level can expire —
-    // if expired, skip to the next candidate so an org API key wins.
-    if (
-      c.key === "CLAUDE_ACCESS_TOKEN" &&
-      (c.source === "project" || c.source === "org")
-    ) {
-      const expired = await isOAuthExpired(c.source as "project" | "org");
-      if (expired) {
-        log.info(
-          { projectId: id, source: c.source },
-          "status: skipping expired OAuth token, checking next scope",
-        );
-        continue;
-      }
+  const oauthCheck = check("CLAUDE_ACCESS_TOKEN");
+  const apiKeyCheck = check("ANTHROPIC_API_KEY");
+
+  if (oauthCheck.available) {
+    const expires = getValue("CLAUDE_TOKEN_EXPIRES");
+    const isExpired =
+      expires !== null && !isNaN(Number(expires)) && Number(expires) < Date.now();
+
+    if (!isExpired) {
+      claudeConnected = true;
+      claudeSource = oauthCheck.source;
+      claudeKeyPrefix =
+        (getValue("CLAUDE_ACCESS_TOKEN") ?? "").slice(0, 12) + "...";
+    } else if (apiKeyCheck.available) {
+      // OAuth expired but API key exists — use that
+      claudeConnected = true;
+      claudeSource = apiKeyCheck.source;
+      claudeKeyPrefix =
+        (getValue("ANTHROPIC_API_KEY") ?? "").slice(0, 12) + "...";
+    } else {
+      // OAuth expired, no API key fallback
+      claudeConnected = true;
+      claudeSource = oauthCheck.source;
+      claudeKeyPrefix =
+        (getValue("CLAUDE_ACCESS_TOKEN") ?? "").slice(0, 12) + "...";
+      claudeExpired = true;
     }
-
+  } else if (apiKeyCheck.available) {
     claudeConnected = true;
-    claudeSource = c.source;
-    claudeKeyPrefix = c.val.slice(0, 12) + "...";
-    break;
+    claudeSource = apiKeyCheck.source;
+    claudeKeyPrefix =
+      (getValue("ANTHROPIC_API_KEY") ?? "").slice(0, 12) + "...";
   }
-
-  // If we exhausted all candidates without finding a valid one but there
-  // WERE expired tokens, still report connected + expired so the UI can
-  // show "expired" rather than "not connected".
-  if (!claudeConnected && candidates.length > 0) {
-    const first = candidates[0];
-    claudeConnected = true;
-    claudeSource = first.source;
-    claudeKeyPrefix = first.val.slice(0, 12) + "...";
-    claudeExpired = true;
-  }
-
-  log.info(
-    {
-      projectId: id,
-      claudeConnected,
-      claudeSource,
-      claudeExpired,
-      candidateCount: candidates.length,
-    },
-    "status: claude credential resolution",
-  );
 
   // Ready = can launch a sandbox. GitHub repo + token and Claude are hard requirements.
   // Vercel linkage is optional — enhances deployment but doesn't block sandbox launch.
   const ready =
-    githubLinked && githubResult.available && claudeConnected && !claudeExpired;
+    githubLinked && github.available && claudeConnected && !claudeExpired;
+
+  log.info(
+    {
+      projectId: id,
+      orgId: org.id,
+      ready,
+      github: { linked: githubLinked, ...github },
+      vercel: { linked: vercelLinked, ...vercel },
+      claude: {
+        connected: claudeConnected,
+        source: claudeSource,
+        expired: claudeExpired,
+      },
+    },
+    "project status",
+  );
 
   return Response.json({
     ready,
     github: {
       linked: githubLinked,
-      tokenAvailable: githubResult.available,
-      tokenSource: githubResult.source,
+      tokenAvailable: github.available,
+      tokenSource: github.source,
     },
     vercel: {
       linked: vercelLinked,
-      tokenAvailable: vercelResult.available,
-      tokenSource: vercelResult.source,
+      tokenAvailable: vercel.available,
+      tokenSource: vercel.source,
     },
     claude: {
       connected: claudeConnected,

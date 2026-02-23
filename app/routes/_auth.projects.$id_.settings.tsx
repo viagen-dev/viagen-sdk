@@ -244,7 +244,7 @@ export default function ProjectSettings({
 
   const fetchSecrets = async () => {
     try {
-      const res = await fetch(`/api/projects/${project.id}/secrets`, {
+      const res = await fetch(`/api/projects/${project.id}/secrets?reveal=true`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to load secrets");
@@ -293,7 +293,7 @@ export default function ProjectSettings({
     if (!value.trim()) return;
     setSavingFn(true);
     try {
-      const res = await fetch(`/api/projects/${project.id}/secrets`, {
+      const res = await fetch(`/api/projects/${project.id}/secrets?reveal=true`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -323,7 +323,7 @@ export default function ProjectSettings({
   ) => {
     setSavingFn(true);
     try {
-      const res = await fetch(`/api/projects/${project.id}/secrets`, {
+      const res = await fetch(`/api/projects/${project.id}/secrets?reveal=true`, {
         method: "DELETE",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -406,7 +406,7 @@ export default function ProjectSettings({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/projects/${project.id}/secrets`, {
+      const res = await fetch(`/api/projects/${project.id}/secrets?reveal=true`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -434,7 +434,7 @@ export default function ProjectSettings({
     setEditSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/projects/${project.id}/secrets`, {
+      const res = await fetch(`/api/projects/${project.id}/secrets?reveal=true`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -460,7 +460,7 @@ export default function ProjectSettings({
   const handleDeleteSecret = async (key: string) => {
     setError(null);
     try {
-      const res = await fetch(`/api/projects/${project.id}/secrets`, {
+      const res = await fetch(`/api/projects/${project.id}/secrets?reveal=true`, {
         method: "DELETE",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

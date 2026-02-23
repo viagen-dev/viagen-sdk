@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { redirect } from "react-router";
 import { requireAuth } from "~/lib/session.server";
-import { getSecret } from "~/lib/infisical.server";
+import { listOrgSecrets } from "~/lib/infisical.server";
 import { log } from "~/lib/logger.server";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
@@ -37,35 +37,28 @@ import {
 export async function loader({ request }: { request: Request }) {
   const auth = await requireAuth(request);
 
-  // Check integration status (org-scoped)
-  const safeGet = async (key: string): Promise<boolean> => {
-    try {
-      const val = await getSecret(auth.org.id, key);
-      if (!val) {
-        log.debug({ orgId: auth.org.id, key }, "integration secret not found");
-      }
-      return !!val;
-    } catch (err) {
-      log.error(
-        {
-          orgId: auth.org.id,
-          key,
-          err: err instanceof Error ? err.message : String(err),
-        },
-        "integration check failed — secret fetch threw, treating as disconnected",
-      );
-      return false;
-    }
-  };
-  const [github, vercel, claude] = await Promise.all([
-    safeGet("GITHUB_TOKEN"),
-    safeGet("VERCEL_TOKEN"),
-    safeGet("ANTHROPIC_API_KEY"),
-  ]);
+  // Check integration status (org-scoped) — single list call
+  let orgKeys: Set<string>;
+  try {
+    const secrets = await listOrgSecrets(auth.org.id);
+    orgKeys = new Set(secrets.map((s) => s.key));
+  } catch (err) {
+    log.error(
+      { orgId: auth.org.id, err: err instanceof Error ? err.message : String(err) },
+      "integration check failed — listing org secrets threw",
+    );
+    orgKeys = new Set();
+  }
+
+  const github = orgKeys.has("GITHUB_TOKEN");
+  const vercel = orgKeys.has("VERCEL_TOKEN");
+  const claude =
+    orgKeys.has("CLAUDE_ACCESS_TOKEN") || orgKeys.has("ANTHROPIC_API_KEY");
 
   log.info(
     {
       orgId: auth.org.id,
+      orgName: auth.org.name,
       userId: auth.user.id,
       integrations: { github, vercel, claude },
     },

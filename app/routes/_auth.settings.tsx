@@ -3,6 +3,7 @@ import {
   useRouteLoaderData,
   useSearchParams,
   useNavigate,
+  useRevalidator,
   useLocation,
 } from "react-router";
 import { toast } from "sonner";
@@ -121,6 +122,7 @@ function initials(name: string | null, email: string): string {
 
 export default function Settings() {
   const parentData = useRouteLoaderData("routes/_auth") as ParentData;
+  const revalidator = useRevalidator();
   const { user, currentOrg, organizations, integrations } = parentData;
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -141,6 +143,12 @@ export default function Settings() {
   // --- Account state ---
   const [githubConnected, setGithubConnected] = useState(integrations.github);
   const [vercelConnected, setVercelConnected] = useState(integrations.vercel);
+
+  // Sync with parent layout data when it revalidates (e.g. after full reload)
+  useEffect(() => {
+    setGithubConnected(integrations.github);
+    setVercelConnected(integrations.vercel);
+  }, [integrations.github, integrations.vercel]);
 
   // --- Team state ---
   // Org name
@@ -175,8 +183,16 @@ export default function Settings() {
   const [deletingDbId, setDeletingDbId] = useState<string | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
 
-  // Clean up OAuth redirect params from URL (but preserve tab)
+  // Handle OAuth redirect: update connection state, then clean up URL params
   useEffect(() => {
+    const connected = searchParams.get("connected");
+    if (connected) {
+      if (connected === "github") setGithubConnected(true);
+      if (connected === "vercel") setVercelConnected(true);
+      // Re-run parent layout loader so integrations are fresh
+      revalidator.revalidate();
+    }
+
     if (searchParams.has("connected") || searchParams.has("error")) {
       const tab = searchParams.get("tab");
       setSearchParams(tab ? { tab } : {}, { replace: true });

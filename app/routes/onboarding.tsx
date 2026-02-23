@@ -51,7 +51,8 @@ export default function Onboarding({
 
   const handleOrgCreated = (orgId: string) => {
     document.cookie = `viagen-org=${orgId}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-    navigate("/", { replace: true });
+    // Full reload so the _auth layout re-runs with the new org's integration status
+    window.location.href = "/";
   };
 
   const handleCancel = () => {
