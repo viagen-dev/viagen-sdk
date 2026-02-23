@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { redirect } from "react-router";
 import { requireAuth } from "~/lib/session.server";
 import { getSecret } from "~/lib/infisical.server";
+import { log } from "~/lib/logger.server";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { ViagenLogo } from "~/components/icons/viagen-logo";
@@ -40,15 +41,36 @@ export async function loader({ request }: { request: Request }) {
   const safeGet = async (key: string): Promise<boolean> => {
     try {
       const val = await getSecret(auth.org.id, key);
+      if (!val) {
+        log.debug({ orgId: auth.org.id, key }, "integration secret not found");
+      }
       return !!val;
-    } catch {
+    } catch (err) {
+      log.error(
+        {
+          orgId: auth.org.id,
+          key,
+          err: err instanceof Error ? err.message : String(err),
+        },
+        "integration check failed — secret fetch threw, treating as disconnected",
+      );
       return false;
     }
   };
-  const [github, vercel] = await Promise.all([
+  const [github, vercel, claude] = await Promise.all([
     safeGet("GITHUB_TOKEN"),
     safeGet("VERCEL_TOKEN"),
+    safeGet("ANTHROPIC_API_KEY"),
   ]);
+
+  log.info(
+    {
+      orgId: auth.org.id,
+      userId: auth.user.id,
+      integrations: { github, vercel, claude },
+    },
+    "integration status loaded",
+  );
 
   return {
     user: {
@@ -63,7 +85,7 @@ export async function loader({ request }: { request: Request }) {
       name: m.organizationName,
       role: m.role,
     })),
-    integrations: { github, vercel },
+    integrations: { github, vercel, claude },
   };
 }
 
@@ -76,7 +98,7 @@ interface LoaderData {
   };
   currentOrg: { id: string; name: string };
   organizations: { id: string; name: string; role: string }[];
-  integrations: { github: boolean; vercel: boolean };
+  integrations: { github: boolean; vercel: boolean; claude: boolean };
 }
 
 export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
@@ -89,7 +111,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
   const handleOrgSwitch = (value: string) => {
     if (value === "__add_team__") {
       setTeamOpen(false);
-      navigate("/onboarding");
+      navigate("/onboarding?new_team=true");
       return;
     }
     document.cookie = `viagen-org=${value}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
@@ -175,11 +197,11 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
                     <CommandSeparator />
                     <CommandGroup>
                       <CommandItem
-                        value="Add team"
+                        value="Create team"
                         onSelect={() => handleOrgSwitch("__add_team__")}
                       >
                         <Plus className="size-3.5" />
-                        Add team
+                        Create team
                       </CommandItem>
                     </CommandGroup>
                   </CommandList>

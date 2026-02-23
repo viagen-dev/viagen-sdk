@@ -1,83 +1,199 @@
-[2026-02-21T20:20:04.647Z] [INFO]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
-[2026-02-21T20:20:04.648Z] [INFO] [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
-[2026-02-21T20:20:04.648Z] [INFO] [2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
-[2026-02-21T20:23:25.214Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.$id.tsx[22m
-[2026-02-21T20:23:36.448Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.$id_.settings.tsx[22m
-[2026-02-21T20:23:48.133Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:23:48.134Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:23:48.134Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:23:48.135Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
-[2026-02-21T20:23:57.697Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:26:34.760Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:26:34.761Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:26:34.761Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:26:34.761Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:26:34.762Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.$id_.settings.tsx[22m
-[2026-02-21T20:26:34.764Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.$id.tsx[22m
-[2026-02-21T20:26:34.766Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:26:34.766Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:26:34.766Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:26:34.766Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
-[2026-02-21T20:26:34.875Z] [INFO] [32mhmr update [39m[2m/app/app.css[22m
-[2026-02-21T20:26:34.876Z] [INFO] [32mhmr update [39m[2m/app/components/theme-toggle.tsx[22m
-[2026-02-21T20:26:34.876Z] [INFO] [32mhmr update [39m[2m/app/components/ui/sonner.tsx[22m
-[2026-02-21T20:26:34.877Z] [INFO] [32mhmr update [39m[2m/app/app.css[22m
-[2026-02-21T20:26:34.877Z] [INFO] [32mhmr update [39m[2m/app/components/theme-toggle.tsx[22m
-[2026-02-21T20:26:34.878Z] [INFO] [32mhmr update [39m[2m/app/components/ui/sonner.tsx[22m
-[2026-02-21T20:26:34.878Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
-[2026-02-21T20:26:34.878Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-21T20:26:34.878Z] [INFO] [32mhmr update [39m[2m/app/app.css[22m
-[2026-02-21T20:26:34.878Z] [INFO] [32mhmr update [39m[2m/app/app.css[22m
-[2026-02-21T20:26:34.879Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/components/theme-toggle.tsx[22m
-[2026-02-21T20:26:34.879Z] [INFO] [32mpage reload [39m[2mapp/components/theme-toggle.tsx[22m
-[2026-02-21T20:26:34.879Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/components/ui/sonner.tsx[22m
-[2026-02-21T20:26:34.879Z] [INFO] [32mpage reload [39m[2mapp/components/ui/sonner.tsx[22m
-[2026-02-21T20:26:34.879Z] [INFO] [32mpage reload [39m[2mapp/lib/session.server.ts[22m
-[2026-02-21T20:26:34.890Z] [INFO] [32mpage reload [39m[2mapp/routes/api.orgs.ts[22m
-[2026-02-21T20:26:34.895Z] [INFO] [32mhmr update [39m[2m/app/root.tsx[22m
-[2026-02-21T20:26:34.896Z] [INFO] [32mpage reload [39m[2mapp/routes/api.projects.ts[22m
-[2026-02-21T20:26:34.896Z] [INFO] [32mpage reload [39m[2mapp/routes/api.projects.$id.claude.ts[22m
-[2026-02-21T20:26:34.896Z] [INFO] [32mpage reload [39m[2mapp/routes/api.projects.$id.secrets.ts[22m
-[2026-02-21T20:26:34.896Z] [INFO] [32mpage reload [39m[2mapp/routes/api.projects.sync.ts[22m
-[2026-02-21T20:26:34.896Z] [INFO] [32mhmr update [39m[2m/app/root.tsx[22m
-[2026-02-21T20:26:34.896Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/root.tsx[22m
-[2026-02-21T20:26:34.897Z] [INFO] [32mpage reload [39m[2mapp/root.tsx[22m
-[2026-02-21T20:26:34.898Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:26:34.899Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:26:34.899Z] [INFO] [32mpage reload [39m[2mapp/routes/api.projects.$id.sandbox.ts[22m
-[2026-02-21T20:26:34.899Z] [INFO] [32mpage reload [39m[2mapp/routes/api.claude-key.ts[22m
-[2026-02-21T20:26:34.900Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:26:34.900Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:26:34.903Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
-[2026-02-21T20:26:34.903Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
-[2026-02-21T20:26:34.904Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.$id.tsx[22m
-[2026-02-21T20:26:34.904Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.tsx[22m
-[2026-02-21T20:26:34.904Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.tsx[22m
-[2026-02-21T20:26:34.905Z] [INFO] [32mpage reload [39m[2mapp/routes/api.orgs.members.ts[22m
-[2026-02-21T20:26:34.905Z] [INFO] [32mpage reload [39m[2mapp/routes/api.projects.$id.ts[22m
-[2026-02-21T20:26:34.906Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.$id_.settings.tsx[22m
-[2026-02-21T20:26:34.908Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:26:34.908Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:26:34.909Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:26:34.909Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
-[2026-02-21T20:30:19.471Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:30:19.472Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:30:19.472Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:30:19.473Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.new.tsx[22m
-[2026-02-21T20:37:21.737Z] [INFO] [32mpage reload [39m[2mapp/routes/api.orgs.members.ts[22m
-[2026-02-21T20:37:43.357Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:37:43.358Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:37:43.358Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:37:43.359Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
-[2026-02-21T20:43:28.210Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:43:28.211Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:43:28.211Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:43:28.212Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
-[2026-02-21T20:44:38.021Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:44:38.022Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:44:38.022Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:44:38.023Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
-[2026-02-21T20:53:57.442Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:53:57.443Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:53:57.443Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
-[2026-02-21T20:53:57.444Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
+[2026-02-23T01:53:28.580Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.tsx[22m
+[2026-02-23T01:53:28.580Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.tsx[22m
+[2026-02-23T01:53:54.780Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:53:54.781Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:53:54.781Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:53:54.782Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T01:54:12.959Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:54:12.959Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:54:12.960Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:54:12.960Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T01:54:34.830Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:54:34.830Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:54:34.831Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:54:34.831Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T01:55:11.604Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:55:11.607Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx:559:14: ERROR: Unterminated regular expression
+
+Unterminated regular expression
+557 |              </div>
+558 |            </div>
+559 |          </div>
+    |                ^
+560 |        )}
+561 |      </div>
+
+[2026-02-23T01:55:11.608Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T01:55:33.827Z] [ERROR] [31mError when evaluating SSR module virtual:react-router/server-build: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx:559:14: ERROR: Unterminated regular expression[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36m/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx[39m:559:14
+[33m  
+  [33mUnterminated regular expression[33m
+  557 |              </div>
+  558 |            </div>
+  559 |          </div>
+      |                ^
+  560 |        )}
+  561 |      </div>
+  [39m
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-23T01:55:33.827Z] [ERROR] [31mInternal server error: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx:559:14: ERROR: Unterminated regular expression[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36m/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx[39m:559:14
+[33m  
+  [33mUnterminated regular expression[33m
+  557 |              </div>
+  558 |            </div>
+  559 |          </div>
+      |                ^
+  560 |        )}
+  561 |      </div>
+  [39m
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-23T01:55:33.828Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx:559:14: ERROR: Unterminated regular expression
+
+Unterminated regular expression
+557 |              </div>
+558 |            </div>
+559 |          </div>
+    |                ^
+560 |        )}
+561 |      </div>
+
+[2026-02-23T01:55:34.046Z] [ERROR] [31mInternal server error: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx:559:14: ERROR: Unterminated regular expression[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36m/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx[39m:559:14
+[33m  
+  [33mUnterminated regular expression[33m
+  557 |              </div>
+  558 |            </div>
+  559 |          </div>
+      |                ^
+  560 |        )}
+  561 |      </div>
+  [39m
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-23T01:55:34.047Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx:559:14: ERROR: Unterminated regular expression
+
+Unterminated regular expression
+557 |              </div>
+558 |            </div>
+559 |          </div>
+    |                ^
+560 |        )}
+561 |      </div>
+
+[2026-02-23T01:55:43.324Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:55:43.325Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:55:43.326Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:55:43.326Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T01:56:30.132Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
+[2026-02-23T01:56:30.133Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
+[2026-02-23T01:56:30.133Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
+[2026-02-23T01:56:30.133Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
+[2026-02-23T01:59:39.606Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:59:39.607Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:59:39.607Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T01:59:39.607Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:34:16.426Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
+[2026-02-23T02:34:16.426Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
+[2026-02-23T02:34:16.427Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.tsx[22m
+[2026-02-23T02:34:16.427Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.tsx[22m
+[2026-02-23T02:35:24.039Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:35:24.039Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:35:24.040Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:35:24.040Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:35:57.888Z] [INFO] [32m✨ new dependencies optimized: [33mpino[32m[39m
+[2026-02-23T02:35:57.888Z] [INFO] [32m✨ optimized dependencies changed. reloading[39m
+[2026-02-23T02:37:02.270Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:02.270Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:02.271Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:02.271Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:13.070Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:13.070Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:13.071Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:13.071Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:42.167Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:42.168Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:42.168Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:42.168Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:58.417Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:58.417Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:58.417Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:37:58.418Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:40:30.988Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:40:30.988Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:40:30.989Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:40:30.989Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:40:47.718Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:40:47.719Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:40:47.719Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:40:47.720Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:41:01.046Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:41:01.046Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:41:01.047Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:41:01.047Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:41:46.907Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:41:46.907Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:41:46.908Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:41:46.908Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:42:03.608Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:42:03.608Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:42:03.609Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:42:03.609Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:42:25.762Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:42:25.762Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:42:25.763Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:42:25.763Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:43:30.012Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
+[2026-02-23T02:43:30.013Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
+[2026-02-23T02:43:30.013Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
+[2026-02-23T02:43:30.013Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
+[2026-02-23T02:44:06.190Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
+[2026-02-23T02:44:06.191Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
+[2026-02-23T02:44:06.191Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
+[2026-02-23T02:44:06.192Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
+[2026-02-23T02:44:17.712Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:44:17.713Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:44:17.714Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:44:17.714Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-23T02:51:55.505Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:51:55.505Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:51:55.506Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
+[2026-02-23T02:51:55.506Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
