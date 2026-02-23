@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router";
+import { useState, useEffect, useMemo } from "react";
+import { Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects } from "~/lib/db/schema";
@@ -9,12 +10,33 @@ import { Input } from "~/components/ui/input";
 import {
   Card,
   CardContent,
+  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardAction,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Alert, AlertDescription } from "~/components/ui/alert";
+import { Small, Muted } from "~/components/ui/typography";
+
+// ---------------------------------------------------------------------------
+// Known integration keys — managed by integration cards, hidden from env vars
+// ---------------------------------------------------------------------------
+
+const INTEGRATION_KEYS = new Set([
+  "GITHUB_TOKEN",
+  "GITHUB_ACCESS_TOKEN",
+  "VERCEL_TOKEN",
+  "VERCEL_ACCESS_TOKEN",
+  "CLAUDE_ACCESS_TOKEN",
+  "CLAUDE_TOKEN_EXPIRES",
+  "CLAUDE_REFRESH_TOKEN",
+  "ANTHROPIC_API_KEY",
+]);
+
+// ---------------------------------------------------------------------------
+// Loader
+// ---------------------------------------------------------------------------
 
 export async function loader({
   request,
@@ -38,6 +60,10 @@ export async function loader({
   return { project, role };
 }
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 interface Project {
   id: string;
   name: string;
@@ -53,7 +79,30 @@ interface SecretEntry {
   value: string;
 }
 
-export default function ProjectDetail({
+interface ConnectionStatus {
+  github: {
+    linked: boolean;
+    tokenAvailable: boolean;
+    tokenSource: "project" | "org" | null;
+  };
+  vercel: {
+    linked: boolean;
+    tokenAvailable: boolean;
+    tokenSource: "project" | "org" | null;
+  };
+  claude: {
+    connected: boolean;
+    source: string | null;
+    keyPrefix: string | null;
+    expired: boolean;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export default function ProjectSettings({
   loaderData,
 }: {
   loaderData: { project: Project; role: string };
@@ -61,14 +110,31 @@ export default function ProjectDetail({
   const { project, role } = loaderData;
   const isAdmin = role === "admin" || role === "owner";
 
-  // Project name
+  // --- Project name ---
   const [projectName, setProjectName] = useState(project.name);
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSaved, setNameSaved] = useState(false);
   const nameChanged = projectName.trim() !== project.name;
 
-  // Secrets (2 scopes)
+  // --- Connections ---
+  const [connections, setConnections] = useState<ConnectionStatus | null>(null);
+  const [connectionsLoading, setConnectionsLoading] = useState(true);
+
+  // --- Per-integration override inputs ---
+  const [githubInput, setGithubInput] = useState("");
+  const [showGithubInput, setShowGithubInput] = useState(false);
+  const [savingGithub, setSavingGithub] = useState(false);
+
+  const [vercelInput, setVercelInput] = useState("");
+  const [showVercelInput, setShowVercelInput] = useState(false);
+  const [savingVercel, setSavingVercel] = useState(false);
+
+  const [claudeInput, setClaudeInput] = useState("");
+  const [showClaudeInput, setShowClaudeInput] = useState(false);
+  const [savingClaude, setSavingClaude] = useState(false);
+
+  // --- Secrets ---
   const [projectSecrets, setProjectSecrets] = useState<SecretEntry[]>([]);
   const [orgSecrets, setOrgSecrets] = useState<SecretEntry[]>([]);
   const [secretsLoading, setSecretsLoading] = useState(true);
@@ -79,15 +145,37 @@ export default function ProjectDetail({
   const [newValue, setNewValue] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Edit state
+  // Edit
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
-  // Reveal state
+  // Reveal
   const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
 
-  // Save project name
+  // -----------------------------------------------------------------------
+  // Derived — filter integration keys out of the raw secrets lists
+  // -----------------------------------------------------------------------
+
+  const filteredProjectSecrets = useMemo(
+    () => projectSecrets.filter((s) => !INTEGRATION_KEYS.has(s.key)),
+    [projectSecrets],
+  );
+
+  const filteredOrgSecrets = useMemo(
+    () => orgSecrets.filter((s) => !INTEGRATION_KEYS.has(s.key)),
+    [orgSecrets],
+  );
+
+  const projectKeySet = useMemo(
+    () => new Set(filteredProjectSecrets.map((s) => s.key)),
+    [filteredProjectSecrets],
+  );
+
+  // -----------------------------------------------------------------------
+  // Handlers — project name
+  // -----------------------------------------------------------------------
+
   const handleSaveName = async () => {
     if (!projectName.trim() || savingName) return;
     setSavingName(true);
@@ -105,6 +193,7 @@ export default function ProjectDetail({
         return;
       }
       setNameSaved(true);
+      toast.success("Project name updated");
     } catch {
       setNameError("Failed to update name");
     } finally {
@@ -112,7 +201,26 @@ export default function ProjectDetail({
     }
   };
 
-  // Fetch secrets
+  // -----------------------------------------------------------------------
+  // Handlers — fetch data
+  // -----------------------------------------------------------------------
+
+  const fetchConnections = async () => {
+    try {
+      const res = await fetch(`/api/projects/${project.id}/status`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConnections(data);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setConnectionsLoading(false);
+    }
+  };
+
   const fetchSecrets = async () => {
     try {
       const res = await fetch(`/api/projects/${project.id}/secrets`, {
@@ -130,11 +238,134 @@ export default function ProjectDetail({
   };
 
   useEffect(() => {
+    fetchConnections();
     fetchSecrets();
   }, [project.id]);
 
-  // Secret handlers
-  const handleAdd = async () => {
+  // -----------------------------------------------------------------------
+  // Handlers — token overrides (GitHub / Vercel via secrets API)
+  // -----------------------------------------------------------------------
+
+  const handleSaveToken = async (
+    key: string,
+    value: string,
+    label: string,
+    setSavingFn: (v: boolean) => void,
+    setInputFn: (v: string) => void,
+    setShowFn: (v: boolean) => void,
+  ) => {
+    if (!value.trim()) return;
+    setSavingFn(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/secrets`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value: value.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? `Failed to save ${label}`);
+        return;
+      }
+      setInputFn("");
+      setShowFn(false);
+      toast.success(`Project ${label} saved`);
+      await fetchConnections();
+    } catch {
+      toast.error(`Failed to save ${label}`);
+    } finally {
+      setSavingFn(false);
+    }
+  };
+
+  const handleRemoveToken = async (
+    key: string,
+    label: string,
+    setSavingFn: (v: boolean) => void,
+    setShowFn: (v: boolean) => void,
+  ) => {
+    setSavingFn(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/secrets`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key }),
+      });
+      if (!res.ok) {
+        toast.error(`Failed to remove ${label} override`);
+        return;
+      }
+      toast.success(`${label} override removed — using org default`);
+      setShowFn(false);
+      await fetchConnections();
+    } catch {
+      toast.error(`Failed to remove ${label} override`);
+    } finally {
+      setSavingFn(false);
+    }
+  };
+
+  // -----------------------------------------------------------------------
+  // Handlers — Claude override (dedicated endpoint)
+  // -----------------------------------------------------------------------
+
+  const handleSaveClaude = async () => {
+    if (!claudeInput.trim() || savingClaude) return;
+    setSavingClaude(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/claude`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          apiKey: claudeInput.trim(),
+          scope: "project",
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to save Claude key");
+        return;
+      }
+      setClaudeInput("");
+      setShowClaudeInput(false);
+      toast.success("Project Claude key saved");
+      await fetchConnections();
+    } catch {
+      toast.error("Failed to save Claude key");
+    } finally {
+      setSavingClaude(false);
+    }
+  };
+
+  const handleRemoveClaude = async () => {
+    setSavingClaude(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/claude`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        toast.error("Failed to remove Claude override");
+        return;
+      }
+      toast.success("Claude override removed — using org default");
+      setShowClaudeInput(false);
+      await fetchConnections();
+    } catch {
+      toast.error("Failed to remove Claude override");
+    } finally {
+      setSavingClaude(false);
+    }
+  };
+
+  // -----------------------------------------------------------------------
+  // Handlers — env var CRUD
+  // -----------------------------------------------------------------------
+
+  const handleAddSecret = async () => {
     if (!newKey.trim() || saving) return;
     setSaving(true);
     setError(null);
@@ -147,21 +378,22 @@ export default function ProjectDetail({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Failed to save secret");
+        setError(data.error ?? "Failed to save variable");
         setSaving(false);
         return;
       }
       setNewKey("");
       setNewValue("");
+      toast.success("Variable added");
       await fetchSecrets();
     } catch {
-      setError("Failed to save secret");
+      setError("Failed to save variable");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleEdit = async (key: string) => {
+  const handleEditSecret = async (key: string) => {
     if (editSaving) return;
     setEditSaving(true);
     setError(null);
@@ -174,21 +406,22 @@ export default function ProjectDetail({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Failed to update secret");
+        setError(data.error ?? "Failed to update variable");
         setEditSaving(false);
         return;
       }
       setEditingKey(null);
       setEditValue("");
+      toast.success("Variable updated");
       await fetchSecrets();
     } catch {
-      setError("Failed to update secret");
+      setError("Failed to update variable");
     } finally {
       setEditSaving(false);
     }
   };
 
-  const handleDelete = async (key: string) => {
+  const handleDeleteSecret = async (key: string) => {
     setError(null);
     try {
       const res = await fetch(`/api/projects/${project.id}/secrets`, {
@@ -199,14 +432,19 @@ export default function ProjectDetail({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Failed to delete secret");
+        setError(data.error ?? "Failed to delete variable");
         return;
       }
+      toast.success("Variable deleted");
       await fetchSecrets();
     } catch {
-      setError("Failed to delete secret");
+      setError("Failed to delete variable");
     }
   };
+
+  // -----------------------------------------------------------------------
+  // Helpers — secrets UI
+  // -----------------------------------------------------------------------
 
   const toggleReveal = (key: string) => {
     setRevealedKeys((prev) => {
@@ -232,114 +470,461 @@ export default function ProjectDetail({
     return value.slice(0, 4) + "\u2022".repeat(Math.min(value.length - 4, 20));
   };
 
-  // Keys overridden by a higher-priority scope
-  const projectKeySet = new Set(projectSecrets.map((s) => s.key));
+  // -----------------------------------------------------------------------
+  // Render
+  // -----------------------------------------------------------------------
 
   return (
-    <div>
-      <Button
-        variant="link"
-        asChild
-        className="mb-6 h-auto p-0 text-muted-foreground"
-      >
-        <Link to={`/projects/${project.id}`}>&larr; Back to tasks</Link>
-      </Button>
-
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="mb-4 text-lg font-semibold">Project Name</h2>
-        <Card>
-          <CardContent>
-            <div className="flex items-center gap-3">
-              <Input
-                type="text"
-                value={projectName}
-                onChange={(e) => {
-                  setProjectName(e.target.value);
-                  setNameSaved(false);
-                  setNameError(null);
-                }}
-                placeholder="Project name"
-                className="flex-1"
-                onKeyDown={(e) =>
-                  e.key === "Enter" && nameChanged && handleSaveName()
-                }
-              />
-              <Button
-                onClick={handleSaveName}
-                disabled={!nameChanged || !projectName.trim() || savingName}
-              >
-                {savingName ? "Saving..." : nameSaved ? "Saved" : "Save"}
-              </Button>
-            </div>
-            {nameError && (
-              <p className="mt-2 text-sm text-destructive">{nameError}</p>
+    <div className="flex flex-col gap-6">
+      {/* ================================================================= */}
+      {/* Project Name                                                      */}
+      {/* ================================================================= */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Project Name</CardTitle>
+          <CardDescription>The display name for this project.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Input
+            type="text"
+            value={projectName}
+            onChange={(e) => {
+              setProjectName(e.target.value);
+              setNameSaved(false);
+              setNameError(null);
+            }}
+            placeholder="Project name"
+            className="max-w-md"
+            onKeyDown={(e) =>
+              e.key === "Enter" && nameChanged && handleSaveName()
+            }
+          />
+          {nameError && (
+            <p className="mt-2 text-sm text-destructive">{nameError}</p>
+          )}
+        </CardContent>
+        <CardFooter className="border-t justify-between">
+          <div className="flex items-center gap-4">
+            {project.templateId && (
+              <Muted>
+                Template:{" "}
+                <span className="font-medium text-foreground">
+                  {project.templateId}
+                </span>
+              </Muted>
             )}
-          </CardContent>
-        </Card>
-      </div>
+            <Muted>
+              Created {new Date(project.createdAt).toLocaleDateString()}
+            </Muted>
+          </div>
+          <Button
+            onClick={handleSaveName}
+            disabled={!nameChanged || !projectName.trim() || savingName}
+          >
+            {savingName ? "Saving..." : nameSaved ? "Saved" : "Save"}
+          </Button>
+        </CardFooter>
+      </Card>
 
-      {/* Project details */}
-      <div className="mb-6 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
-        {project.templateId && (
-          <Card>
-            <CardContent className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Template
-              </span>
-              <span className="flex items-center gap-1.5 text-sm font-medium">
-                {project.templateId}
-              </span>
-            </CardContent>
-          </Card>
-        )}
-        {project.githubRepo && (
-          <Card>
-            <CardContent className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Repository
-              </span>
-              <span className="flex items-center gap-1.5 text-sm font-medium">
-                <GitHubIcon /> {project.githubRepo}
-              </span>
-            </CardContent>
-          </Card>
-        )}
-        {project.vercelProjectId && (
-          <Card>
-            <CardContent className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Vercel
-              </span>
-              <span className="flex items-center gap-1.5 text-sm font-medium">
-                <VercelIcon /> {project.vercelProjectId}
-              </span>
-            </CardContent>
-          </Card>
-        )}
-        <Card>
-          <CardContent className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Created
-            </span>
-            <span className="flex items-center gap-1.5 text-sm font-medium">
-              {new Date(project.createdAt).toLocaleDateString()}
-            </span>
-          </CardContent>
-        </Card>
-      </div>
+      {/* ================================================================= */}
+      {/* GitHub                                                            */}
+      {/* ================================================================= */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <GitHubIcon /> GitHub
+          </CardTitle>
+          <CardDescription>
+            {project.githubRepo ? (
+              <>
+                Repository{" "}
+                <span className="font-mono text-foreground">
+                  {project.githubRepo}
+                </span>
+                . Used for sandbox source code and pushing changes.
+              </>
+            ) : (
+              "Repository access for sandbox source code and pushing changes."
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {connectionsLoading ? (
+            <Muted>Loading...</Muted>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                {connections?.github.tokenAvailable ? (
+                  <>
+                    <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                      Connected
+                    </Badge>
+                    <Badge>{connections.github.tokenSource ?? "org"}</Badge>
+                  </>
+                ) : connections?.github.linked ? (
+                  <Badge
+                    variant="outline"
+                    className="border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"
+                  >
+                    Linked — no token
+                  </Badge>
+                ) : (
+                  <Muted>Not connected</Muted>
+                )}
+              </div>
 
-      {/* Secrets section */}
+              {showGithubInput && isAdmin && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="password"
+                    value={githubInput}
+                    onChange={(e) => setGithubInput(e.target.value)}
+                    placeholder="ghp_... or GitHub access token"
+                    className="min-w-0 flex-1 max-w-md"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter")
+                        handleSaveToken(
+                          "GITHUB_TOKEN",
+                          githubInput,
+                          "GitHub token",
+                          setSavingGithub,
+                          setGithubInput,
+                          setShowGithubInput,
+                        );
+                      if (e.key === "Escape") {
+                        setShowGithubInput(false);
+                        setGithubInput("");
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      handleSaveToken(
+                        "GITHUB_TOKEN",
+                        githubInput,
+                        "GitHub token",
+                        setSavingGithub,
+                        setGithubInput,
+                        setShowGithubInput,
+                      )
+                    }
+                    disabled={!githubInput.trim() || savingGithub}
+                  >
+                    {savingGithub ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowGithubInput(false);
+                      setGithubInput("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+        {isAdmin && !connectionsLoading && (
+          <CardFooter className="border-t justify-end">
+            {connections?.github.tokenAvailable &&
+            connections.github.tokenSource === "project" ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  handleRemoveToken(
+                    "GITHUB_TOKEN",
+                    "GitHub token",
+                    setSavingGithub,
+                    setShowGithubInput,
+                  )
+                }
+                disabled={savingGithub}
+              >
+                Remove override
+              </Button>
+            ) : !showGithubInput ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowGithubInput(true);
+                  setGithubInput("");
+                }}
+              >
+                {connections?.github.tokenAvailable ? "Override" : "Add token"}
+              </Button>
+            ) : null}
+          </CardFooter>
+        )}
+      </Card>
+
+      {/* ================================================================= */}
+      {/* Vercel                                                            */}
+      {/* ================================================================= */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <VercelIcon /> Vercel
+          </CardTitle>
+          <CardDescription>
+            {project.vercelProjectId ? (
+              <>
+                Vercel project{" "}
+                <span className="font-mono text-foreground">
+                  {project.vercelProjectId}
+                </span>
+                . Used for deployments and environment sync.
+              </>
+            ) : (
+              "Deployments and environment variable sync."
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {connectionsLoading ? (
+            <Muted>Loading...</Muted>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                {connections?.vercel.tokenAvailable ? (
+                  <>
+                    <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                      Connected
+                    </Badge>
+                    <Badge>{connections.vercel.tokenSource ?? "org"}</Badge>
+                  </>
+                ) : connections?.vercel.linked ? (
+                  <Badge
+                    variant="outline"
+                    className="border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"
+                  >
+                    Linked — no token
+                  </Badge>
+                ) : (
+                  <Muted>Not connected</Muted>
+                )}
+              </div>
+
+              {showVercelInput && isAdmin && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="password"
+                    value={vercelInput}
+                    onChange={(e) => setVercelInput(e.target.value)}
+                    placeholder="Vercel access token"
+                    className="min-w-0 flex-1 max-w-md"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter")
+                        handleSaveToken(
+                          "VERCEL_TOKEN",
+                          vercelInput,
+                          "Vercel token",
+                          setSavingVercel,
+                          setVercelInput,
+                          setShowVercelInput,
+                        );
+                      if (e.key === "Escape") {
+                        setShowVercelInput(false);
+                        setVercelInput("");
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      handleSaveToken(
+                        "VERCEL_TOKEN",
+                        vercelInput,
+                        "Vercel token",
+                        setSavingVercel,
+                        setVercelInput,
+                        setShowVercelInput,
+                      )
+                    }
+                    disabled={!vercelInput.trim() || savingVercel}
+                  >
+                    {savingVercel ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowVercelInput(false);
+                      setVercelInput("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+        {isAdmin && !connectionsLoading && (
+          <CardFooter className="border-t justify-end">
+            {connections?.vercel.tokenAvailable &&
+            connections.vercel.tokenSource === "project" ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  handleRemoveToken(
+                    "VERCEL_TOKEN",
+                    "Vercel token",
+                    setSavingVercel,
+                    setShowVercelInput,
+                  )
+                }
+                disabled={savingVercel}
+              >
+                Remove override
+              </Button>
+            ) : !showVercelInput ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowVercelInput(true);
+                  setVercelInput("");
+                }}
+              >
+                {connections?.vercel.tokenAvailable ? "Override" : "Add token"}
+              </Button>
+            ) : null}
+          </CardFooter>
+        )}
+      </Card>
+
+      {/* ================================================================= */}
+      {/* Claude                                                            */}
+      {/* ================================================================= */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="size-4" /> Claude
+          </CardTitle>
+          <CardDescription>
+            Anthropic API key for AI agent tasks. Used to power sandbox
+            sessions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {connectionsLoading ? (
+            <Muted>Loading...</Muted>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                {connections?.claude.connected ? (
+                  <>
+                    {connections.claude.expired ? (
+                      <Badge
+                        variant="outline"
+                        className="border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
+                      >
+                        Expired
+                      </Badge>
+                    ) : (
+                      <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                        Connected
+                      </Badge>
+                    )}
+                    <Badge>{connections.claude.source ?? "org"}</Badge>
+                    {connections.claude.keyPrefix && (
+                      <Muted className="font-mono text-xs">
+                        {connections.claude.keyPrefix}
+                      </Muted>
+                    )}
+                  </>
+                ) : (
+                  <Muted>Not connected</Muted>
+                )}
+              </div>
+
+              {showClaudeInput && isAdmin && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="password"
+                    value={claudeInput}
+                    onChange={(e) => setClaudeInput(e.target.value)}
+                    placeholder="sk-ant-api..."
+                    className="min-w-0 flex-1 max-w-md"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveClaude();
+                      if (e.key === "Escape") {
+                        setShowClaudeInput(false);
+                        setClaudeInput("");
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSaveClaude}
+                    disabled={!claudeInput.trim() || savingClaude}
+                  >
+                    {savingClaude ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowClaudeInput(false);
+                      setClaudeInput("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+        {isAdmin && !connectionsLoading && (
+          <CardFooter className="border-t justify-end">
+            {connections?.claude.connected &&
+            connections.claude.source === "project" ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRemoveClaude}
+                disabled={savingClaude}
+              >
+                Remove override
+              </Button>
+            ) : !showClaudeInput ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowClaudeInput(true);
+                  setClaudeInput("");
+                }}
+              >
+                {connections?.claude.connected ? "Override" : "Add key"}
+              </Button>
+            ) : null}
+          </CardFooter>
+        )}
+      </Card>
+
+      {/* ================================================================= */}
+      {/* Environment Variables                                             */}
+      {/* ================================================================= */}
       <Card>
         <CardHeader>
           <CardTitle>Environment Variables</CardTitle>
-          {project.vercelProjectId && (
-            <CardAction>
-              <Badge variant="outline" className="gap-1.5">
-                <VercelIcon /> Syncs to Vercel
-              </Badge>
-            </CardAction>
-          )}
+          <CardDescription>
+            Configuration values available to this project.
+            {project.vercelProjectId &&
+              " Changes sync automatically to Vercel."}
+          </CardDescription>
         </CardHeader>
 
         <CardContent>
@@ -350,14 +935,14 @@ export default function ProjectDetail({
           )}
 
           {secretsLoading ? (
-            <p className="py-4 text-sm text-muted-foreground">Loading...</p>
+            <Muted className="py-4">Loading...</Muted>
           ) : (
             <div className="flex flex-col gap-6">
-              {/* Project secrets (editable) */}
+              {/* Project-level env vars */}
               <SecretSection
                 title="Project"
                 badge={<Badge variant="secondary">project</Badge>}
-                secrets={projectSecrets}
+                secrets={filteredProjectSecrets}
                 overriddenKeys={new Set()}
                 isAdmin={isAdmin}
                 editingKey={editingKey}
@@ -367,9 +952,9 @@ export default function ProjectDetail({
                 onToggleReveal={toggleReveal}
                 onStartEdit={startEdit}
                 onCancelEdit={cancelEdit}
-                onSaveEdit={handleEdit}
+                onSaveEdit={handleEditSecret}
                 onEditValueChange={setEditValue}
-                onDelete={handleDelete}
+                onDelete={handleDeleteSecret}
                 maskValue={maskValue}
                 addForm={
                   isAdmin ? (
@@ -385,8 +970,10 @@ export default function ProjectDetail({
                           )
                         }
                         placeholder="KEY_NAME"
-                        className="w-[200px] shrink-0 font-mono"
-                        onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                        className="w-50 shrink-0 font-mono"
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleAddSecret()
+                        }
                       />
                       <Input
                         type="text"
@@ -394,10 +981,12 @@ export default function ProjectDetail({
                         onChange={(e) => setNewValue(e.target.value)}
                         placeholder="value"
                         className="min-w-0 flex-1"
-                        onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleAddSecret()
+                        }
                       />
                       <Button
-                        onClick={handleAdd}
+                        onClick={handleAddSecret}
                         disabled={!newKey.trim() || saving}
                         size="sm"
                       >
@@ -408,50 +997,60 @@ export default function ProjectDetail({
                 }
               />
 
-              {/* Org secrets (read-only, override button) */}
+              {/* Org-level inherited env vars */}
               <SecretSection
-                  title="Organization"
-                  badge={
-                    <Badge
-                      variant="outline"
-                      className="border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"
-                    >
-                      inherited
-                    </Badge>
-                  }
-                  secrets={orgSecrets}
-                  overriddenKeys={projectKeySet}
-                  isAdmin={false}
-                  editingKey={null}
-                  editValue=""
-                  editSaving={false}
-                  revealedKeys={revealedKeys}
-                  onToggleReveal={toggleReveal}
-                  onStartEdit={() => {}}
-                  onCancelEdit={() => {}}
-                  onSaveEdit={() => Promise.resolve()}
-                  onEditValueChange={() => {}}
-                  onDelete={() => Promise.resolve()}
-                  maskValue={maskValue}
-                  overrideAction={
-                    isAdmin
-                      ? (key: string) => {
-                          setNewKey(key);
-                          setNewValue("");
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }
-                      : undefined
-                  }
-                />
-
-
+                title="Organization"
+                badge={
+                  <Badge
+                    variant="outline"
+                    className="border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"
+                  >
+                    inherited
+                  </Badge>
+                }
+                secrets={filteredOrgSecrets}
+                overriddenKeys={projectKeySet}
+                isAdmin={false}
+                editingKey={null}
+                editValue=""
+                editSaving={false}
+                revealedKeys={revealedKeys}
+                onToggleReveal={toggleReveal}
+                onStartEdit={() => {}}
+                onCancelEdit={() => {}}
+                onSaveEdit={() => Promise.resolve()}
+                onEditValueChange={() => {}}
+                onDelete={() => Promise.resolve()}
+                maskValue={maskValue}
+                overrideAction={
+                  isAdmin
+                    ? (key: string) => {
+                        setNewKey(key);
+                        setNewValue("");
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }
+                    : undefined
+                }
+              />
             </div>
           )}
         </CardContent>
+
+        {project.vercelProjectId && (
+          <CardFooter className="border-t">
+            <Badge variant="outline" className="gap-1.5">
+              <VercelIcon /> Syncs to Vercel
+            </Badge>
+          </CardFooter>
+        )}
       </Card>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// SecretSection — reusable scoped list of secrets
+// ---------------------------------------------------------------------------
 
 function SecretSection({
   title,
@@ -495,14 +1094,12 @@ function SecretSection({
   return (
     <div>
       <div className="mb-2 flex items-center gap-2">
-        <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+        <Small className="text-muted-foreground">{title}</Small>
         {badge}
       </div>
       {addForm}
       {secrets.length === 0 ? (
-        <p className="py-2 text-sm text-muted-foreground">
-          No {title.toLowerCase()} variables.
-        </p>
+        <Muted className="py-2">No {title.toLowerCase()} variables.</Muted>
       ) : (
         <div className="flex flex-col">
           {secrets.map((secret) => {
@@ -516,7 +1113,7 @@ function SecretSection({
               >
                 {editingKey === secret.key ? (
                   <>
-                    <span className="w-[200px] shrink-0 font-mono text-[0.8125rem] font-medium">
+                    <span className="w-50 shrink-0 font-mono text-[0.8125rem] font-medium">
                       {secret.key}
                     </span>
                     <div className="flex flex-1 items-center gap-2">
@@ -550,7 +1147,7 @@ function SecretSection({
                 ) : (
                   <>
                     <span
-                      className={`w-[200px] shrink-0 font-mono text-[0.8125rem] font-medium ${
+                      className={`w-50 shrink-0 font-mono text-[0.8125rem] font-medium ${
                         isOverridden ? "line-through" : ""
                       }`}
                     >
@@ -611,6 +1208,10 @@ function SecretSection({
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Icons
+// ---------------------------------------------------------------------------
 
 function VercelIcon() {
   return (

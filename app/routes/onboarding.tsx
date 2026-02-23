@@ -1,11 +1,26 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { redirect } from "react-router";
 import { getSessionUser } from "~/lib/session.server";
-import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
+import {
+  Field,
+  FieldLabel,
+  FieldContent,
+  FieldTitle,
+  FieldDescription,
+} from "~/components/ui/field";
+import { Alert, AlertDescription } from "~/components/ui/alert";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+} from "~/components/ui/card";
 
 export async function loader({ request }: { request: Request }) {
   const session = await getSessionUser(request);
@@ -17,9 +32,6 @@ export async function loader({ request }: { request: Request }) {
   };
 }
 
-type Step = "team" | "github" | "vercel" | "done";
-const STEP_KEY = "viagen-onboarding-step";
-
 export default function Onboarding({
   loaderData,
 }: {
@@ -27,99 +39,60 @@ export default function Onboarding({
 }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { hasOrg, orgId } = loaderData;
+  const { hasOrg } = loaderData;
 
-  const getInitialStep = (): Step => {
-    const connected = searchParams.get("connected");
-    const error = searchParams.get("error");
-    if (connected === "vercel") return "done";
-    if (error === "vercel") return "vercel";
-    if (connected === "github") return "vercel";
-    if (error === "github") return "github";
-    if (hasOrg) {
-      if (typeof window !== "undefined") {
-        const saved = localStorage.getItem(STEP_KEY);
-        if (saved === "github" || saved === "vercel") return saved;
-      }
-      return "github";
-    }
-    return "team";
-  };
+  // If user already has an org and didn't explicitly ask to create a new team,
+  // redirect them to the projects page
+  const newTeam = searchParams.get("new_team");
+  if (hasOrg && newTeam !== "true" && typeof window !== "undefined") {
+    navigate("/", { replace: true });
+    return null;
+  }
 
-  const [step, setStep] = useState<Step>(getInitialStep);
-
-  useEffect(() => {
-    if (searchParams.has("connected") || searchParams.has("error")) {
-      setSearchParams({}, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
-
-  useEffect(() => {
-    if (step !== "team") localStorage.setItem(STEP_KEY, step);
-  }, [step]);
-
-  const finish = () => {
-    localStorage.removeItem(STEP_KEY);
+  const handleOrgCreated = (orgId: string) => {
+    document.cookie = `viagen-org=${orgId}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
     navigate("/", { replace: true });
   };
 
-  useEffect(() => {
-    if (step === "done") finish();
-  }, [step]);
-
-  const handleOrgCreated = async () => {
-    setStep("github");
-  };
-
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    navigate("/login", { replace: true });
+  const handleCancel = () => {
+    navigate("/", { replace: true });
   };
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center">
-      <div className="w-full max-w-[400px] p-8">
-        <div className="mb-8 flex items-center justify-center gap-2">
-          <StepDot active={step === "team"} done={step !== "team"} label="1" />
-          <div className="h-px w-10 bg-border" />
-          <StepDot
-            active={step === "github"}
-            done={step === "vercel"}
-            label="2"
-          />
-          <div className="h-px w-10 bg-border" />
-          <StepDot active={step === "vercel"} done={false} label="3" />
+      <div className="w-full max-w-[480px] p-8">
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Create your team
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Unlock collaboration and organize projects.
+          </p>
         </div>
 
-        {step === "team" && <TeamStep onNext={handleOrgCreated} />}
-        {step === "github" && (
-          <GitHubStep
-            githubError={searchParams.get("error") === "github"}
-            onSkip={() => setStep("vercel")}
-          />
-        )}
-        {step === "vercel" && (
-          <VercelStep
-            vercelError={searchParams.get("error") === "vercel"}
-            onSkip={finish}
-          />
-        )}
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleLogout}
-          className="mt-8 w-full text-xs text-muted-foreground"
-        >
-          Sign out
-        </Button>
+        <TeamStep
+          onNext={handleOrgCreated}
+          onCancel={handleCancel}
+          showCancel={hasOrg}
+        />
       </div>
     </div>
   );
 }
 
-function TeamStep({ onNext }: { onNext: () => Promise<void> }) {
+/* ─── Team Name + Plan Step ──────────────────────────────────────────── */
+
+function TeamStep({
+  onNext,
+  onCancel,
+  showCancel,
+}: {
+  onNext: (orgId: string) => void;
+  onCancel: () => void;
+  showCancel: boolean;
+}) {
   const [name, setName] = useState("");
+  const [plan, setPlan] = useState<"pro_trial">("pro_trial");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -139,7 +112,8 @@ function TeamStep({ onNext }: { onNext: () => Promise<void> }) {
         setError(data?.error ?? "Failed to create team");
         return;
       }
-      await onNext();
+      const data = await res.json();
+      onNext(data.organization.id);
     } catch {
       setError("Something went wrong");
     } finally {
@@ -148,133 +122,70 @@ function TeamStep({ onNext }: { onNext: () => Promise<void> }) {
   };
 
   return (
-    <>
-      <h1 className="mb-2 text-center text-2xl font-semibold">
-        Create your team
-      </h1>
-      <p className="mb-8 text-center text-sm leading-relaxed text-muted-foreground">
-        Teams let you organize projects and collaborate with others.
-      </p>
-      <div className="mb-6 space-y-2">
-        <Label htmlFor="team-name" className="text-foreground/70">
-          Team name
-        </Label>
-        <Input
-          id="team-name"
-          type="text"
-          placeholder="Acme Inc."
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-          autoFocus
-        />
-      </div>
-      {error && (
-        <p className="mb-4 text-center text-[0.8125rem] text-destructive">
-          {error}
-        </p>
-      )}
-      <Button
-        onClick={handleCreate}
-        disabled={creating || !name.trim()}
-        className="w-full"
-      >
-        {creating ? "Creating..." : "Continue"}
-      </Button>
-    </>
-  );
-}
-
-function GitHubStep({
-  githubError,
-  onSkip,
-}: {
-  githubError: boolean;
-  onSkip: () => void;
-}) {
-  return (
-    <>
-      <h1 className="mb-2 text-center text-2xl font-semibold">
-        Connect GitHub
-      </h1>
-      <p className="mb-8 text-center text-sm leading-relaxed text-muted-foreground">
-        Link your GitHub account so viagen can access your repositories and save
-        sandbox changes.
-      </p>
-      {githubError && (
-        <p className="mb-4 text-center text-[0.8125rem] text-destructive">
-          Failed to connect GitHub. Please try again.
-        </p>
-      )}
-      <Button asChild className="w-full">
-        <a href="/api/integrations/github/start">Connect GitHub</a>
-      </Button>
-      <Button
-        variant="link"
-        size="sm"
-        onClick={onSkip}
-        className="mt-4 w-full text-muted-foreground"
-      >
-        Skip for now
-      </Button>
-    </>
-  );
-}
-
-function VercelStep({
-  vercelError,
-  onSkip,
-}: {
-  vercelError: boolean;
-  onSkip: () => void;
-}) {
-  return (
-    <>
-      <h1 className="mb-2 text-center text-2xl font-semibold">
-        Connect Vercel
-      </h1>
-      <p className="mb-8 text-center text-sm leading-relaxed text-muted-foreground">
-        Link your Vercel account to deploy projects and manage environments.
-      </p>
-      {vercelError && (
-        <p className="mb-4 text-center text-[0.8125rem] text-destructive">
-          Failed to connect Vercel. Please try again.
-        </p>
-      )}
-      <Button asChild className="w-full">
-        <a href="/api/integrations/vercel/start">Connect Vercel</a>
-      </Button>
-      <Button
-        variant="link"
-        size="sm"
-        onClick={onSkip}
-        className="mt-4 w-full text-muted-foreground"
-      >
-        Skip for now
-      </Button>
-    </>
-  );
-}
-
-function StepDot({
-  active,
-  done,
-  label,
-}: {
-  active: boolean;
-  done: boolean;
-  label: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all",
-        active || done
-          ? "bg-primary text-primary-foreground"
-          : "bg-secondary text-muted-foreground",
-      )}
-    >
-      {done ? "\u2713" : label}
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Team name</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Input
+            id="team-name"
+            type="text"
+            placeholder="Acme Inc."
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+            autoFocus
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Plan</Label>
+          <RadioGroup
+            value={plan}
+            onValueChange={(v) => setPlan(v as "pro_trial")}
+          >
+            <FieldLabel className="has-data-[state=checked]:bg-blue-50 has-data-[state=checked]:border-blue-500 has-data-[state=checked]:text-blue-600 dark:has-data-[state=checked]:bg-blue-950/20 dark:has-data-[state=checked]:border-blue-400 dark:has-data-[state=checked]:text-blue-400">
+              <Field orientation="horizontal">
+                <RadioGroupItem
+                  value="pro_trial"
+                  id="pro_trial"
+                  className="text-blue-500 border-blue-500 data-[state=checked]:border-blue-500 dark:text-blue-400 dark:border-blue-400 [&_svg]:fill-blue-500 dark:[&_svg]:fill-blue-400"
+                />
+                <FieldContent>
+                  <FieldTitle>Pro Trial</FieldTitle>
+                  <FieldDescription className="text-blue-500 dark:text-blue-300">
+                    Try all the Pro features free for 14 days
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+            </FieldLabel>
+          </RadioGroup>
+        </div>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+      <CardFooter className="border-t flex-col gap-2">
+        <Button
+          onClick={handleCreate}
+          disabled={creating || !name.trim()}
+          className="w-full"
+        >
+          {creating ? "Creating..." : "Create team"}
+        </Button>
+        {showCancel && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+            className="w-full text-muted-foreground"
+          >
+            Cancel
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
   );
 }

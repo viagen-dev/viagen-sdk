@@ -26,23 +26,26 @@ export async function loader({
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
 
-  // Helper: check if a secret exists at project or org level
-  const hasToken = async (key: string): Promise<boolean> => {
+  // Helper: check if a secret exists at project or org level, returning the source
+  const resolveToken = async (
+    key: string,
+  ): Promise<{ available: boolean; source: "project" | "org" | null }> => {
     const projectVal = await getProjectSecret(org.id, id, key).catch(
       () => null,
     );
-    if (projectVal) return true;
+    if (projectVal) return { available: true, source: "project" };
     const orgVal = await getSecret(org.id, key).catch(() => null);
-    return !!orgVal;
+    if (orgVal) return { available: true, source: "org" };
+    return { available: false, source: null };
   };
 
-  // GitHub: linked (has repo in DB) + token available
+  // GitHub: linked (has repo in DB) + token available + source
   const githubLinked = !!project.githubRepo;
-  const githubToken = await hasToken("GITHUB_TOKEN");
+  const githubResult = await resolveToken("GITHUB_TOKEN");
 
-  // Vercel: linked (has vercelProjectId in DB) + token available
+  // Vercel: linked (has vercelProjectId in DB) + token available + source
   const vercelLinked = !!project.vercelProjectId;
-  const vercelToken = await hasToken("VERCEL_TOKEN");
+  const vercelResult = await resolveToken("VERCEL_TOKEN");
 
   // Claude: check project > org cascade, plus expiration.
   // If a higher-priority OAuth token is expired, fall through to lower
@@ -127,12 +130,20 @@ export async function loader({
   // Ready = can launch a sandbox. GitHub repo + token and Claude are hard requirements.
   // Vercel linkage is optional — enhances deployment but doesn't block sandbox launch.
   const ready =
-    githubLinked && githubToken && claudeConnected && !claudeExpired;
+    githubLinked && githubResult.available && claudeConnected && !claudeExpired;
 
   return Response.json({
     ready,
-    github: { linked: githubLinked, tokenAvailable: githubToken },
-    vercel: { linked: vercelLinked, tokenAvailable: vercelToken },
+    github: {
+      linked: githubLinked,
+      tokenAvailable: githubResult.available,
+      tokenSource: githubResult.source,
+    },
+    vercel: {
+      linked: vercelLinked,
+      tokenAvailable: vercelResult.available,
+      tokenSource: vercelResult.source,
+    },
     claude: {
       connected: claudeConnected,
       source: claudeSource,

@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { useRouteLoaderData, useSearchParams, useNavigate } from "react-router";
+import {
+  useRouteLoaderData,
+  useSearchParams,
+  useNavigate,
+  useLocation,
+} from "react-router";
 import { toast } from "sonner";
 import { Ellipsis, Database } from "lucide-react";
 import { Button } from "~/components/ui/button";
@@ -75,7 +80,7 @@ interface ParentData {
   };
   currentOrg: { id: string; name: string };
   organizations: { id: string; name: string; role: string }[];
-  integrations: { github: boolean; vercel: boolean };
+  integrations: { github: boolean; vercel: boolean; claude: boolean };
 }
 
 interface Member {
@@ -508,9 +513,20 @@ export default function Settings() {
       return "settings";
     return "profile";
   };
-  const [activeSection, setActiveSection] = useState<Section>(
-    getInitialSection,
-  );
+  const [activeSection, setActiveSection] =
+    useState<Section>(getInitialSection);
+  const location = useLocation();
+
+  // Scroll to hash target (e.g. #team-members) after mount
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.slice(1);
+    // Small delay to let the page render the correct tab section first
+    const timer = setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [location.hash]);
 
   const handleSectionChange = (section: Section) => {
     setActiveSection(section);
@@ -687,6 +703,64 @@ export default function Settings() {
           {/* ===== SETTINGS SECTION ===== */}
           {activeSection === "settings" && (
             <>
+              {/* Organization Name */}
+              <div className="mb-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Organization Name</CardTitle>
+                    <CardDescription>
+                      The name of your organization. This is visible to all
+                      members.
+                    </CardDescription>
+                  </CardHeader>
+                  {isAdmin ? (
+                    <>
+                      <CardContent>
+                        <Input
+                          type="text"
+                          value={orgName}
+                          onChange={(e) => {
+                            setOrgName(e.target.value);
+                            setNameSaved(false);
+                            setNameError(null);
+                          }}
+                          placeholder="Organization name"
+                          className="max-w-md"
+                          onKeyDown={(e) =>
+                            e.key === "Enter" &&
+                            nameChanged &&
+                            handleRenameOrg()
+                          }
+                        />
+                        {nameError && (
+                          <p className="mt-2 text-sm text-destructive">
+                            {nameError}
+                          </p>
+                        )}
+                      </CardContent>
+                      <CardFooter className="border-t justify-end">
+                        <Button
+                          onClick={handleRenameOrg}
+                          disabled={
+                            !nameChanged || !orgName.trim() || savingName
+                          }
+                        >
+                          {savingName
+                            ? "Saving..."
+                            : nameSaved
+                              ? "Saved"
+                              : "Save"}
+                        </Button>
+                      </CardFooter>
+                    </>
+                  ) : (
+                    <CardContent>
+                      <Small>{currentOrg.name}</Small>
+                    </CardContent>
+                  )}
+                </Card>
+              </div>
+
               {/* GitHub */}
               <div className="mb-8">
                 <Card>
@@ -837,66 +911,8 @@ export default function Settings() {
                 </Card>
               </div>
 
-              {/* Organization Name */}
-              <div className="mb-8">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Organization Name</CardTitle>
-                    <CardDescription>
-                      The name of your organization. This is visible to all
-                      members.
-                    </CardDescription>
-                  </CardHeader>
-                  {isAdmin ? (
-                    <>
-                      <CardContent>
-                        <Input
-                          type="text"
-                          value={orgName}
-                          onChange={(e) => {
-                            setOrgName(e.target.value);
-                            setNameSaved(false);
-                            setNameError(null);
-                          }}
-                          placeholder="Organization name"
-                          className="max-w-md"
-                          onKeyDown={(e) =>
-                            e.key === "Enter" &&
-                            nameChanged &&
-                            handleRenameOrg()
-                          }
-                        />
-                        {nameError && (
-                          <p className="mt-2 text-sm text-destructive">
-                            {nameError}
-                          </p>
-                        )}
-                      </CardContent>
-                      <CardFooter className="border-t justify-end">
-                        <Button
-                          onClick={handleRenameOrg}
-                          disabled={
-                            !nameChanged || !orgName.trim() || savingName
-                          }
-                        >
-                          {savingName
-                            ? "Saving..."
-                            : nameSaved
-                              ? "Saved"
-                              : "Save"}
-                        </Button>
-                      </CardFooter>
-                    </>
-                  ) : (
-                    <CardContent>
-                      <Small>{currentOrg.name}</Small>
-                    </CardContent>
-                  )}
-                </Card>
-              </div>
-
               {/* Members */}
-              <div className="mb-8">
+              <div id="team-members" className="mb-8">
                 <Card>
                   <CardHeader>
                     <CardTitle>Team members</CardTitle>
@@ -1014,11 +1030,20 @@ export default function Settings() {
 
                                 {isSelf && member.role !== "owner" ? (
                                   <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button variant="destructive" size="sm">
-                                        Leave team
-                                      </Button>
-                                    </DialogTrigger>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon-sm">
+                                          <Ellipsis />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DialogTrigger asChild>
+                                          <DropdownMenuItem className="text-destructive focus:text-destructive">
+                                            Leave team
+                                          </DropdownMenuItem>
+                                        </DialogTrigger>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                     <DialogContent>
                                       <DialogHeader>
                                         <DialogTitle>Leave team</DialogTitle>
@@ -1104,6 +1129,91 @@ export default function Settings() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Delete Team — owner only */}
+              {currentRole === "owner" && (
+                <div className="mb-8">
+                  <Card className="border-destructive">
+                    <CardHeader>
+                      <CardTitle>Delete Team</CardTitle>
+                      <CardDescription>
+                        Permanently delete {currentOrg.name} and all of its
+                        projects, workspaces, and data. This action is not
+                        reversible — please continue with caution.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardFooter className="border-t border-destructive bg-destructive/5 justify-end">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive">Delete Team</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              Are you absolutely sure?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete{" "}
+                              <strong>{currentOrg.name}</strong> and all of its
+                              projects, workspaces, members, and data sources.
+                              This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <CardFooter className="border-t justify-end gap-2 -mx-6 -mb-6 mt-2">
+                            <AlertDialogCancel size="sm">
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              variant="destructive"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch("/api/orgs", {
+                                    method: "DELETE",
+                                    credentials: "include",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                      confirmName: currentOrg.name,
+                                    }),
+                                  });
+                                  if (!res.ok) {
+                                    const data = await res
+                                      .json()
+                                      .catch(() => ({}));
+                                    toast.error(
+                                      data.error ?? "Failed to delete team",
+                                    );
+                                    return;
+                                  }
+                                  // Clear the org cookie and redirect
+                                  document.cookie =
+                                    "viagen-org=; path=/; max-age=0";
+                                  toast.success("Team deleted");
+                                  const otherOrg = organizations.find(
+                                    (o) => o.id !== currentOrg.id,
+                                  );
+                                  if (otherOrg) {
+                                    document.cookie = `viagen-org=${otherOrg.id}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+                                    window.location.href = "/";
+                                  } else {
+                                    window.location.href = "/onboarding";
+                                  }
+                                } catch {
+                                  toast.error("Failed to delete team");
+                                }
+                              }}
+                            >
+                              Delete Team
+                            </AlertDialogAction>
+                          </CardFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </CardFooter>
+                  </Card>
+                </div>
+              )}
             </>
           )}
 
@@ -1115,9 +1225,9 @@ export default function Settings() {
                   <CardHeader>
                     <CardTitle>Data Sources</CardTitle>
                     <CardDescription>
-                      Manage databases and data sources for{" "}
-                      {currentOrg.name}. Connection strings are stored
-                      securely and available to all projects.
+                      Manage databases and data sources for {currentOrg.name}.
+                      Connection strings are stored securely and available to
+                      all projects.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>

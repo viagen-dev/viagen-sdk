@@ -1,19 +1,22 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Link, useNavigate, useRouteLoaderData } from "react-router";
+import {
+  Link,
+  useNavigate,
+  useRouteLoaderData,
+  useSearchParams,
+  useRevalidator,
+} from "react-router";
+import { toast } from "sonner";
 import {
   Search,
   Plus,
   Ellipsis,
   Sparkles,
   X,
-  Check,
   Circle,
+  ChevronDown,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "~/components/ui/tooltip";
+
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects } from "~/lib/db/schema";
@@ -37,6 +40,7 @@ import {
   ItemContent,
   ItemTitle,
   ItemDescription,
+  ItemActions,
 } from "~/components/ui/item";
 import {
   DropdownMenu,
@@ -126,7 +130,7 @@ interface ParentData {
   };
   currentOrg: { id: string; name: string };
   organizations: { id: string; name: string; role: string }[];
-  integrations: { github: boolean; vercel: boolean };
+  integrations: { github: boolean; vercel: boolean; claude: boolean };
 }
 
 export default function Projects({
@@ -136,11 +140,53 @@ export default function Projects({
 }) {
   const { projects } = loaderData;
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const revalidator = useRevalidator();
   const parentData = useRouteLoaderData("routes/_auth") as
     | ParentData
     | undefined;
   const integrations = parentData?.integrations;
-  const missingIntegrations = !integrations?.github || !integrations?.vercel;
+  const missingIntegrations =
+    !integrations?.github || !integrations?.vercel || !integrations?.claude;
+
+  // Handle ?connected= and ?error= query params from OAuth redirects
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    const error = searchParams.get("error");
+
+    if (connected) {
+      const label =
+        connected === "github"
+          ? "GitHub"
+          : connected === "vercel"
+            ? "Vercel"
+            : connected;
+      toast.success(`${label} connected successfully`);
+      // Strip the query param so it doesn't re-fire
+      setSearchParams(
+        (prev) => {
+          prev.delete("connected");
+          return prev;
+        },
+        { replace: true },
+      );
+      // Force parent loader to re-fetch integration status from Infisical
+      revalidator.revalidate();
+    }
+
+    if (error) {
+      const label =
+        error === "github" ? "GitHub" : error === "vercel" ? "Vercel" : error;
+      toast.error(`Failed to connect ${label}. Please try again.`);
+      setSearchParams(
+        (prev) => {
+          prev.delete("error");
+          return prev;
+        },
+        { replace: true },
+      );
+    }
+  }, [searchParams, setSearchParams, revalidator]);
 
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -297,111 +343,144 @@ export default function Projects({
             </Command>
           </PopoverContent>
         </Popover>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button asChild size="icon" className="sm:hidden">
-              <Link to="/projects/new">
-                <Plus />
-              </Link>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className="size-9 px-0 sm:h-9 sm:w-auto sm:px-4">
+              <Plus className="size-4 sm:hidden" />
+              <span className="hidden sm:inline-flex sm:items-center sm:gap-2">
+                Add New...
+                <ChevronDown className="size-4" />
+              </span>
             </Button>
-          </TooltipTrigger>
-          <TooltipContent>Add project</TooltipContent>
-        </Tooltip>
-        <Button asChild className="hidden sm:inline-flex">
-          <Link to="/projects/new">
-            <Plus />
-            Add project
-          </Link>
-        </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link to="/projects/new">Project</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/settings?tab=settings#team-members">Team Member</Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {projects.length === 0 ? (
-        <Card className="border-dashed bg-muted/50">
-          <CardContent className="flex flex-col items-center justify-center px-8 py-16">
-            <Large className="mb-2">No projects yet</Large>
-            <Muted className="text-center">
-              Create your first project to get started
-            </Muted>
-            <Button asChild className="mt-4">
-              <Link to="/projects/new">New Project</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      ) : filteredProjects.length === 0 ? (
-        <Card className="border-dashed bg-muted/50">
-          <CardContent className="flex flex-col items-center justify-center px-8 py-16">
-            <Search className="mb-3 size-8 text-muted-foreground/50" />
-            <Large className="mb-1">No projects found</Large>
-            <Muted className="mb-4 text-center">
-              No projects match &ldquo;{search}&rdquo;
-            </Muted>
-            <Button variant="outline" size="sm" onClick={() => setSearch("")}>
-              Clear search
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div
-          className={
-            missingIntegrations
-              ? "flex flex-col items-start gap-6 md:flex-row"
-              : ""
-          }
-        >
-          {missingIntegrations && (
-            <div className="w-full shrink-0 md:w-[380px]">
-              <CardTitle className="mb-4">Getting started</CardTitle>
-              <Card className="sticky top-8">
-                <CardHeader>
-                  <CardTitle>Connect accounts</CardTitle>
-                  <CardDescription>
-                    Connect your accounts to unlock the full experience.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-1">
+      <div
+        className={
+          missingIntegrations
+            ? "flex flex-col items-start gap-6 md:flex-row"
+            : ""
+        }
+      >
+        {/* Getting started checklist — sticky left sidebar */}
+        {missingIntegrations && (
+          <div className="w-full shrink-0 md:w-[380px]">
+            <CardTitle className="mb-4">Getting started</CardTitle>
+            <Card className="sticky top-[76px]">
+              <CardHeader>
+                <CardTitle>Connect accounts</CardTitle>
+                <CardDescription>
+                  Connect your accounts to unlock the full experience.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-1">
+                {!integrations?.github && (
                   <Item size="sm" variant="outline">
                     <ItemMedia variant="icon">
                       <GitHubIcon />
                     </ItemMedia>
                     <ItemContent>
                       <ItemTitle>Connect GitHub</ItemTitle>
+                      <ItemDescription>
+                        Access repositories and save sandbox changes
+                      </ItemDescription>
                     </ItemContent>
-                    {!integrations?.github && (
+                    <ItemActions>
                       <Button size="sm" asChild>
-                        <Link to="/settings?tab=user">Connect</Link>
+                        <a href="/api/integrations/github/start?return_to=/">
+                          Connect
+                        </a>
                       </Button>
-                    )}
+                    </ItemActions>
                   </Item>
+                )}
+                {!integrations?.vercel && (
                   <Item size="sm" variant="outline">
                     <ItemMedia variant="icon">
                       <VercelIcon />
                     </ItemMedia>
                     <ItemContent>
                       <ItemTitle>Connect Vercel</ItemTitle>
+                      <ItemDescription>
+                        Deploy projects and manage environments
+                      </ItemDescription>
                     </ItemContent>
-                    {!integrations?.vercel && (
+                    <ItemActions>
                       <Button size="sm" asChild>
-                        <Link to="/settings?tab=user">Connect</Link>
+                        <a href="/api/integrations/vercel/start?return_to=/">
+                          Connect
+                        </a>
                       </Button>
-                    )}
+                    </ItemActions>
                   </Item>
+                )}
+                {!integrations?.claude && (
                   <Item size="sm" variant="outline">
                     <ItemMedia variant="icon">
                       <Sparkles className="size-3" />
                     </ItemMedia>
                     <ItemContent>
-                      <ItemTitle>Connect Claude</ItemTitle>
+                      <ItemTitle>Add Claude API Key</ItemTitle>
+                      <ItemDescription>
+                        Power AI features across your projects
+                      </ItemDescription>
                     </ItemContent>
-                    <Button size="sm" asChild>
-                      <Link to="/settings?tab=user">Connect</Link>
-                    </Button>
+                    <ItemActions>
+                      <Button size="sm" asChild>
+                        <Link to="/settings?tab=settings">Add key</Link>
+                      </Button>
+                    </ItemActions>
                   </Item>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-          <div className="min-w-0 w-full flex-1">
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        <div className="min-w-0 w-full flex-1">
+          {missingIntegrations && (
             <CardTitle className="mb-4">Projects</CardTitle>
+          )}
+
+          {projects.length === 0 ? (
+            <Card className="border-dashed bg-muted/50">
+              <CardContent className="flex flex-col items-center justify-center px-8 py-16">
+                <Large className="mb-2">No projects yet</Large>
+                <Muted className="text-center">
+                  Create your first project to get started
+                </Muted>
+                <Button asChild className="mt-4">
+                  <Link to="/projects/new">New Project</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : filteredProjects.length === 0 ? (
+            <Card className="border-dashed bg-muted/50">
+              <CardContent className="flex flex-col items-center justify-center px-8 py-16">
+                <Search className="mb-3 size-8 text-muted-foreground/50" />
+                <Large className="mb-1">No projects found</Large>
+                <Muted className="mb-4 text-center">
+                  No projects match &ldquo;{search}&rdquo;
+                </Muted>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSearch("")}
+                >
+                  Clear search
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
               {filteredProjects.map((project) => (
                 <Card
@@ -507,9 +586,9 @@ export default function Projects({
                 </Card>
               ))}
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
