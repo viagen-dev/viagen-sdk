@@ -867,22 +867,15 @@ export default function ProjectSettings({
               " Changes sync automatically to Vercel."}
           </CardDescription>
           <CardAction>
-            <div className="flex items-center gap-2">
-              {vercelConnected && (
-                <Badge variant="outline" className="gap-1.5">
-                  <VercelIcon /> Vercel
-                </Badge>
-              )}
-              <Button
-                size="sm"
-                variant={vercelConnected ? "default" : "outline"}
-                onClick={handleBulkSync}
-                disabled={!vercelConnected || !isAdmin || syncing}
-              >
-                <VercelIcon />
-                {syncing ? "Syncing..." : "Sync to Vercel"}
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              variant={vercelConnected ? "default" : "outline"}
+              onClick={handleBulkSync}
+              disabled={!vercelConnected || !isAdmin || syncing}
+            >
+              <VercelIcon />
+              {syncing ? "Syncing..." : "Sync to Vercel"}
+            </Button>
           </CardAction>
         </CardHeader>
 
