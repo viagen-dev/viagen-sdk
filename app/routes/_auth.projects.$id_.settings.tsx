@@ -150,19 +150,6 @@ export default function ProjectSettings({
   const [secretsLoading, setSecretsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Add form
-  const [newKey, setNewKey] = useState("");
-  const [newValue, setNewValue] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  // Edit
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
-  const [editSaving, setEditSaving] = useState(false);
-
-  // Reveal
-  const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
-
   // Vercel sync state
   const [syncKeys, setSyncKeys] = useState<VercelSyncKey[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -244,7 +231,7 @@ export default function ProjectSettings({
 
   const fetchSecrets = async () => {
     try {
-      const res = await fetch(`/api/projects/${project.id}/secrets?reveal=true`, {
+      const res = await fetch(`/api/projects/${project.id}/secrets`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to load secrets");
@@ -293,7 +280,7 @@ export default function ProjectSettings({
     if (!value.trim()) return;
     setSavingFn(true);
     try {
-      const res = await fetch(`/api/projects/${project.id}/secrets?reveal=true`, {
+      const res = await fetch(`/api/projects/${project.id}/secrets`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -323,7 +310,7 @@ export default function ProjectSettings({
   ) => {
     setSavingFn(true);
     try {
-      const res = await fetch(`/api/projects/${project.id}/secrets?reveal=true`, {
+      const res = await fetch(`/api/projects/${project.id}/secrets`, {
         method: "DELETE",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -395,115 +382,6 @@ export default function ProjectSettings({
     } finally {
       setSavingClaude(false);
     }
-  };
-
-  // -----------------------------------------------------------------------
-  // Handlers — env var CRUD
-  // -----------------------------------------------------------------------
-
-  const handleAddSecret = async () => {
-    if (!newKey.trim() || saving) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/secrets?reveal=true`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: newKey.trim(), value: newValue }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Failed to save variable");
-        setSaving(false);
-        return;
-      }
-      setNewKey("");
-      setNewValue("");
-      toast.success("Variable added");
-      await Promise.all([fetchSecrets(), fetchSyncState()]);
-    } catch {
-      setError("Failed to save variable");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleEditSecret = async (key: string) => {
-    if (editSaving) return;
-    setEditSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/secrets?reveal=true`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, value: editValue }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Failed to update variable");
-        setEditSaving(false);
-        return;
-      }
-      setEditingKey(null);
-      setEditValue("");
-      toast.success("Variable updated");
-      await fetchSecrets();
-    } catch {
-      setError("Failed to update variable");
-    } finally {
-      setEditSaving(false);
-    }
-  };
-
-  const handleDeleteSecret = async (key: string) => {
-    setError(null);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/secrets?reveal=true`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Failed to delete variable");
-        return;
-      }
-      toast.success("Variable deleted");
-      await Promise.all([fetchSecrets(), fetchSyncState()]);
-    } catch {
-      setError("Failed to delete variable");
-    }
-  };
-
-  // -----------------------------------------------------------------------
-  // Helpers — secrets UI
-  // -----------------------------------------------------------------------
-
-  const toggleReveal = (key: string) => {
-    setRevealedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const startEdit = (secret: SecretEntry) => {
-    setEditingKey(secret.key);
-    setEditValue(secret.value);
-  };
-
-  const cancelEdit = () => {
-    setEditingKey(null);
-    setEditValue("");
-  };
-
-  const maskValue = (value: string) => {
-    if (value.length <= 4) return "\u2022".repeat(8);
-    return value.slice(0, 4) + "\u2022".repeat(Math.min(value.length - 4, 20));
   };
 
   // Vercel sync handlers
@@ -1055,59 +933,9 @@ export default function ProjectSettings({
                 secrets={filteredProjectSecrets}
                 overriddenKeys={new Set()}
                 isAdmin={isAdmin}
-                editingKey={editingKey}
-                editValue={editValue}
-                editSaving={editSaving}
-                revealedKeys={revealedKeys}
-                onToggleReveal={toggleReveal}
-                onStartEdit={startEdit}
-                onCancelEdit={cancelEdit}
-                onSaveEdit={handleEditSecret}
-                onEditValueChange={setEditValue}
-                onDelete={handleDeleteSecret}
-                maskValue={maskValue}
                 syncMap={syncMap}
                 vercelConnected={vercelConnected}
                 onToggleSync={handleToggleSync}
-                addForm={
-                  isAdmin ? (
-                    <div className="flex items-center gap-2 border-b border-border pb-3">
-                      <Input
-                        type="text"
-                        value={newKey}
-                        onChange={(e) =>
-                          setNewKey(
-                            e.target.value
-                              .toUpperCase()
-                              .replace(/[^A-Z0-9_]/g, ""),
-                          )
-                        }
-                        placeholder="KEY_NAME"
-                        className="w-50 shrink-0 font-mono"
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && handleAddSecret()
-                        }
-                      />
-                      <Input
-                        type="text"
-                        value={newValue}
-                        onChange={(e) => setNewValue(e.target.value)}
-                        placeholder="value"
-                        className="min-w-0 flex-1"
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && handleAddSecret()
-                        }
-                      />
-                      <Button
-                        onClick={handleAddSecret}
-                        disabled={!newKey.trim() || saving}
-                        size="sm"
-                      >
-                        {saving ? "Saving..." : "Add"}
-                      </Button>
-                    </div>
-                  ) : undefined
-                }
               />
 
               {/* Org-level inherited env vars */}
@@ -1123,30 +951,10 @@ export default function ProjectSettings({
                 }
                 secrets={filteredOrgSecrets}
                 overriddenKeys={projectKeySet}
-                isAdmin={false}
-                editingKey={null}
-                editValue=""
-                editSaving={false}
-                revealedKeys={revealedKeys}
-                onToggleReveal={toggleReveal}
-                onStartEdit={() => {}}
-                onCancelEdit={() => {}}
-                onSaveEdit={() => Promise.resolve()}
-                onEditValueChange={() => {}}
-                onDelete={() => Promise.resolve()}
-                maskValue={maskValue}
+                isAdmin={isAdmin}
                 syncMap={syncMap}
                 vercelConnected={vercelConnected}
                 onToggleSync={handleToggleSync}
-                overrideAction={
-                  isAdmin
-                    ? (key: string) => {
-                        setNewKey(key);
-                        setNewValue("");
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }
-                    : undefined
-                }
               />
             </div>
           )}
@@ -1165,7 +973,7 @@ export default function ProjectSettings({
 }
 
 // ---------------------------------------------------------------------------
-// SecretSection — reusable scoped list of secrets
+// SecretSection — read-only scoped list of secrets (values always obfuscated)
 // ---------------------------------------------------------------------------
 
 function SecretSection({
@@ -1174,44 +982,18 @@ function SecretSection({
   secrets,
   overriddenKeys,
   isAdmin,
-  editingKey,
-  editValue,
-  editSaving,
-  revealedKeys,
-  onToggleReveal,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
-  onEditValueChange,
-  onDelete,
-  maskValue,
   syncMap,
   vercelConnected,
   onToggleSync,
-  addForm,
-  overrideAction,
 }: {
   title: string;
   badge: React.ReactNode;
   secrets: SecretEntry[];
   overriddenKeys: Set<string>;
   isAdmin: boolean;
-  editingKey: string | null;
-  editValue: string;
-  editSaving: boolean;
-  revealedKeys: Set<string>;
-  onToggleReveal: (key: string) => void;
-  onStartEdit: (secret: SecretEntry) => void;
-  onCancelEdit: () => void;
-  onSaveEdit: (key: string) => void;
-  onEditValueChange: (value: string) => void;
-  onDelete: (key: string) => void;
-  maskValue: (value: string) => string;
   syncMap: Map<string, VercelSyncKey>;
   vercelConnected: boolean;
   onToggleSync: (key: string, enabled: boolean) => void;
-  addForm?: React.ReactNode;
-  overrideAction?: (key: string) => void;
 }) {
   return (
     <div>
@@ -1219,7 +1001,6 @@ function SecretSection({
         <Small className="text-muted-foreground">{title}</Small>
         {badge}
       </div>
-      {addForm}
       {secrets.length === 0 ? (
         <Muted className="py-2">No {title.toLowerCase()} variables.</Muted>
       ) : (
@@ -1236,114 +1017,39 @@ function SecretSection({
                   isOverridden ? "opacity-50" : ""
                 }`}
               >
-                {editingKey === secret.key ? (
-                  <>
-                    <span className="w-50 shrink-0 font-mono text-[0.8125rem] font-medium">
-                      {secret.key}
-                    </span>
-                    <div className="flex flex-1 items-center gap-2">
-                      <Input
-                        type="text"
-                        value={editValue}
-                        onChange={(e) => onEditValueChange(e.target.value)}
-                        className="min-w-0 flex-1"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") onSaveEdit(secret.key);
-                          if (e.key === "Escape") onCancelEdit();
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        onClick={() => onSaveEdit(secret.key)}
-                        disabled={editSaving}
-                      >
-                        {editSaving ? "Saving..." : "Save"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={onCancelEdit}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <span
-                      className={`w-50 shrink-0 font-mono text-[0.8125rem] font-medium ${
-                        isOverridden ? "line-through" : ""
-                      }`}
-                    >
-                      {secret.key}
-                    </span>
-                    <span
-                      className="min-w-0 flex-1 cursor-pointer truncate font-mono text-[0.8125rem] text-muted-foreground"
-                      onClick={() => onToggleReveal(secret.key)}
-                      title="Click to reveal"
-                    >
-                      {revealedKeys.has(secret.key)
-                        ? secret.value
-                        : maskValue(secret.value)}
-                    </span>
-                    {/* Vercel sync toggle */}
-                    <Switch
-                      checked={!isDenylisted && syncEnabled}
-                      onCheckedChange={(checked) =>
-                        onToggleSync(secret.key, checked)
-                      }
-                      disabled={
-                        !vercelConnected || isDenylisted || !isAdmin
-                      }
-                      size="sm"
-                      title={
-                        isDenylisted
-                          ? "System variable — blocked from Vercel"
-                          : !vercelConnected
-                            ? "Connect Vercel to enable sync"
-                            : syncEnabled
-                              ? "Syncs to Vercel"
-                              : "Not syncing to Vercel"
-                      }
-                    />
-                    {isOverridden && (
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        overridden
-                      </span>
-                    )}
-                    {isAdmin && !isOverridden && (
-                      <div className="flex shrink-0 gap-1">
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => onStartEdit(secret)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          className="text-destructive hover:text-destructive/80"
-                          onClick={() => onDelete(secret.key)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    )}
-                    {overrideAction && !isOverridden && (
-                      <div className="flex shrink-0 gap-1">
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => overrideAction(secret.key)}
-                          title="Create a project-level override"
-                        >
-                          Override
-                        </Button>
-                      </div>
-                    )}
-                  </>
+                <span
+                  className={`w-50 shrink-0 font-mono text-[0.8125rem] font-medium ${
+                    isOverridden ? "line-through" : ""
+                  }`}
+                >
+                  {secret.key}
+                </span>
+                <span className="min-w-0 flex-1 truncate font-mono text-[0.8125rem] text-muted-foreground">
+                  {secret.value}
+                </span>
+                <Switch
+                  checked={!isDenylisted && syncEnabled}
+                  onCheckedChange={(checked) =>
+                    onToggleSync(secret.key, checked)
+                  }
+                  disabled={
+                    !vercelConnected || isDenylisted || !isAdmin
+                  }
+                  size="sm"
+                  title={
+                    isDenylisted
+                      ? "System variable — blocked from Vercel"
+                      : !vercelConnected
+                        ? "Connect Vercel to enable sync"
+                        : syncEnabled
+                          ? "Syncs to Vercel"
+                          : "Not syncing to Vercel"
+                  }
+                />
+                {isOverridden && (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    overridden
+                  </span>
                 )}
               </div>
             );

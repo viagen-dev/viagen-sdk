@@ -42,17 +42,8 @@ export async function loader({
   request: Request;
   params: { id: string };
 }) {
-  const { org, role } = await requireAuth(request);
+  const { org } = await requireAuth(request);
   const id = params.id;
-  const url = new URL(request.url);
-  const reveal = url.searchParams.get("reveal") === "true";
-
-  if (reveal && !isAdminRole(role)) {
-    return Response.json(
-      { error: "Admin role required to reveal secrets" },
-      { status: 403 },
-    );
-  }
 
   const [project] = await db
     .select()
@@ -71,7 +62,6 @@ export async function loader({
       orgId: org.id,
       projectCount: resolved.project.length,
       orgCount: resolved.org.length,
-      reveal,
     },
     "secrets loader: resolved all secrets",
   );
@@ -80,7 +70,7 @@ export async function loader({
     [...secrets].sort((a, b) => a.key.localeCompare(b.key));
 
   const mask = (secrets: { key: string; value: string }[]) =>
-    secrets.map((s) => ({ key: s.key, value: reveal ? s.value : maskValue(s.value) }));
+    secrets.map((s) => ({ key: s.key, value: maskValue(s.value) }));
 
   return Response.json({
     project: mask(sort(resolved.project)),
