@@ -145,9 +145,11 @@ export async function action({
   log.info(
     {
       projectId: id,
+      projectName: project.name,
       userId: user.id,
       orgId: org.id,
       repo: project.githubRepo,
+      vercelProjectId: project.vercelProjectId,
       branch,
       hasPrompt: !!prompt,
     },
@@ -180,11 +182,67 @@ export async function action({
     "sandbox credentials resolved",
   );
 
+  // ── Verify GitHub repo is accessible ────────────────
+  const remoteUrl = `https://github.com/${project.githubRepo}.git`;
+
+  if (githubToken) {
+    try {
+      const repoCheck = await fetch(
+        `https://api.github.com/repos/${project.githubRepo}`,
+        {
+          headers: {
+            Authorization: `Bearer ${githubToken}`,
+            Accept: "application/vnd.github+json",
+            "User-Agent": "viagen-sdk",
+          },
+        },
+      );
+      if (!repoCheck.ok) {
+        const data = await repoCheck.json().catch(() => ({}));
+        log.error(
+          {
+            projectId: id,
+            repo: project.githubRepo,
+            status: repoCheck.status,
+            error: data.message,
+          },
+          "sandbox launch: GitHub repo not accessible",
+        );
+        if (repoCheck.status === 404) {
+          return Response.json(
+            {
+              error: `Repository ${project.githubRepo} not found or token lacks access. Check that the repo exists and your GitHub token has the repo scope.`,
+            },
+            { status: 400 },
+          );
+        }
+        if (repoCheck.status === 401) {
+          return Response.json(
+            { error: "GitHub token is invalid or expired" },
+            { status: 401 },
+          );
+        }
+        return Response.json(
+          { error: `Cannot access repo: ${data.message ?? "unknown error"}` },
+          { status: 400 },
+        );
+      }
+      log.info(
+        { projectId: id, repo: project.githubRepo },
+        "sandbox launch: repo access verified",
+      );
+    } catch (err) {
+      log.warn(
+        { projectId: id, err: err instanceof Error ? err.message : String(err) },
+        "sandbox launch: repo check failed, proceeding anyway",
+      );
+    }
+  }
+
   // ── Build sandbox ───────────────────────────────────
   const token = randomUUID();
   const timeoutMinutes = 30;
   const timeoutMs = timeoutMinutes * 60 * 1000;
-  const remoteUrl = `https://github.com/${project.githubRepo}.git`;
 
   try {
     const start = Date.now();
@@ -339,7 +397,21 @@ export async function action({
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Sandbox deployment failed";
-    log.error({ projectId: id, err }, "sandbox deployment failed");
+    // Extract nested error details from Vercel sandbox API errors
+    const errJson = (err as any)?.json ?? (err as any)?.response ?? null;
+    log.error(
+      {
+        projectId: id,
+        projectName: project.name,
+        repo: project.githubRepo,
+        remoteUrl,
+        hasGithubToken: !!githubToken,
+        branch,
+        err,
+        errJson,
+      },
+      "sandbox deployment failed",
+    );
     return Response.json({ error: message }, { status: 500 });
   }
 }
