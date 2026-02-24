@@ -306,7 +306,7 @@ export async function action({
       if (prompt) {
         envMap["VIAGEN_PROMPT"] = `${prompt}.
 
-          When you are done, commit your changes push and create a pull request using github API via fetch call.`;
+          GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (the gh CLI is not installed). When you are done, commit your changes, push, and create a pull request using the GitHub REST API.`;
       }
 
       if (githubToken) {
@@ -326,26 +326,6 @@ export async function action({
       );
       await sandbox.writeFiles([
         { path: ".env", content: Buffer.from(envLines.join("\n") + "\n") },
-      ]);
-
-      // Export env vars so ALL processes can access them (not just Vite):
-      // 1. /etc/environment — PAM-level, read by all login sessions
-      // 2. /etc/profile.d/viagen.sh — sourced by login shells
-      const etcEnvLines = Object.entries(envMap)
-        .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
-        .join("\n");
-      const shellExports = Object.entries(envMap)
-        .map(([k, v]) => `export ${k}=${JSON.stringify(v)}`)
-        .join("\n");
-      await sandbox.writeFiles([
-        {
-          path: "/etc/environment",
-          content: Buffer.from(etcEnvLines + "\n"),
-        },
-        {
-          path: "/etc/profile.d/viagen.sh",
-          content: Buffer.from(shellExports + "\n"),
-        },
       ]);
 
       // 5. Install dependencies (include dev so viagen plugin loads)

@@ -499,8 +499,8 @@ export function ProjectSettingsPanel({
 
   const navigate = useNavigate();
   const [deleting, setDeleting] = useState(false);
-  const [deleteGithub, setDeleteGithub] = useState(true);
-  const [deleteVercelPrj, setDeleteVercelPrj] = useState(true);
+  const [deleteGithub, setDeleteGithub] = useState(false);
+  const [deleteVercelPrj, setDeleteVercelPrj] = useState(false);
   const [confirmText, setConfirmText] = useState("");
 
   const canDelete = confirmText === project.name;
@@ -981,8 +981,8 @@ export function ProjectSettingsPanel({
                   <AlertDialogCancel
                     onClick={() => {
                       setConfirmText("");
-                      setDeleteGithub(true);
-                      setDeleteVercelPrj(true);
+                      setDeleteGithub(false);
+                      setDeleteVercelPrj(false);
                     }}
                   >
                     Cancel
@@ -995,7 +995,11 @@ export function ProjectSettingsPanel({
                       handleDeleteProject();
                     }}
                   >
-                    {deleting ? "Deleting..." : "Delete everything"}
+                    {deleting
+                      ? "Deleting..."
+                      : deleteGithub || deleteVercelPrj
+                        ? "Delete project & checked resources"
+                        : "Delete project"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

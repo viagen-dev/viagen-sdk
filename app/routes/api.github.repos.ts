@@ -77,6 +77,13 @@ export async function action({ request }: { request: Request }) {
       log.warn({ userId: user.id }, 'github create repo: token invalid or expired')
       return Response.json({ error: 'GitHub token is invalid or expired' }, { status: 401 })
     }
+    if (res.status === 404 && templateRepo) {
+      log.error({ userId: user.id, templateRepo }, 'github create repo: template not found — is it marked as a template repo in GitHub settings?')
+      return Response.json(
+        { error: `Template repo "${templateRepo}" not found. Ensure it exists and is marked as a Template Repository in GitHub settings.` },
+        { status: 404 },
+      )
+    }
     if (res.status === 422) {
       log.warn({ userId: user.id, repoName }, 'github create repo: name already exists or invalid')
       return Response.json(
