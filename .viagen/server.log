@@ -1,43 +1,81 @@
-[2026-02-23T01:53:28.580Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.tsx[22m
-[2026-02-23T01:53:28.580Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.tsx[22m
-[2026-02-23T01:53:54.780Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:53:54.781Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:53:54.781Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:53:54.782Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T01:54:12.959Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:54:12.959Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:54:12.960Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:54:12.960Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T01:54:34.830Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:54:34.830Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:54:34.831Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:54:34.831Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T01:55:11.604Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:55:11.607Z] [ERROR] [vite:build] Transform failed with 1 error:
-/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx:559:14: ERROR: Unterminated regular expression
+[2026-02-24T02:06:34.422Z] [ERROR] [vite:build] Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+
+Unexpected closing "div" tag does not match opening "TabsContent" tag
+641 |            </Card>
+642 |          )}
+643 |        </div>
+    |          ^
+644 |  
+645 |        {sandboxError && (
+
+Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+886 |          </SheetContent>
+887 |        </Sheet>
+888 |          </TabsContent>
+    |            ^
+889 |  
+890 |          <TabsContent value="workspaces">
+
+Unexpected closing "Tabs" tag does not match opening "div" tag
+917 |            </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+    |          ^
+920 |      </div>
+921 |    );
 
 Unterminated regular expression
-557 |              </div>
-558 |            </div>
-559 |          </div>
-    |                ^
-560 |        )}
-561 |      </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+920 |      </div>
+    |            ^
+921 |    );
+922 |  }
 
-[2026-02-23T01:55:11.608Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T01:55:33.827Z] [ERROR] [31mError when evaluating SSR module virtual:react-router/server-build: Transform failed with 1 error:
-/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx:559:14: ERROR: Unterminated regular expression[39m
-  Plugin: [35mvite:esbuild[39m
-  File: [36m/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx[39m:559:14
-[33m  
-  [33mUnterminated regular expression[33m
-  557 |              </div>
-  558 |            </div>
-  559 |          </div>
-      |                ^
-  560 |        )}
-  561 |      </div>
-  [39m
+[2026-02-24T02:06:34.526Z] [ERROR] Internal server error: Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8
+  
+  Unexpected closing "div" tag does not match opening "TabsContent" tag
+  641 |            </Card>
+  642 |          )}
+  643 |        </div>
+      |          ^
+  644 |  
+  645 |        {sandboxError && (
+  
+  Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+  886 |          </SheetContent>
+  887 |        </Sheet>
+  888 |          </TabsContent>
+      |            ^
+  889 |  
+  890 |          <TabsContent value="workspaces">
+  
+  Unexpected closing "Tabs" tag does not match opening "div" tag
+  917 |            </div>
+  918 |          </TabsContent>
+  919 |        </Tabs>
+      |          ^
+  920 |      </div>
+  921 |    );
+  
+  Unterminated regular expression
+  918 |          </TabsContent>
+  919 |        </Tabs>
+  920 |      </div>
+      |            ^
+  921 |    );
+  922 |  }
+  
       at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
       at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
       at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
@@ -49,19 +87,84 @@ Unterminated regular expression
       at Socket.Readable.push (node:internal/streams/readable:392:5)
       at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
       at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
-[2026-02-23T01:55:33.827Z] [ERROR] [31mInternal server error: Transform failed with 1 error:
-/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx:559:14: ERROR: Unterminated regular expression[39m
-  Plugin: [35mvite:esbuild[39m
-  File: [36m/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx[39m:559:14
-[33m  
-  [33mUnterminated regular expression[33m
-  557 |              </div>
-  558 |            </div>
-  559 |          </div>
-      |                ^
-  560 |        )}
-  561 |      </div>
-  [39m
+[2026-02-24T02:06:34.528Z] [ERROR] [vite:build] Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+
+Unexpected closing "div" tag does not match opening "TabsContent" tag
+641 |            </Card>
+642 |          )}
+643 |        </div>
+    |          ^
+644 |  
+645 |        {sandboxError && (
+
+Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+886 |          </SheetContent>
+887 |        </Sheet>
+888 |          </TabsContent>
+    |            ^
+889 |  
+890 |          <TabsContent value="workspaces">
+
+Unexpected closing "Tabs" tag does not match opening "div" tag
+917 |            </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+    |          ^
+920 |      </div>
+921 |    );
+
+Unterminated regular expression
+918 |          </TabsContent>
+919 |        </Tabs>
+920 |      </div>
+    |            ^
+921 |    );
+922 |  }
+
+[2026-02-24T02:06:34.633Z] [ERROR] Internal server error: Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8
+  
+  Unexpected closing "div" tag does not match opening "TabsContent" tag
+  641 |            </Card>
+  642 |          )}
+  643 |        </div>
+      |          ^
+  644 |  
+  645 |        {sandboxError && (
+  
+  Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+  886 |          </SheetContent>
+  887 |        </Sheet>
+  888 |          </TabsContent>
+      |            ^
+  889 |  
+  890 |          <TabsContent value="workspaces">
+  
+  Unexpected closing "Tabs" tag does not match opening "div" tag
+  917 |            </div>
+  918 |          </TabsContent>
+  919 |        </Tabs>
+      |          ^
+  920 |      </div>
+  921 |    );
+  
+  Unterminated regular expression
+  918 |          </TabsContent>
+  919 |        </Tabs>
+  920 |      </div>
+      |            ^
+  921 |    );
+  922 |  }
+  
       at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
       at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
       at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
@@ -73,30 +176,84 @@ Unterminated regular expression
       at Socket.Readable.push (node:internal/streams/readable:392:5)
       at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
       at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
-[2026-02-23T01:55:33.828Z] [ERROR] [vite:build] Transform failed with 1 error:
-/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx:559:14: ERROR: Unterminated regular expression
+[2026-02-24T02:06:34.634Z] [ERROR] [vite:build] Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+
+Unexpected closing "div" tag does not match opening "TabsContent" tag
+641 |            </Card>
+642 |          )}
+643 |        </div>
+    |          ^
+644 |  
+645 |        {sandboxError && (
+
+Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+886 |          </SheetContent>
+887 |        </Sheet>
+888 |          </TabsContent>
+    |            ^
+889 |  
+890 |          <TabsContent value="workspaces">
+
+Unexpected closing "Tabs" tag does not match opening "div" tag
+917 |            </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+    |          ^
+920 |      </div>
+921 |    );
 
 Unterminated regular expression
-557 |              </div>
-558 |            </div>
-559 |          </div>
-    |                ^
-560 |        )}
-561 |      </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+920 |      </div>
+    |            ^
+921 |    );
+922 |  }
 
-[2026-02-23T01:55:34.046Z] [ERROR] [31mInternal server error: Transform failed with 1 error:
-/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx:559:14: ERROR: Unterminated regular expression[39m
-  Plugin: [35mvite:esbuild[39m
-  File: [36m/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx[39m:559:14
-[33m  
-  [33mUnterminated regular expression[33m
-  557 |              </div>
-  558 |            </div>
-  559 |          </div>
-      |                ^
-  560 |        )}
-  561 |      </div>
-  [39m
+[2026-02-24T02:06:34.739Z] [ERROR] Internal server error: Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8
+  
+  Unexpected closing "div" tag does not match opening "TabsContent" tag
+  641 |            </Card>
+  642 |          )}
+  643 |        </div>
+      |          ^
+  644 |  
+  645 |        {sandboxError && (
+  
+  Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+  886 |          </SheetContent>
+  887 |        </Sheet>
+  888 |          </TabsContent>
+      |            ^
+  889 |  
+  890 |          <TabsContent value="workspaces">
+  
+  Unexpected closing "Tabs" tag does not match opening "div" tag
+  917 |            </div>
+  918 |          </TabsContent>
+  919 |        </Tabs>
+      |          ^
+  920 |      </div>
+  921 |    );
+  
+  Unterminated regular expression
+  918 |          </TabsContent>
+  919 |        </Tabs>
+  920 |      </div>
+      |            ^
+  921 |    );
+  922 |  }
+  
       at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
       at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
       at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
@@ -108,92 +265,842 @@ Unterminated regular expression
       at Socket.Readable.push (node:internal/streams/readable:392:5)
       at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
       at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
-[2026-02-23T01:55:34.047Z] [ERROR] [vite:build] Transform failed with 1 error:
-/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.tsx:559:14: ERROR: Unterminated regular expression
+[2026-02-24T02:06:34.742Z] [ERROR] [vite:build] Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+
+Unexpected closing "div" tag does not match opening "TabsContent" tag
+641 |            </Card>
+642 |          )}
+643 |        </div>
+    |          ^
+644 |  
+645 |        {sandboxError && (
+
+Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+886 |          </SheetContent>
+887 |        </Sheet>
+888 |          </TabsContent>
+    |            ^
+889 |  
+890 |          <TabsContent value="workspaces">
+
+Unexpected closing "Tabs" tag does not match opening "div" tag
+917 |            </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+    |          ^
+920 |      </div>
+921 |    );
 
 Unterminated regular expression
-557 |              </div>
-558 |            </div>
-559 |          </div>
-    |                ^
-560 |        )}
-561 |      </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+920 |      </div>
+    |            ^
+921 |    );
+922 |  }
 
-[2026-02-23T01:55:43.324Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:55:43.325Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:55:43.326Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:55:43.326Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T01:56:30.132Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-23T01:56:30.133Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-23T01:56:30.133Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
-[2026-02-23T01:56:30.133Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
-[2026-02-23T01:59:39.606Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:59:39.607Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:59:39.607Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T01:59:39.607Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:34:16.426Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
-[2026-02-23T02:34:16.426Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.tsx[22m
-[2026-02-23T02:34:16.427Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.tsx[22m
-[2026-02-23T02:34:16.427Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.tsx[22m
-[2026-02-23T02:35:24.039Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:35:24.039Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:35:24.040Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:35:24.040Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:35:57.888Z] [INFO] [32m✨ new dependencies optimized: [33mpino[32m[39m
-[2026-02-23T02:35:57.888Z] [INFO] [32m✨ optimized dependencies changed. reloading[39m
-[2026-02-23T02:37:02.270Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:02.270Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:02.271Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:02.271Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:13.070Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:13.070Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:13.071Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:13.071Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:42.167Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:42.168Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:42.168Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:42.168Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:58.417Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:58.417Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:58.417Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:37:58.418Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:40:30.988Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:40:30.988Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:40:30.989Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:40:30.989Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:40:47.718Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:40:47.719Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:40:47.719Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:40:47.720Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:41:01.046Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:41:01.046Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:41:01.047Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:41:01.047Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:41:46.907Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:41:46.907Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:41:46.908Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:41:46.908Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:42:03.608Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:42:03.608Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:42:03.609Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:42:03.609Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:42:25.762Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:42:25.762Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:42:25.763Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:42:25.763Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:43:30.012Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-23T02:43:30.013Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-23T02:43:30.013Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
-[2026-02-23T02:43:30.013Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
-[2026-02-23T02:44:06.190Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-23T02:44:06.191Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.settings.tsx[22m
-[2026-02-23T02:44:06.191Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.settings.tsx[22m
-[2026-02-23T02:44:06.192Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.settings.tsx[22m
-[2026-02-23T02:44:17.712Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:44:17.713Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:44:17.714Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:44:17.714Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
-[2026-02-23T02:51:55.505Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:51:55.505Z] [INFO] [32mhmr update [39m[2m/app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:51:55.506Z] [INFO] [32mhmr update [39m[2m/app/app.css, /app/routes/_auth.projects.tsx[22m
-[2026-02-23T02:51:55.506Z] [INFO] [32mpage reload [39m[2mapp/routes/_auth.projects.tsx[22m
+[2026-02-24T02:06:34.847Z] [ERROR] Internal server error: Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8
+  
+  Unexpected closing "div" tag does not match opening "TabsContent" tag
+  641 |            </Card>
+  642 |          )}
+  643 |        </div>
+      |          ^
+  644 |  
+  645 |        {sandboxError && (
+  
+  Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+  886 |          </SheetContent>
+  887 |        </Sheet>
+  888 |          </TabsContent>
+      |            ^
+  889 |  
+  890 |          <TabsContent value="workspaces">
+  
+  Unexpected closing "Tabs" tag does not match opening "div" tag
+  917 |            </div>
+  918 |          </TabsContent>
+  919 |        </Tabs>
+      |          ^
+  920 |      </div>
+  921 |    );
+  
+  Unterminated regular expression
+  918 |          </TabsContent>
+  919 |        </Tabs>
+  920 |      </div>
+      |            ^
+  921 |    );
+  922 |  }
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-24T02:06:34.848Z] [ERROR] [vite:build] Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+
+Unexpected closing "div" tag does not match opening "TabsContent" tag
+641 |            </Card>
+642 |          )}
+643 |        </div>
+    |          ^
+644 |  
+645 |        {sandboxError && (
+
+Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+886 |          </SheetContent>
+887 |        </Sheet>
+888 |          </TabsContent>
+    |            ^
+889 |  
+890 |          <TabsContent value="workspaces">
+
+Unexpected closing "Tabs" tag does not match opening "div" tag
+917 |            </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+    |          ^
+920 |      </div>
+921 |    );
+
+Unterminated regular expression
+918 |          </TabsContent>
+919 |        </Tabs>
+920 |      </div>
+    |            ^
+921 |    );
+922 |  }
+
+[2026-02-24T02:06:34.952Z] [ERROR] Internal server error: Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8
+  
+  Unexpected closing "div" tag does not match opening "TabsContent" tag
+  641 |            </Card>
+  642 |          )}
+  643 |        </div>
+      |          ^
+  644 |  
+  645 |        {sandboxError && (
+  
+  Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+  886 |          </SheetContent>
+  887 |        </Sheet>
+  888 |          </TabsContent>
+      |            ^
+  889 |  
+  890 |          <TabsContent value="workspaces">
+  
+  Unexpected closing "Tabs" tag does not match opening "div" tag
+  917 |            </div>
+  918 |          </TabsContent>
+  919 |        </Tabs>
+      |          ^
+  920 |      </div>
+  921 |    );
+  
+  Unterminated regular expression
+  918 |          </TabsContent>
+  919 |        </Tabs>
+  920 |      </div>
+      |            ^
+  921 |    );
+  922 |  }
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-24T02:06:34.953Z] [ERROR] [vite:build] Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+
+Unexpected closing "div" tag does not match opening "TabsContent" tag
+641 |            </Card>
+642 |          )}
+643 |        </div>
+    |          ^
+644 |  
+645 |        {sandboxError && (
+
+Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+886 |          </SheetContent>
+887 |        </Sheet>
+888 |          </TabsContent>
+    |            ^
+889 |  
+890 |          <TabsContent value="workspaces">
+
+Unexpected closing "Tabs" tag does not match opening "div" tag
+917 |            </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+    |          ^
+920 |      </div>
+921 |    );
+
+Unterminated regular expression
+918 |          </TabsContent>
+919 |        </Tabs>
+920 |      </div>
+    |            ^
+921 |    );
+922 |  }
+
+[2026-02-24T02:06:35.058Z] [ERROR] Internal server error: Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8
+  
+  Unexpected closing "div" tag does not match opening "TabsContent" tag
+  641 |            </Card>
+  642 |          )}
+  643 |        </div>
+      |          ^
+  644 |  
+  645 |        {sandboxError && (
+  
+  Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+  886 |          </SheetContent>
+  887 |        </Sheet>
+  888 |          </TabsContent>
+      |            ^
+  889 |  
+  890 |          <TabsContent value="workspaces">
+  
+  Unexpected closing "Tabs" tag does not match opening "div" tag
+  917 |            </div>
+  918 |          </TabsContent>
+  919 |        </Tabs>
+      |          ^
+  920 |      </div>
+  921 |    );
+  
+  Unterminated regular expression
+  918 |          </TabsContent>
+  919 |        </Tabs>
+  920 |      </div>
+      |            ^
+  921 |    );
+  922 |  }
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-24T02:06:35.060Z] [ERROR] [vite:build] Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+
+Unexpected closing "div" tag does not match opening "TabsContent" tag
+641 |            </Card>
+642 |          )}
+643 |        </div>
+    |          ^
+644 |  
+645 |        {sandboxError && (
+
+Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+886 |          </SheetContent>
+887 |        </Sheet>
+888 |          </TabsContent>
+    |            ^
+889 |  
+890 |          <TabsContent value="workspaces">
+
+Unexpected closing "Tabs" tag does not match opening "div" tag
+917 |            </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+    |          ^
+920 |      </div>
+921 |    );
+
+Unterminated regular expression
+918 |          </TabsContent>
+919 |        </Tabs>
+920 |      </div>
+    |            ^
+921 |    );
+922 |  }
+
+[2026-02-24T02:06:35.079Z] [ERROR] Internal server error: Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8
+  
+  Unexpected closing "div" tag does not match opening "TabsContent" tag
+  641 |            </Card>
+  642 |          )}
+  643 |        </div>
+      |          ^
+  644 |  
+  645 |        {sandboxError && (
+  
+  Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+  886 |          </SheetContent>
+  887 |        </Sheet>
+  888 |          </TabsContent>
+      |            ^
+  889 |  
+  890 |          <TabsContent value="workspaces">
+  
+  Unexpected closing "Tabs" tag does not match opening "div" tag
+  917 |            </div>
+  918 |          </TabsContent>
+  919 |        </Tabs>
+      |          ^
+  920 |      </div>
+  921 |    );
+  
+  Unterminated regular expression
+  918 |          </TabsContent>
+  919 |        </Tabs>
+  920 |      </div>
+      |            ^
+  921 |    );
+  922 |  }
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-24T02:06:35.079Z] [ERROR] [vite:build] Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+
+Unexpected closing "div" tag does not match opening "TabsContent" tag
+641 |            </Card>
+642 |          )}
+643 |        </div>
+    |          ^
+644 |  
+645 |        {sandboxError && (
+
+Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+886 |          </SheetContent>
+887 |        </Sheet>
+888 |          </TabsContent>
+    |            ^
+889 |  
+890 |          <TabsContent value="workspaces">
+
+Unexpected closing "Tabs" tag does not match opening "div" tag
+917 |            </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+    |          ^
+920 |      </div>
+921 |    );
+
+Unterminated regular expression
+918 |          </TabsContent>
+919 |        </Tabs>
+920 |      </div>
+    |            ^
+921 |    );
+922 |  }
+
+[2026-02-24T02:06:35.216Z] [ERROR] Internal server error: Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8
+  
+  Unexpected closing "div" tag does not match opening "TabsContent" tag
+  641 |            </Card>
+  642 |          )}
+  643 |        </div>
+      |          ^
+  644 |  
+  645 |        {sandboxError && (
+  
+  Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+  886 |          </SheetContent>
+  887 |        </Sheet>
+  888 |          </TabsContent>
+      |            ^
+  889 |  
+  890 |          <TabsContent value="workspaces">
+  
+  Unexpected closing "Tabs" tag does not match opening "div" tag
+  917 |            </div>
+  918 |          </TabsContent>
+  919 |        </Tabs>
+      |          ^
+  920 |      </div>
+  921 |    );
+  
+  Unterminated regular expression
+  918 |          </TabsContent>
+  919 |        </Tabs>
+  920 |      </div>
+      |            ^
+  921 |    );
+  922 |  }
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-24T02:06:35.218Z] [ERROR] [vite:build] Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+
+Unexpected closing "div" tag does not match opening "TabsContent" tag
+641 |            </Card>
+642 |          )}
+643 |        </div>
+    |          ^
+644 |  
+645 |        {sandboxError && (
+
+Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+886 |          </SheetContent>
+887 |        </Sheet>
+888 |          </TabsContent>
+    |            ^
+889 |  
+890 |          <TabsContent value="workspaces">
+
+Unexpected closing "Tabs" tag does not match opening "div" tag
+917 |            </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+    |          ^
+920 |      </div>
+921 |    );
+
+Unterminated regular expression
+918 |          </TabsContent>
+919 |        </Tabs>
+920 |      </div>
+    |            ^
+921 |    );
+922 |  }
+
+[2026-02-24T02:06:36.328Z] [ERROR] Internal server error: Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8
+  
+  Unexpected closing "div" tag does not match opening "TabsContent" tag
+  641 |            </Card>
+  642 |          )}
+  643 |        </div>
+      |          ^
+  644 |  
+  645 |        {sandboxError && (
+  
+  Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+  886 |          </SheetContent>
+  887 |        </Sheet>
+  888 |          </TabsContent>
+      |            ^
+  889 |  
+  890 |          <TabsContent value="workspaces">
+  
+  Unexpected closing "Tabs" tag does not match opening "div" tag
+  917 |            </div>
+  918 |          </TabsContent>
+  919 |        </Tabs>
+      |          ^
+  920 |      </div>
+  921 |    );
+  
+  Unterminated regular expression
+  918 |          </TabsContent>
+  919 |        </Tabs>
+  920 |      </div>
+      |            ^
+  921 |    );
+  922 |  }
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-24T02:06:36.331Z] [ERROR] [vite:build] Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+
+Unexpected closing "div" tag does not match opening "TabsContent" tag
+641 |            </Card>
+642 |          )}
+643 |        </div>
+    |          ^
+644 |  
+645 |        {sandboxError && (
+
+Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+886 |          </SheetContent>
+887 |        </Sheet>
+888 |          </TabsContent>
+    |            ^
+889 |  
+890 |          <TabsContent value="workspaces">
+
+Unexpected closing "Tabs" tag does not match opening "div" tag
+917 |            </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+    |          ^
+920 |      </div>
+921 |    );
+
+Unterminated regular expression
+918 |          </TabsContent>
+919 |        </Tabs>
+920 |      </div>
+    |            ^
+921 |    );
+922 |  }
+
+[2026-02-24T02:06:36.423Z] [ERROR] Internal server error: Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8
+  
+  Unexpected closing "div" tag does not match opening "TabsContent" tag
+  641 |            </Card>
+  642 |          )}
+  643 |        </div>
+      |          ^
+  644 |  
+  645 |        {sandboxError && (
+  
+  Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+  886 |          </SheetContent>
+  887 |        </Sheet>
+  888 |          </TabsContent>
+      |            ^
+  889 |  
+  890 |          <TabsContent value="workspaces">
+  
+  Unexpected closing "Tabs" tag does not match opening "div" tag
+  917 |            </div>
+  918 |          </TabsContent>
+  919 |        </Tabs>
+      |          ^
+  920 |      </div>
+  921 |    );
+  
+  Unterminated regular expression
+  918 |          </TabsContent>
+  919 |        </Tabs>
+  920 |      </div>
+      |            ^
+  921 |    );
+  922 |  }
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-24T02:06:36.424Z] [ERROR] [vite:build] Transform failed with 4 errors:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:643:8: ERROR: Unexpected closing "div" tag does not match opening "TabsContent" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:888:10: ERROR: Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:919:8: ERROR: Unexpected closing "Tabs" tag does not match opening "div" tag
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:920:10: ERROR: Unterminated regular expression
+
+Unexpected closing "div" tag does not match opening "TabsContent" tag
+641 |            </Card>
+642 |          )}
+643 |        </div>
+    |          ^
+644 |  
+645 |        {sandboxError && (
+
+Unexpected closing "TabsContent" tag does not match opening "Tabs" tag
+886 |          </SheetContent>
+887 |        </Sheet>
+888 |          </TabsContent>
+    |            ^
+889 |  
+890 |          <TabsContent value="workspaces">
+
+Unexpected closing "Tabs" tag does not match opening "div" tag
+917 |            </div>
+918 |          </TabsContent>
+919 |        </Tabs>
+    |          ^
+920 |      </div>
+921 |    );
+
+Unterminated regular expression
+918 |          </TabsContent>
+919 |        </Tabs>
+920 |      </div>
+    |            ^
+921 |    );
+922 |  }
+
+[2026-02-24T02:08:34.257Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:08:34.258Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:476:3: ERROR: Expected "=>" but found ";"
+
+Expected "=>" but found ";"
+474 |    return (
+475 |  
+476 |    );
+    |     ^
+477 |  }
+478 |  
+
+[2026-02-24T02:08:34.259Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:08:34.281Z] [ERROR] Error when evaluating SSR module virtual:react-router/server-build: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:476:3: ERROR: Expected "=>" but found ";"
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:476:3
+  
+  Expected "=>" but found ";"
+  474 |    return (
+  475 |  
+  476 |    );
+      |     ^
+  477 |  }
+  478 |  
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-24T02:08:34.282Z] [ERROR] Internal server error: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:476:3: ERROR: Expected "=>" but found ";"
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:476:3
+  
+  Expected "=>" but found ";"
+  474 |    return (
+  475 |  
+  476 |    );
+      |     ^
+  477 |  }
+  478 |  
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-24T02:08:34.282Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:476:3: ERROR: Expected "=>" but found ";"
+
+Expected "=>" but found ";"
+474 |    return (
+475 |  
+476 |    );
+    |     ^
+477 |  }
+478 |  
+
+[2026-02-24T02:08:34.366Z] [ERROR] Internal server error: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:476:3: ERROR: Expected "=>" but found ";"
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:476:3
+  
+  Expected "=>" but found ";"
+  474 |    return (
+  475 |  
+  476 |    );
+      |     ^
+  477 |  }
+  478 |  
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-24T02:08:34.366Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:476:3: ERROR: Expected "=>" but found ";"
+
+Expected "=>" but found ";"
+474 |    return (
+475 |  
+476 |    );
+    |     ^
+477 |  }
+478 |  
+
+[2026-02-24T02:09:38.136Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:09:38.137Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:09:38.138Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:09:38.139Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:14:14.434Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:14:14.434Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:14:14.435Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:14:14.435Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:14:37.784Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:14:37.785Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:14:37.786Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:14:37.786Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:17:56.315Z] [INFO] hmr update /app/routes/_auth.projects.$id_.settings.tsx
+[2026-02-24T02:17:56.316Z] [INFO] hmr update /app/routes/_auth.projects.$id_.settings.tsx
+[2026-02-24T02:17:56.316Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.$id_.settings.tsx
+[2026-02-24T02:17:56.317Z] [INFO] page reload app/routes/_auth.projects.$id_.settings.tsx
+[2026-02-24T02:18:20.859Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:18:20.860Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:18:20.861Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:18:20.861Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:18:49.197Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:18:49.198Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:18:49.199Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:18:49.199Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:21:28.479Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:21:28.480Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:21:28.481Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:21:28.481Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:21:58.101Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:21:58.102Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:21:58.103Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:21:58.104Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:22:41.057Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:22:41.058Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:22:41.059Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:22:41.059Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:23:07.014Z] [INFO] hmr update /app/components/project-settings.tsx
+[2026-02-24T02:23:07.015Z] [INFO] hmr update /app/components/resource-picker.tsx
+[2026-02-24T02:23:07.015Z] [INFO] hmr update /app/components/ui/sheet.tsx
+[2026-02-24T02:23:07.017Z] [INFO] hmr update /app/components/project-settings.tsx
+[2026-02-24T02:23:07.018Z] [INFO] hmr update /app/components/resource-picker.tsx
+[2026-02-24T02:23:07.018Z] [INFO] hmr update /app/components/ui/sheet.tsx
+[2026-02-24T02:23:07.019Z] [INFO] hmr update /app/routes/_auth.tsx
+[2026-02-24T02:23:07.019Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-02-24T02:23:07.019Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:23:07.020Z] [INFO] hmr update /app/routes/_auth.projects.$id_.settings.tsx
+[2026-02-24T02:23:07.020Z] [INFO] hmr update /app/app.css, /app/components/project-settings.tsx
+[2026-02-24T02:23:07.021Z] [INFO] page reload app/components/project-settings.tsx
+[2026-02-24T02:23:07.021Z] [INFO] hmr update /app/app.css, /app/components/resource-picker.tsx
+[2026-02-24T02:23:07.021Z] [INFO] page reload app/components/resource-picker.tsx
+[2026-02-24T02:23:07.021Z] [INFO] hmr update /app/components/ui/sheet.tsx, /app/app.css
+[2026-02-24T02:23:07.022Z] [INFO] page reload app/components/ui/sheet.tsx
+[2026-02-24T02:23:07.022Z] [INFO] page reload app/lib/db/schema.ts
+[2026-02-24T02:23:07.036Z] [INFO] hmr update /app/routes/_auth.projects.$id_.settings.tsx
+[2026-02-24T02:23:07.037Z] [INFO] hmr update /app/routes/_auth.projects.$id_.settings.tsx
+[2026-02-24T02:23:07.037Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.$id_.settings.tsx
+[2026-02-24T02:23:07.038Z] [INFO] page reload app/routes/_auth.projects.$id_.settings.tsx
+[2026-02-24T02:23:07.039Z] [INFO] page reload app/routes/api.projects.$id.tasks.ts
+[2026-02-24T02:23:07.039Z] [INFO] page reload app/routes/api.projects.$id.tasks.$taskId.ts
+[2026-02-24T02:23:07.041Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-02-24T02:23:07.053Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-02-24T02:23:07.054Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-02-24T02:23:07.054Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-02-24T02:23:07.056Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:23:07.057Z] [INFO] hmr update /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:23:07.057Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:23:07.057Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-24T02:23:07.124Z] [INFO] hmr update /app/routes/_auth.settings.tsx
+[2026-02-24T02:23:07.125Z] [INFO] hmr update /app/routes/_auth.settings.tsx
+[2026-02-24T02:23:07.125Z] [INFO] hmr update /app/app.css, /app/routes/_auth.settings.tsx
+[2026-02-24T02:23:07.126Z] [INFO] page reload app/routes/_auth.settings.tsx

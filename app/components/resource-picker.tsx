@@ -75,7 +75,7 @@ export function ResourcePicker<T>({
           <ChevronsUpDown className="size-3.5 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0" align="start">
+      <PopoverContent className="w-[320px] p-0" align="end">
         {error === "not_connected" ? (
           <div className="p-4">
             <Muted className="mb-3">{notConnectedMessage}</Muted>

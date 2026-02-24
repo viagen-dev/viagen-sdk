@@ -559,7 +559,7 @@ export default function Projects({
                     >
                       <VercelIcon />
                       {project.vercelProjectId
-                        ? project.vercelProjectId
+                        ? project.name
                         : statuses[project.id]?.vercel.tokenAvailable
                           ? "Vercel ready"
                           : "Vercel not connected"}

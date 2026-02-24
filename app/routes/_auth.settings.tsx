@@ -719,14 +719,13 @@ export default function Settings() {
           {/* ===== SETTINGS SECTION ===== */}
           {activeSection === "settings" && (
             <>
-              {/* Organization Name */}
+              {/* Team Name */}
               <div className="mb-8">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Organization Name</CardTitle>
+                    <CardTitle>Team Name</CardTitle>
                     <CardDescription>
-                      The name of your organization. This is visible to all
-                      members.
+                      The name of your team. This is visible to all members.
                     </CardDescription>
                   </CardHeader>
                   {isAdmin ? (
@@ -740,7 +739,7 @@ export default function Settings() {
                             setNameSaved(false);
                             setNameError(null);
                           }}
-                          placeholder="Organization name"
+                          placeholder="Team name"
                           className="max-w-md"
                           onKeyDown={(e) =>
                             e.key === "Enter" &&
