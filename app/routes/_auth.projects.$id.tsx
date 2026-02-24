@@ -953,63 +953,59 @@ export default function ProjectTasks({
                           </ItemDescription>
                         </ItemContent>
                         <ItemActions>
-                          {task.workspaceId &&
-                            (task.status === "running" ||
-                              task.status === "completed") && (
-                              <>
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="default"
-                                        size="icon-sm"
-                                        className="sm:w-auto sm:px-2.5 sm:h-8"
-                                        onClick={() => {
-                                          const ws = activeWorkspaces.find(
-                                            (w) => w.id === task.workspaceId,
-                                          );
-                                          if (ws) window.open(ws.url, "_blank");
-                                        }}
-                                      >
-                                        <ExternalLink className="size-3.5" />
-                                        <span className="hidden sm:inline">
-                                          Open
-                                        </span>
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      Open workspace
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="icon-sm"
-                                        onClick={() => {
-                                          const ws = activeWorkspaces.find(
-                                            (w) => w.id === task.workspaceId,
-                                          );
-                                          if (ws) {
-                                            navigator.clipboard.writeText(
-                                              ws.url,
-                                            );
-                                            toast.success("Link copied");
-                                          }
-                                        }}
-                                      >
-                                        <Copy className="size-3.5" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      Copy link to workspace
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              </>
-                            )}
+                          {task.workspaceId && task.status === "running" && (
+                            <>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="default"
+                                      size="icon-sm"
+                                      className="sm:w-auto sm:px-2.5 sm:h-8"
+                                      onClick={() => {
+                                        const ws = activeWorkspaces.find(
+                                          (w) => w.id === task.workspaceId,
+                                        );
+                                        if (ws) window.open(ws.url, "_blank");
+                                      }}
+                                    >
+                                      <ExternalLink className="size-3.5" />
+                                      <span className="hidden sm:inline">
+                                        Open
+                                      </span>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    Open workspace
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="icon-sm"
+                                      onClick={() => {
+                                        const ws = activeWorkspaces.find(
+                                          (w) => w.id === task.workspaceId,
+                                        );
+                                        if (ws) {
+                                          navigator.clipboard.writeText(ws.url);
+                                          toast.success("Link copied");
+                                        }
+                                      }}
+                                    >
+                                      <Copy className="size-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    Copy link to workspace
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </>
+                          )}
                           {task.status === "running" && (
                             <TooltipProvider>
                               <Tooltip>

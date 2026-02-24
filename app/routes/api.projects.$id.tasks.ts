@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, tasks, orgMembers } from "~/lib/db/schema";
@@ -41,6 +41,38 @@ export async function loader({
     .orderBy(desc(tasks.createdAt));
 
   const rows = await query;
+
+  // Auto-complete tasks that have been running/pending for 30+ minutes
+  const THIRTY_MINUTES_MS = 30 * 60 * 1000;
+  const now = Date.now();
+  const expiredTaskIds = rows
+    .filter((t) => {
+      if (t.status !== "running" && t.status !== "pending") return false;
+      const refTime = t.startedAt ?? t.createdAt;
+      if (!refTime) return false;
+      const age = now - new Date(refTime).getTime();
+      return age >= THIRTY_MINUTES_MS;
+    })
+    .map((t) => t.id);
+
+  if (expiredTaskIds.length > 0) {
+    log.info(
+      { projectId, expiredTaskIds },
+      "auto-completing tasks older than 30 minutes",
+    );
+    await db
+      .update(tasks)
+      .set({ status: "completed", completedAt: new Date() })
+      .where(inArray(tasks.id, expiredTaskIds));
+
+    // Update the in-memory rows so the response reflects the change
+    for (const row of rows) {
+      if (expiredTaskIds.includes(row.id)) {
+        row.status = "completed";
+        row.completedAt = new Date();
+      }
+    }
+  }
 
   // Filter in JS if status param provided (drizzle chaining with dynamic where is verbose)
   const filtered = statusFilter
