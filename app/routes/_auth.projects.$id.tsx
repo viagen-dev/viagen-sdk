@@ -6,7 +6,6 @@ import { db } from "~/lib/db/index.server";
 import { projects } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { Button } from "~/components/ui/button";
-import { ProjectSettingsPanel } from "~/components/project-settings";
 import { Input } from "~/components/ui/input";
 import {
   Card,
@@ -15,7 +14,6 @@ import {
   CardAction,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import {
@@ -557,16 +555,8 @@ export default function ProjectTasks({
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="tasks">
-        <TabsList variant="line" className="mb-6">
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="workspaces">Workspaces</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
-
-        {/* ── Tasks tab ── */}
-        <TabsContent value="tasks">
+      {/* Tasks */}
+      <div>
           {/* Claude manage section (toggled by clicking badge) */}
           {showClaudeManage && claudeConnected && (
             <Card className="mb-6">
@@ -867,36 +857,20 @@ export default function ProjectTasks({
               )}
             </SheetContent>
           </Sheet>
-        </TabsContent>
 
-        {/* ── Workspaces tab ── */}
-        <TabsContent value="workspaces">
-          <WorkspaceList
-            projectId={project.id}
-            workspaces={activeWorkspaces}
-            onStopped={(id) =>
-              setActiveWorkspaces((prev) => prev.filter((w) => w.id !== id))
-            }
-          />
-          {activeWorkspaces.length === 0 && (
-            <Card className="border-dashed bg-muted/50">
-              <CardContent className="flex flex-col items-center justify-center px-8 py-16">
-                <h3 className="mb-1 text-lg font-semibold">
-                  No active workspaces
-                </h3>
-                <p className="text-center text-sm text-muted-foreground">
-                  Run a task to spin up a sandbox workspace.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* ── Settings tab ── */}
-        <TabsContent value="settings">
-          <ProjectSettingsPanel project={project} role={role} />
-        </TabsContent>
-      </Tabs>
+        {/* Workspaces */}
+        {activeWorkspaces.length > 0 && (
+          <div className="mt-6">
+            <WorkspaceList
+              projectId={project.id}
+              workspaces={activeWorkspaces}
+              onStopped={(id) =>
+                setActiveWorkspaces((prev) => prev.filter((w) => w.id !== id))
+              }
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
