@@ -70,6 +70,7 @@ interface Project {
   name: string;
   templateId: string | null;
   vercelProjectId: string | null;
+  vercelProjectName: string | null;
   githubRepo: string | null;
   vercelEnvSync: Record<string, boolean> | null;
   createdAt: string;
@@ -509,7 +510,7 @@ export default function ProjectTasks({
               >
                 <VercelIcon />
                 {project.vercelProjectId
-                  ? project.name
+                  ? (project.vercelProjectName ?? project.vercelProjectId)
                   : vercelToken
                     ? "Vercel ready"
                     : "Vercel not connected"}

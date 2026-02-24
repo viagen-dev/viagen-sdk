@@ -328,8 +328,8 @@ export async function action({
         { path: ".env", content: Buffer.from(envLines.join("\n") + "\n") },
       ]);
 
-      // 5. Install dependencies
-      const install = await sandbox.runCommand("npm", ["install"]);
+      // 5. Install dependencies (include dev so viagen plugin loads)
+      const install = await sandbox.runCommand("npm", ["install", "--include=dev"]);
       if (install.exitCode !== 0) {
         const stderr = await install.stderr();
         throw new Error(

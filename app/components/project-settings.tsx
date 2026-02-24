@@ -39,6 +39,7 @@ interface Project {
   name: string;
   templateId: string | null;
   vercelProjectId: string | null;
+  vercelProjectName: string | null;
   githubRepo: string | null;
   vercelEnvSync: Record<string, boolean> | null;
   createdAt: string;
@@ -405,6 +406,7 @@ export function ProjectSettingsPanel({
     try {
       const body: Record<string, string | null> = {
         vercelProjectId: vp.id,
+        vercelProjectName: vp.name,
         vercelOrgId: vp.accountId ?? null,
       };
       // Auto-set GitHub repo if Vercel project has a link and no repo linked
@@ -665,7 +667,7 @@ export function ProjectSettingsPanel({
                 Linked
               </Badge>
               <span className="font-mono text-sm">
-                {localVercelProjectName ?? effectiveVercelProjectId}
+                {localVercelProjectName ?? project.vercelProjectName ?? effectiveVercelProjectId}
               </span>
             </div>
           ) : (
@@ -949,7 +951,7 @@ export function ProjectSettingsPanel({
                       <span>
                         Delete Vercel project{" "}
                         <span className="font-mono text-muted-foreground">
-                          {localVercelProjectName ?? effectiveVercelProjectId}
+                          {localVercelProjectName ?? project.vercelProjectName ?? effectiveVercelProjectId}
                         </span>
                       </span>
                     </label>

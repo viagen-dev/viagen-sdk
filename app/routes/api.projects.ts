@@ -48,6 +48,7 @@ export async function action({ request }: { request: Request }) {
       organizationId: org.id,
       name: body.name.trim(),
       vercelProjectId: body.vercelProjectId ?? null,
+      vercelProjectName: body.vercelProjectName ?? null,
       vercelOrgId: body.vercelOrgId ?? null,
       githubRepo: body.githubRepo ?? null,
       templateId: body.templateId ?? null,

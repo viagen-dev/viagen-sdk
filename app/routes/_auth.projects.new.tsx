@@ -280,6 +280,7 @@ export default function NewProject() {
       }
       if (selectedVercel) {
         body.vercelProjectId = selectedVercel.id;
+        body.vercelProjectName = selectedVercel.name;
         body.vercelOrgId = selectedVercel.accountId ?? null;
       }
 

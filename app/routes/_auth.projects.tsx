@@ -76,6 +76,7 @@ interface Project {
   name: string;
   templateId: string | null;
   vercelProjectId: string | null;
+  vercelProjectName: string | null;
   githubRepo: string | null;
   createdAt: string;
   updatedAt: string;
@@ -559,7 +560,7 @@ export default function Projects({
                     >
                       <VercelIcon />
                       {project.vercelProjectId
-                        ? project.name
+                        ? (project.vercelProjectName ?? project.vercelProjectId)
                         : statuses[project.id]?.vercel.tokenAvailable
                           ? "Vercel ready"
                           : "Vercel not connected"}
