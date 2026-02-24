@@ -33,6 +33,7 @@ import {
   Clock,
   AlertCircle,
   ExternalLink,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import { WorkspaceList } from "~/components/workspace-list";
@@ -550,6 +551,11 @@ export default function ProjectTasks({
                 <Plus className="size-4" />
               )}
               {launchingQuick ? "Creating..." : "Create Workspace"}
+            </Button>
+            <Button variant="ghost" size="icon-sm" asChild title="Settings">
+              <Link to={`/projects/${project.id}/settings`}>
+                <Settings className="size-4" />
+              </Link>
             </Button>
           </div>
         </div>
