@@ -328,6 +328,26 @@ export async function action({
         { path: ".env", content: Buffer.from(envLines.join("\n") + "\n") },
       ]);
 
+      // Export env vars so ALL processes can access them (not just Vite):
+      // 1. /etc/environment — PAM-level, read by all login sessions
+      // 2. /etc/profile.d/viagen.sh — sourced by login shells
+      const etcEnvLines = Object.entries(envMap)
+        .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+        .join("\n");
+      const shellExports = Object.entries(envMap)
+        .map(([k, v]) => `export ${k}=${JSON.stringify(v)}`)
+        .join("\n");
+      await sandbox.writeFiles([
+        {
+          path: "/etc/environment",
+          content: Buffer.from(etcEnvLines + "\n"),
+        },
+        {
+          path: "/etc/profile.d/viagen.sh",
+          content: Buffer.from(shellExports + "\n"),
+        },
+      ]);
+
       // 5. Install dependencies (include dev so viagen plugin loads)
       const install = await sandbox.runCommand("npm", ["install", "--include=dev"]);
       if (install.exitCode !== 0) {
@@ -337,10 +357,11 @@ export async function action({
         );
       }
 
-      // 6. Start dev server (detached)
+      // 6. Start dev server (detached, with env vars passed directly)
       await sandbox.runCommand({
         cmd: "npm",
         args: ["run", "dev", "--", "--host", "0.0.0.0"],
+        env: envMap,
         detached: true,
       });
 
