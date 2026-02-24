@@ -598,26 +598,24 @@ export function ProjectSettingsPanel({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <GitHubIcon /> GitHub
+            <GitHubIcon /> GitHub Repository
           </CardTitle>
           <CardDescription>
-            Source repository for sandbox code and pushing changes.
+            Link source repository for sandbox code and pushing changes.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {effectiveGithubRepo ? (
-            <div className="flex items-center gap-2">
-              <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                Linked
-              </Badge>
-              <span className="font-mono text-sm">{effectiveGithubRepo}</span>
-            </div>
-          ) : (
-            <Muted>No repository linked.</Muted>
-          )}
-        </CardContent>
         {isAdmin && (
-          <CardFooter className="border-t justify-end">
+          <CardFooter className="border-t justify-between">
+            {effectiveGithubRepo ? (
+              <div className="flex items-center gap-2">
+                <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                  Linked
+                </Badge>
+                <span className="font-mono text-sm">{effectiveGithubRepo}</span>
+              </div>
+            ) : (
+              <Muted>No repository linked.</Muted>
+            )}
             {githubIntegration ? (
               <ResourcePicker
                 items={githubRepos}
@@ -654,28 +652,28 @@ export function ProjectSettingsPanel({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <VercelIcon /> Vercel
+            <VercelIcon /> Vercel Project
           </CardTitle>
           <CardDescription>
-            Deployments and environment variable sync.
+            Link a Vercel project for deployment and environment variable sync.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {effectiveVercelProjectId ? (
-            <div className="flex items-center gap-2">
-              <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                Linked
-              </Badge>
-              <span className="font-mono text-sm">
-                {localVercelProjectName ?? project.vercelProjectName ?? effectiveVercelProjectId}
-              </span>
-            </div>
-          ) : (
-            <Muted>No Vercel project linked.</Muted>
-          )}
-        </CardContent>
         {isAdmin && (
-          <CardFooter className="border-t justify-end">
+          <CardFooter className="border-t justify-between">
+            {effectiveVercelProjectId ? (
+              <div className="flex items-center gap-2">
+                <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                  Linked
+                </Badge>
+                <span className="font-mono text-sm">
+                  {localVercelProjectName ??
+                    project.vercelProjectName ??
+                    effectiveVercelProjectId}
+                </span>
+              </div>
+            ) : (
+              <Muted>No Vercel project linked.</Muted>
+            )}
             {vercelIntegration ? (
               <ResourcePicker
                 items={vercelProjects}
@@ -718,108 +716,105 @@ export function ProjectSettingsPanel({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="size-4" /> Claude
+            <Sparkles className="size-4" /> Claude Key
           </CardTitle>
           <CardDescription>
             Anthropic API key for AI agent tasks. Used to power sandbox
             sessions.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {connectionsLoading ? (
-            <Muted>Loading...</Muted>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                {connections?.claude.connected ? (
-                  <>
-                    {connections.claude.expired ? (
-                      <Badge
-                        variant="outline"
-                        className="border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
-                      >
-                        Expired
-                      </Badge>
-                    ) : (
-                      <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
-                        Connected
-                      </Badge>
-                    )}
-                    <Badge>{connections.claude.source ?? "org"}</Badge>
-                    {connections.claude.keyPrefix && (
-                      <Muted className="font-mono text-xs">
-                        {connections.claude.keyPrefix}
-                      </Muted>
-                    )}
-                  </>
-                ) : (
-                  <Muted>Not connected</Muted>
-                )}
-              </div>
-
-              {showClaudeInput && isAdmin && (
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="password"
-                    value={claudeInput}
-                    onChange={(e) => setClaudeInput(e.target.value)}
-                    placeholder="sk-ant-api..."
-                    className="min-w-0 flex-1 max-w-md"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSaveClaude();
-                      if (e.key === "Escape") {
-                        setShowClaudeInput(false);
-                        setClaudeInput("");
-                      }
-                    }}
-                    autoFocus
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleSaveClaude}
-                    disabled={!claudeInput.trim() || savingClaude}
-                  >
-                    {savingClaude ? "Saving..." : "Save"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setShowClaudeInput(false);
-                      setClaudeInput("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-        {isAdmin && !connectionsLoading && (
-          <CardFooter className="border-t justify-end">
-            {connections?.claude.connected &&
-            connections.claude.source === "project" ? (
+        {showClaudeInput && isAdmin && !connectionsLoading && (
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <Input
+                type="password"
+                value={claudeInput}
+                onChange={(e) => setClaudeInput(e.target.value)}
+                placeholder="sk-ant-api..."
+                className="min-w-0 flex-1 max-w-md"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveClaude();
+                  if (e.key === "Escape") {
+                    setShowClaudeInput(false);
+                    setClaudeInput("");
+                  }
+                }}
+                autoFocus
+              />
               <Button
-                variant="outline"
                 size="sm"
-                onClick={handleRemoveClaude}
-                disabled={savingClaude}
+                onClick={handleSaveClaude}
+                disabled={!claudeInput.trim() || savingClaude}
               >
-                Remove override
+                {savingClaude ? "Saving..." : "Save"}
               </Button>
-            ) : !showClaudeInput ? (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setShowClaudeInput(true);
+                  setShowClaudeInput(false);
                   setClaudeInput("");
                 }}
               >
-                {connections?.claude.connected ? "Override" : "Add key"}
+                Cancel
               </Button>
-            ) : null}
+            </div>
+          </CardContent>
+        )}
+        {!connectionsLoading && (
+          <CardFooter className="border-t justify-between">
+            {connectionsLoading ? (
+              <Muted>Loading...</Muted>
+            ) : connections?.claude.connected ? (
+              <div className="flex items-center gap-2">
+                {connections.claude.expired ? (
+                  <Badge
+                    variant="outline"
+                    className="border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
+                  >
+                    Expired
+                  </Badge>
+                ) : (
+                  <Badge className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                    Connected
+                  </Badge>
+                )}
+                <Badge>{connections.claude.source ?? "org"}</Badge>
+                {connections.claude.keyPrefix && (
+                  <Muted className="font-mono text-xs">
+                    {connections.claude.keyPrefix}
+                  </Muted>
+                )}
+              </div>
+            ) : (
+              <Muted>Not connected</Muted>
+            )}
+            {isAdmin && (
+              <>
+                {connections?.claude.connected &&
+                connections.claude.source === "project" ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveClaude}
+                    disabled={savingClaude}
+                  >
+                    Remove override
+                  </Button>
+                ) : !showClaudeInput ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowClaudeInput(true);
+                      setClaudeInput("");
+                    }}
+                  >
+                    {connections?.claude.connected ? "Override" : "Add key"}
+                  </Button>
+                ) : null}
+              </>
+            )}
           </CardFooter>
         )}
       </Card>
@@ -951,7 +946,9 @@ export function ProjectSettingsPanel({
                       <span>
                         Delete Vercel project{" "}
                         <span className="font-mono text-muted-foreground">
-                          {localVercelProjectName ?? project.vercelProjectName ?? effectiveVercelProjectId}
+                          {localVercelProjectName ??
+                            project.vercelProjectName ??
+                            effectiveVercelProjectId}
                         </span>
                       </span>
                     </label>

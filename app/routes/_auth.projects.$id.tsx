@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
+import { Textarea } from "~/components/ui/textarea";
+import { H4 } from "~/components/ui/typography";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects } from "~/lib/db/schema";
@@ -10,19 +12,34 @@ import { Input } from "~/components/ui/input";
 import {
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardAction,
 } from "~/components/ui/card";
+import {
+  Item,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+  ItemActions,
+} from "~/components/ui/item";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 import { Badge } from "~/components/ui/badge";
 
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "~/components/ui/sheet";
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "~/components/ui/tooltip";
 import {
   Plus,
   Sparkles,
@@ -33,9 +50,18 @@ import {
   Clock,
   AlertCircle,
   ExternalLink,
-  Settings,
+  Ellipsis,
+  ArrowUp,
+  Copy,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { WorkspaceList } from "~/components/workspace-list";
 
 export async function loader({
@@ -105,6 +131,7 @@ interface Task {
   id: string;
   projectId: string;
   prompt: string;
+  model: string;
   status: TaskStatus;
   result: string | null;
   error: string | null;
@@ -116,7 +143,7 @@ interface Task {
   completedAt: string | null;
 }
 
-type FilterTab = "all" | TaskStatus;
+type FilterTab = "in_progress" | "completed" | "all";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -161,11 +188,9 @@ const STATUS_CONFIG: Record<
 };
 
 const FILTER_TABS: { value: FilterTab; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "running", label: "Running" },
-  { value: "pending", label: "Pending" },
+  { value: "in_progress", label: "In Progress" },
   { value: "completed", label: "Completed" },
-  { value: "failed", label: "Failed" },
+  { value: "all", label: "All" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -239,12 +264,12 @@ export default function ProjectTasks({
   // --- Tasks ---
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
-  const [filterTab, setFilterTab] = useState<FilterTab>("all");
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [filterTab, setFilterTab] = useState<FilterTab>("in_progress");
 
   // Track previously-seen task statuses for completion notifications
   const prevTaskStatusesRef = useRef<Map<string, TaskStatus>>(new Map());
+  const tasksRef = useRef<Task[]>(tasks);
+  tasksRef.current = tasks;
 
   // -----------------------------------------------------------------------
   // Data fetching
@@ -301,19 +326,13 @@ export default function ProjectTasks({
         prevTaskStatusesRef.current = next;
 
         setTasks(incoming);
-
-        // Keep selected task in sync if the sheet is open
-        if (selectedTask) {
-          const updated = incoming.find((t) => t.id === selectedTask.id);
-          if (updated) setSelectedTask(updated);
-        }
       }
     } catch {
       // silently fail on poll — tasks already shown from previous fetch
     } finally {
       setTasksLoading(false);
     }
-  }, [project.id, selectedTask]);
+  }, [project.id]);
 
   // Initial load
   useEffect(() => {
@@ -331,18 +350,18 @@ export default function ProjectTasks({
   }, [project.id, refreshStatus, fetchTasks]);
 
   // Polling — 5s when there are running/pending tasks, 30s otherwise
+  const hasActiveTasks = tasks.some(
+    (t) => t.status === "running" || t.status === "pending",
+  );
   useEffect(() => {
-    const hasActive = tasks.some(
-      (t) => t.status === "running" || t.status === "pending",
-    );
-    const interval = hasActive ? 5000 : 30000;
+    const interval = hasActiveTasks ? 5000 : 30000;
 
     const timer = setInterval(() => {
       fetchTasks();
     }, interval);
 
     return () => clearInterval(timer);
-  }, [tasks, fetchTasks]);
+  }, [hasActiveTasks, fetchTasks]);
 
   // -----------------------------------------------------------------------
   // Actions
@@ -352,19 +371,104 @@ export default function ProjectTasks({
     setLaunchingQuick(true);
     setSandboxError(null);
     try {
+      // 1. Create a task so the workspace is tracked in the task system
+      console.log("[QuickLaunch] Creating task for project:", project.id);
+      const taskRes = await fetch(`/api/projects/${project.id}/tasks`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: "Quick workspace session",
+          branch: "feat",
+          model: "claude-sonnet-4-20250514",
+        }),
+      });
+
+      const taskText = await taskRes.text();
+      console.log(
+        "[QuickLaunch] Task response status:",
+        taskRes.status,
+        "body:",
+        taskText,
+      );
+      let taskData: any;
+      try {
+        taskData = JSON.parse(taskText);
+      } catch {
+        throw new Error(
+          `Task creation returned non-JSON (status ${taskRes.status}): ${taskText.slice(0, 200)}`,
+        );
+      }
+      if (!taskRes.ok) {
+        throw new Error(taskData.error ?? "Failed to create task");
+      }
+      const task = taskData.task as Task;
+      console.log("[QuickLaunch] Task created:", task.id);
+
+      // 2. Launch the sandbox workspace
+      console.log("[QuickLaunch] Launching sandbox...");
       const res = await fetch(`/api/projects/${project.id}/sandbox`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ branch: "feat" }),
+        body: JSON.stringify({
+          branch: "feat",
+          model: "claude-sonnet-4-20250514",
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to launch sandbox");
-      setActiveWorkspaces((prev) => [data.workspace, ...prev]);
+
+      const sandboxText = await res.text();
+      console.log(
+        "[QuickLaunch] Sandbox response status:",
+        res.status,
+        "body:",
+        sandboxText.slice(0, 300),
+      );
+      let data: any;
+      try {
+        data = JSON.parse(sandboxText);
+      } catch {
+        throw new Error(
+          `Sandbox launch returned non-JSON (status ${res.status}): ${sandboxText.slice(0, 200)}`,
+        );
+      }
+      if (!res.ok) {
+        // Sandbox failed but task was created — leave as pending
+        handleTaskCreated(task);
+        throw new Error(data.error ?? "Failed to launch sandbox");
+      }
+
+      // 3. Link workspace to the task and mark as running
+      console.log(
+        "[QuickLaunch] Linking workspace",
+        data.workspace.id,
+        "to task",
+        task.id,
+      );
+      await fetch(`/api/projects/${project.id}/tasks/${task.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "running",
+          workspaceId: data.workspace.id,
+        }),
+      });
+
+      const updatedTask: Task = {
+        ...task,
+        status: "running",
+        workspaceId: data.workspace.id,
+        startedAt: new Date().toISOString(),
+      };
+
+      handleTaskCreated(updatedTask, data.workspace);
+      console.log("[QuickLaunch] Success — opening workspace URL");
       window.open(data.workspace.url, "_blank");
     } catch (err) {
+      console.error("[QuickLaunch] Error:", err);
       setSandboxError(
-        err instanceof Error ? err.message : "Failed to launch sandbox",
+        err instanceof Error ? err.message : "Failed to launch workspace",
       );
     } finally {
       setLaunchingQuick(false);
@@ -447,20 +551,26 @@ export default function ProjectTasks({
         ? "claude"
         : null;
 
-  const pendingCount = tasks.filter((t) => t.status === "pending").length;
-  const runningCount = tasks.filter((t) => t.status === "running").length;
-  const completedCount = tasks.filter((t) => t.status === "completed").length;
-  const failedCount = tasks.filter((t) => t.status === "failed").length;
+  const inProgressCount = tasks.filter(
+    (t) => t.status === "pending" || t.status === "running",
+  ).length;
+  const completedCount = tasks.filter(
+    (t) => t.status === "completed" || t.status === "failed",
+  ).length;
 
   const filteredTasks =
-    filterTab === "all" ? tasks : tasks.filter((t) => t.status === filterTab);
+    filterTab === "all"
+      ? tasks
+      : filterTab === "in_progress"
+        ? tasks.filter((t) => t.status === "pending" || t.status === "running")
+        : tasks.filter(
+            (t) => t.status === "completed" || t.status === "failed",
+          );
 
   const filterCounts: Record<FilterTab, number> = {
     all: tasks.length,
-    pending: pendingCount,
-    running: runningCount,
+    in_progress: inProgressCount,
     completed: completedCount,
-    failed: failedCount,
   };
 
   // -----------------------------------------------------------------------
@@ -497,7 +607,7 @@ export default function ProjectTasks({
                 }
               >
                 <GitHubIcon />
-                {project.githubRepo ?? "GitHub not connected"}
+                {project.githubRepo ?? "Not linked"}
               </Badge>
               <Badge
                 variant={vercelToken ? "secondary" : "outline"}
@@ -510,9 +620,7 @@ export default function ProjectTasks({
                 <VercelIcon />
                 {project.vercelProjectId
                   ? (project.vercelProjectName ?? project.vercelProjectId)
-                  : vercelToken
-                    ? "Vercel ready"
-                    : "Vercel not connected"}
+                  : "Not linked"}
               </Badge>
               <Badge
                 variant={
@@ -550,332 +658,440 @@ export default function ProjectTasks({
               ) : (
                 <Plus className="size-4" />
               )}
-              {launchingQuick ? "Creating..." : "Create Workspace"}
+              {launchingQuick ? "Creating..." : "Quick Workspace"}
             </Button>
-            <Button variant="ghost" size="icon-sm" asChild title="Settings">
-              <Link to={`/projects/${project.id}/settings`}>
-                <Settings className="size-4" />
-              </Link>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-sm">
+                  <Ellipsis className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link to={`/projects/${project.id}/settings`}>
+                    Project Settings
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
 
       {/* Tasks */}
       <div>
-          {/* Claude manage section (toggled by clicking badge) */}
-          {showClaudeManage && claudeConnected && (
-            <Card className="mb-6">
-              <CardContent className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm">
-                    <span className="font-medium">Claude</span>
-                    <span className="text-muted-foreground">
-                      {" "}
-                      — {status?.claude.source} level
-                      {status?.claude.keyPrefix && (
-                        <> ({status.claude.keyPrefix})</>
-                      )}
-                    </span>
-                  </div>
-                  {isAdmin && status?.claude.source === "project" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleDisconnectClaude}
-                      disabled={disconnecting}
-                      className="text-destructive hover:text-destructive/80"
-                    >
-                      {disconnecting ? "Removing..." : "Disconnect"}
-                    </Button>
-                  )}
-                </div>
-                {isAdmin && (
-                  <>
-                    {keyError && (
-                      <Alert variant="destructive">
-                        <AlertDescription>{keyError}</AlertDescription>
-                      </Alert>
+        {/* Claude manage section (toggled by clicking badge) */}
+        {showClaudeManage && claudeConnected && (
+          <Card className="mb-6">
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm">
+                  <span className="font-medium">Claude</span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    — {status?.claude.source} level
+                    {status?.claude.keyPrefix && (
+                      <> ({status.claude.keyPrefix})</>
                     )}
-                    <div className="flex gap-2">
-                      <Input
-                        type="password"
-                        value={apiKeyInput}
-                        onChange={(e) => setApiKeyInput(e.target.value)}
-                        placeholder="sk-ant-api... (replaces current key)"
-                        className="flex-1"
-                        onKeyDown={(e) => e.key === "Enter" && handleSaveKey()}
-                      />
-                      <Button
-                        onClick={handleSaveKey}
-                        disabled={!apiKeyInput.trim() || savingKey}
-                        size="sm"
-                      >
-                        {savingKey ? "Saving..." : "Update"}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {sandboxError && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertDescription>{sandboxError}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Task input or connection prompts */}
-          {statusLoading ? (
-            <Card className="mb-6">
-              <CardContent>
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <Loader2 className="size-5 animate-spin" />
-                  <span className="text-sm">Checking connections...</span>
+                  </span>
                 </div>
-              </CardContent>
-            </Card>
-          ) : missingStep === "github" ? (
-            <Card className="mb-6">
-              <CardContent className="flex flex-col items-center gap-4 px-8 py-10">
-                <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                  <GitHubIcon size={24} />
-                </div>
-                <div className="text-center">
-                  <h3 className="mb-1 text-lg font-semibold">
-                    {!githubToken
-                      ? "Connect GitHub to get started"
-                      : "Link a GitHub repository"}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {!githubToken
-                      ? "Connect your GitHub account to access repositories."
-                      : "This project needs to be linked to a GitHub repository."}
-                  </p>
-                </div>
-                {!githubToken ? (
-                  <Button asChild>
-                    <a
-                      href={`/api/integrations/github/start?return_to=/projects/${project.id}`}
-                    >
-                      Connect GitHub
-                    </a>
-                  </Button>
-                ) : (
-                  <Button asChild>
-                    <Link to={`/projects/${project.id}/settings`}>
-                      Link Repository
-                    </Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : missingStep === "claude" ? (
-            <Card className="mb-6">
-              <CardContent className="flex flex-col items-center gap-4 px-8 py-10">
-                <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                  <Sparkles className="size-6" />
-                </div>
-                <div className="text-center">
-                  <h3 className="mb-1 text-lg font-semibold">
-                    {claudeExpired
-                      ? "Claude token expired"
-                      : "Connect Claude to get started"}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {claudeExpired ? (
-                      <>
-                        The Claude OAuth token has expired. Re-authorize or add
-                        an API key below.
-                      </>
-                    ) : (
-                      <>
-                        An Anthropic API key is required to run tasks. Add one
-                        below for this project, or set a shared key in{" "}
-                        <Link
-                          to="/settings"
-                          className="font-medium text-foreground underline underline-offset-4"
-                        >
-                          team settings
-                        </Link>
-                        .
-                      </>
-                    )}
-                  </p>
-                </div>
-
-                {keyError && (
-                  <Alert variant="destructive" className="w-full max-w-md">
-                    <AlertDescription>{keyError}</AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="flex w-full max-w-md gap-2">
-                  <Input
-                    type="password"
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    placeholder="sk-ant-api..."
-                    className="flex-1"
-                    onKeyDown={(e) => e.key === "Enter" && handleSaveKey()}
-                  />
+                {isAdmin && status?.claude.source === "project" && (
                   <Button
-                    onClick={handleSaveKey}
-                    disabled={!apiKeyInput.trim() || savingKey}
-                  >
-                    {savingKey ? "Saving..." : "Connect"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <TaskLauncher
-              projectId={project.id}
-              allReady={allReady}
-              onTaskCreated={handleTaskCreated}
-              onError={(message) => setSandboxError(message)}
-            />
-          )}
-
-          {/* Filter tabs + status summary */}
-          {tasks.length > 0 && (
-            <div className="mb-4 flex items-center gap-2 overflow-x-auto">
-              {FILTER_TABS.map((tab) => {
-                const count = filterCounts[tab.value];
-                if (tab.value !== "all" && count === 0) return null;
-                return (
-                  <Button
-                    key={tab.value}
-                    variant={filterTab === tab.value ? "secondary" : "ghost"}
+                    variant="outline"
                     size="sm"
-                    className="gap-1.5"
-                    onClick={() => setFilterTab(tab.value)}
+                    onClick={handleDisconnectClaude}
+                    disabled={disconnecting}
+                    className="text-destructive hover:text-destructive/80"
                   >
-                    {tab.label}
-                    <Badge
-                      variant="secondary"
-                      className="h-5 min-w-5 justify-center rounded-full px-1.5 text-xs"
-                    >
-                      {count}
-                    </Badge>
+                    {disconnecting ? "Removing..." : "Disconnect"}
                   </Button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Task list */}
-          {tasksLoading && tasks.length === 0 ? (
-            <Card className="border-dashed bg-muted/50">
-              <CardContent className="flex items-center justify-center px-8 py-16">
-                <Loader2 className="size-5 animate-spin text-muted-foreground" />
-              </CardContent>
-            </Card>
-          ) : tasks.length === 0 && allReady ? (
-            <Card className="border-dashed bg-muted/50">
-              <CardContent className="flex flex-col items-center justify-center px-8 py-16">
-                <Sparkles className="mb-3 size-8 text-muted-foreground/50" />
-                <h3 className="mb-1 text-lg font-semibold">No tasks yet</h3>
-                <p className="text-center text-sm text-muted-foreground">
-                  Describe what you want to build and Claude will get to work.
-                </p>
-              </CardContent>
-            </Card>
-          ) : filteredTasks.length === 0 && tasks.length > 0 ? (
-            <Card className="border-dashed bg-muted/50">
-              <CardContent className="flex flex-col items-center justify-center px-8 py-10">
-                <p className="text-sm text-muted-foreground">
-                  No {filterTab} tasks
-                </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => setFilterTab("all")}
-                >
-                  Show all tasks
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {filteredTasks.map((task) => {
-                const config = STATUS_CONFIG[task.status];
-                const StatusIcon = config.icon;
-
-                return (
-                  <Card
-                    key={task.id}
-                    className="cursor-pointer transition-colors hover:border-foreground/20"
-                    onClick={() => {
-                      setSelectedTask(task);
-                      setSheetOpen(true);
-                    }}
-                  >
-                    <CardHeader>
-                      <div className="flex items-start gap-3">
-                        <StatusIcon
-                          className={`mt-0.5 size-5 shrink-0 ${config.className} ${
-                            task.status === "running" ? "animate-spin" : ""
-                          }`}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium leading-relaxed">
-                            {task.prompt}
-                          </p>
-                          <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Clock className="size-3" />
-                              {timeAgo(task.createdAt)}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <GitBranch className="size-3" />
-                              {task.branch}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <CardAction>
-                        <Badge
-                          variant="secondary"
-                          className={config.badgeClassName}
-                        >
-                          {config.label}
-                        </Badge>
-                      </CardAction>
-                    </CardHeader>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Task detail sheet */}
-          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-            <SheetContent side="right">
-              {selectedTask && (
-                <TaskDetail
-                  task={selectedTask}
-                  projectId={project.id}
-                  workspaces={activeWorkspaces}
-                />
+                )}
+              </div>
+              {isAdmin && (
+                <>
+                  {keyError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{keyError}</AlertDescription>
+                    </Alert>
+                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      placeholder="sk-ant-api... (replaces current key)"
+                      className="flex-1"
+                      onKeyDown={(e) => e.key === "Enter" && handleSaveKey()}
+                    />
+                    <Button
+                      onClick={handleSaveKey}
+                      disabled={!apiKeyInput.trim() || savingKey}
+                      size="sm"
+                    >
+                      {savingKey ? "Saving..." : "Update"}
+                    </Button>
+                  </div>
+                </>
               )}
-            </SheetContent>
-          </Sheet>
-
-        {/* Workspaces */}
-        {activeWorkspaces.length > 0 && (
-          <div className="mt-6">
-            <WorkspaceList
-              projectId={project.id}
-              workspaces={activeWorkspaces}
-              onStopped={(id) =>
-                setActiveWorkspaces((prev) => prev.filter((w) => w.id !== id))
-              }
-            />
-          </div>
+            </CardContent>
+          </Card>
         )}
+
+        {sandboxError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{sandboxError}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Create a Task */}
+        <H4 className="mb-4">Create a Task</H4>
+        {statusLoading ? (
+          <Card className="mb-6">
+            <CardContent>
+              <div className="flex items-center gap-3 text-muted-foreground">
+                <Loader2 className="size-5 animate-spin" />
+                <span className="text-sm">Checking connections...</span>
+              </div>
+            </CardContent>
+          </Card>
+        ) : missingStep === "github" ? (
+          <Card className="mb-6">
+            <CardContent className="flex flex-col items-center gap-4 px-8 py-10">
+              <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <GitHubIcon size={24} />
+              </div>
+              <div className="text-center">
+                <h3 className="mb-1 text-lg font-semibold">
+                  {!githubToken
+                    ? "Connect GitHub to get started"
+                    : "Link a GitHub repository"}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {!githubToken
+                    ? "Connect your GitHub account to access repositories."
+                    : "This project needs to be linked to a GitHub repository."}
+                </p>
+              </div>
+              {!githubToken ? (
+                <Button asChild>
+                  <a
+                    href={`/api/integrations/github/start?return_to=/projects/${project.id}`}
+                  >
+                    Connect GitHub
+                  </a>
+                </Button>
+              ) : (
+                <Button asChild>
+                  <Link to={`/projects/${project.id}/settings`}>
+                    Link Repository
+                  </Link>
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : missingStep === "claude" ? (
+          <Card className="mb-6">
+            <CardContent className="flex flex-col items-center gap-4 px-8 py-10">
+              <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Sparkles className="size-6" />
+              </div>
+              <div className="text-center">
+                <h3 className="mb-1 text-lg font-semibold">
+                  {claudeExpired
+                    ? "Claude token expired"
+                    : "Connect Claude to get started"}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {claudeExpired ? (
+                    <>
+                      The Claude OAuth token has expired. Re-authorize or add an
+                      API key below.
+                    </>
+                  ) : (
+                    <>
+                      An Anthropic API key is required to run tasks. Add one
+                      below for this project, or set a shared key in{" "}
+                      <Link
+                        to="/settings"
+                        className="font-medium text-foreground underline underline-offset-4"
+                      >
+                        team settings
+                      </Link>
+                      .
+                    </>
+                  )}
+                </p>
+              </div>
+
+              {keyError && (
+                <Alert variant="destructive" className="w-full max-w-md">
+                  <AlertDescription>{keyError}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex w-full max-w-md gap-2">
+                <Input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder="sk-ant-api..."
+                  className="flex-1"
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveKey()}
+                />
+                <Button
+                  onClick={handleSaveKey}
+                  disabled={!apiKeyInput.trim() || savingKey}
+                >
+                  {savingKey ? "Saving..." : "Connect"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <TaskLauncher
+            projectId={project.id}
+            allReady={allReady}
+            onTaskCreated={handleTaskCreated}
+            onError={(message) => setSandboxError(message)}
+          />
+        )}
+
+        {/* Tasks section */}
+        <H4 className="mb-4 mt-2">Tasks</H4>
+        <Tabs
+          value={filterTab}
+          onValueChange={(v) => setFilterTab(v as FilterTab)}
+        >
+          {tasks.length > 0 && (
+            <TabsList variant="line" className="mb-4">
+              {FILTER_TABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="gap-1.5"
+                >
+                  {tab.label}
+                  <Badge
+                    variant="secondary"
+                    className="h-5 min-w-5 justify-center rounded-full px-1.5 text-xs"
+                  >
+                    {filterCounts[tab.value]}
+                  </Badge>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          )}
+
+          {/* Shared task content for all tabs */}
+          {FILTER_TABS.map((tab) => (
+            <TabsContent key={tab.value} value={tab.value}>
+              {tasksLoading && tasks.length === 0 ? (
+                <Card className="border-dashed bg-muted/50">
+                  <CardContent className="flex items-center justify-center px-8 py-16">
+                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                  </CardContent>
+                </Card>
+              ) : tasks.length === 0 && allReady ? (
+                <Card className="border-dashed bg-muted/50">
+                  <CardContent className="flex flex-col items-center justify-center px-8 py-16">
+                    <Sparkles className="mb-3 size-8 text-muted-foreground/50" />
+                    <h3 className="mb-1 text-lg font-semibold">No tasks yet</h3>
+                    <p className="text-center text-sm text-muted-foreground">
+                      Describe what you want to build and Claude will get to
+                      work.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : filteredTasks.length === 0 && tasks.length > 0 ? (
+                <Card className="border-dashed bg-muted/50">
+                  <CardContent className="flex flex-col items-center justify-center px-8 py-10">
+                    <p className="text-sm text-muted-foreground">
+                      {tab.value === "in_progress"
+                        ? "No tasks in progress"
+                        : tab.value === "completed"
+                          ? "No completed tasks"
+                          : "No tasks"}
+                    </p>
+                    {tab.value !== "all" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => setFilterTab("all")}
+                      >
+                        Show all tasks
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {filteredTasks.map((task) => {
+                    const config = STATUS_CONFIG[task.status];
+
+                    return (
+                      <Item key={task.id} variant="outline">
+                        <ItemContent>
+                          <ItemTitle>{task.prompt}</ItemTitle>
+                          <ItemDescription>
+                            <span className="flex items-center gap-3">
+                              <Badge
+                                variant="secondary"
+                                className={config.badgeClassName}
+                              >
+                                {config.label}
+                              </Badge>
+                              <span className="flex items-center gap-1">
+                                <Clock className="size-3" />
+                                {timeAgo(task.createdAt)}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <GitBranch className="size-3" />
+                                {task.branch}
+                              </span>
+                            </span>
+                          </ItemDescription>
+                        </ItemContent>
+                        <ItemActions>
+                          {task.workspaceId &&
+                            (task.status === "running" ||
+                              task.status === "completed") && (
+                              <>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="default"
+                                        size="icon-sm"
+                                        className="sm:w-auto sm:px-2.5 sm:h-8"
+                                        onClick={() => {
+                                          const ws = activeWorkspaces.find(
+                                            (w) => w.id === task.workspaceId,
+                                          );
+                                          if (ws) window.open(ws.url, "_blank");
+                                        }}
+                                      >
+                                        <ExternalLink className="size-3.5" />
+                                        <span className="hidden sm:inline">
+                                          Open
+                                        </span>
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Open workspace
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="icon-sm"
+                                        onClick={() => {
+                                          const ws = activeWorkspaces.find(
+                                            (w) => w.id === task.workspaceId,
+                                          );
+                                          if (ws) {
+                                            navigator.clipboard.writeText(
+                                              ws.url,
+                                            );
+                                            toast.success("Link copied");
+                                          }
+                                        }}
+                                      >
+                                        <Copy className="size-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Copy link to workspace
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </>
+                            )}
+                          {task.status === "running" && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="icon-sm"
+                                    onClick={async () => {
+                                      try {
+                                        const res = await fetch(
+                                          `/api/projects/${project.id}/tasks/${task.id}`,
+                                          {
+                                            method: "PATCH",
+                                            credentials: "include",
+                                            headers: {
+                                              "Content-Type":
+                                                "application/json",
+                                            },
+                                            body: JSON.stringify({
+                                              status: "completed",
+                                            }),
+                                          },
+                                        );
+                                        if (res.ok) {
+                                          toast.success(
+                                            "Task marked as completed",
+                                          );
+                                          // Update ref so fetchTasks polling won't fire a duplicate toast
+                                          prevTaskStatusesRef.current.set(
+                                            task.id,
+                                            "completed",
+                                          );
+                                          fetchTasks();
+                                        }
+                                      } catch {
+                                        toast.error("Failed to complete task");
+                                      }
+                                    }}
+                                  >
+                                    <Check className="size-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  Mark as complete
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </ItemActions>
+                      </Item>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
+
+        {/* Orphan workspaces (not linked to any task) */}
+        {(() => {
+          const taskWorkspaceIds = new Set(
+            tasks.map((t) => t.workspaceId).filter(Boolean),
+          );
+          const orphanWorkspaces = activeWorkspaces.filter(
+            (w) => !taskWorkspaceIds.has(w.id),
+          );
+          return (
+            orphanWorkspaces.length > 0 && (
+              <div className="mt-6">
+                <WorkspaceList
+                  projectId={project.id}
+                  workspaces={orphanWorkspaces}
+                  onStopped={(id) =>
+                    setActiveWorkspaces((prev) =>
+                      prev.filter((w) => w.id !== id),
+                    )
+                  }
+                />
+              </div>
+            )
+          );
+        })()}
       </div>
     </div>
   );
@@ -898,6 +1114,7 @@ function TaskLauncher({
 }) {
   const [prompt, setPrompt] = useState("");
   const [branch, setBranch] = useState("feat");
+  const [model, setModel] = useState("claude-sonnet-4-20250514");
   const [launching, setLaunching] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -919,72 +1136,104 @@ function TaskLauncher({
     if (launching || !prompt.trim()) return;
     setLaunching(true);
 
+    // Capture current values before resetting the form
+    const currentPrompt = prompt.trim();
+    const currentBranch = branch;
+    const currentModel = model;
+
     try {
       // 1. Create the task in the DB
+      console.log("[TaskLauncher] Creating task for project:", projectId);
       const taskRes = await fetch(`/api/projects/${projectId}/tasks`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt.trim(), branch }),
+        body: JSON.stringify({
+          prompt: currentPrompt,
+          branch: currentBranch,
+          model: currentModel,
+        }),
       });
       const taskData = await taskRes.json();
       if (!taskRes.ok) {
         onError(taskData.error ?? "Failed to create task");
+        setLaunching(false);
         return;
       }
 
       const task = taskData.task as Task;
+      console.log(
+        "[TaskLauncher] Task created:",
+        task.id,
+        "— adding to list as pending",
+      );
 
-      // 2. Launch the sandbox workspace
-      const sandboxRes = await fetch(`/api/projects/${projectId}/sandbox`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          branch,
-          prompt: prompt.trim(),
-        }),
-      });
-      const sandboxData = await sandboxRes.json();
+      // 2. Immediately add the task as "pending" and reset the form
+      onTaskCreated(task);
+      setPrompt("");
+      setLaunching(false);
 
-      if (sandboxRes.ok && sandboxData.workspace) {
-        // 3. Link the workspace to the task and mark as running
-        await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
-          method: "PATCH",
+      // 3. Launch the sandbox in the background — the form is already free
+      console.log(
+        "[TaskLauncher] Launching sandbox in background for task:",
+        task.id,
+      );
+      try {
+        const sandboxRes = await fetch(`/api/projects/${projectId}/sandbox`, {
+          method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            status: "running",
-            workspaceId: sandboxData.workspace.id,
+            branch: currentBranch,
+            prompt: currentPrompt,
+            model: currentModel,
           }),
         });
+        const sandboxData = await sandboxRes.json();
 
-        const updatedTask = {
-          ...task,
-          status: "running" as TaskStatus,
-          workspaceId: sandboxData.workspace.id,
-          startedAt: new Date().toISOString(),
-        };
-
-        onTaskCreated(updatedTask, sandboxData.workspace);
-      } else {
-        // Sandbox failed but task was created — leave as pending
-        onTaskCreated(task);
-        onError(sandboxData.error ?? "Failed to launch sandbox");
+        if (sandboxRes.ok && sandboxData.workspace) {
+          // Link the workspace to the task and mark as running
+          console.log(
+            "[TaskLauncher] Sandbox launched, linking workspace",
+            sandboxData.workspace.id,
+            "to task",
+            task.id,
+          );
+          await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              status: "running",
+              workspaceId: sandboxData.workspace.id,
+            }),
+          });
+          // Polling will pick up the running status automatically
+        } else {
+          console.warn(
+            "[TaskLauncher] Sandbox failed for task:",
+            task.id,
+            sandboxData.error,
+          );
+          onError(sandboxData.error ?? "Failed to launch sandbox");
+        }
+      } catch (sandboxErr) {
+        console.error(
+          "[TaskLauncher] Background sandbox launch error:",
+          sandboxErr,
+        );
+        onError("Failed to launch sandbox for task");
       }
-
-      setPrompt("");
     } catch {
       onError("Failed to create task");
-    } finally {
       setLaunching(false);
     }
   };
 
   return (
-    <Card className="mb-6 border-0 shadow-none">
-      <CardContent className="flex flex-col gap-3">
-        <textarea
+    <Card className="mb-6">
+      <CardContent>
+        <Textarea
           placeholder="Describe a task for Claude to work on..."
           value={prompt}
           onChange={(e) => {
@@ -998,148 +1247,49 @@ function TaskLauncher({
               handleLaunch();
             }
           }}
-          rows={1}
-          className="w-full resize-none overflow-hidden rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          rows={2}
+          className="resize-none overflow-hidden border-0 shadow-none focus-visible:ring-0"
         />
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <GitBranch className="size-3.5 text-muted-foreground" />
-            <Input
-              type="text"
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              placeholder="feat"
-              className="h-8 w-32 text-xs"
-            />
-          </div>
-          <div className="flex-1" />
-          <Button
-            size="sm"
-            disabled={!allReady || launching || !prompt.trim()}
-            onClick={handleLaunch}
-          >
-            {launching ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Sparkles className="size-4" />
-            )}
-            {launching ? `Creating... ${elapsed}s` : "Run task"}
-          </Button>
-        </div>
       </CardContent>
+      <CardFooter className="border-t justify-between">
+        <div className="flex items-center gap-4">
+          <Select value={model} onValueChange={setModel}>
+            <SelectTrigger size="sm" className="h-7 w-auto gap-1.5 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="claude-sonnet-4-20250514">
+                Claude Sonnet 4
+              </SelectItem>
+              <SelectItem value="claude-opus-4-0520">Claude Opus 4</SelectItem>
+              <SelectItem value="claude-3-5-haiku-20241022">
+                Claude Haiku 3.5
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="text"
+            leadingIcon={<GitBranch className="size-3.5" />}
+            value={branch}
+            onChange={(e) => setBranch(e.target.value)}
+            placeholder="feat"
+            className="h-7 w-28 text-xs"
+          />
+        </div>
+        <Button
+          size="icon-sm"
+          disabled={!allReady || launching || !prompt.trim()}
+          onClick={handleLaunch}
+          className="size-7 rounded-lg"
+        >
+          {launching ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <ArrowUp className="size-3.5" />
+          )}
+        </Button>
+      </CardFooter>
     </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// TaskDetail — Shown inside the Sheet panel
-// ---------------------------------------------------------------------------
-
-function TaskDetail({
-  task,
-  projectId,
-  workspaces,
-}: {
-  task: Task;
-  projectId: string;
-  workspaces: Workspace[];
-}) {
-  const config = STATUS_CONFIG[task.status];
-  const StatusIcon = config.icon;
-  const workspace = workspaces.find((w) => w.id === task.workspaceId);
-
-  return (
-    <>
-      <SheetHeader>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className={config.badgeClassName}>
-            <StatusIcon
-              className={`size-3.5 ${config.className} ${
-                task.status === "running" ? "animate-spin" : ""
-              }`}
-            />
-            {config.label}
-          </Badge>
-        </div>
-        <SheetTitle className="text-base leading-relaxed">
-          {task.prompt}
-        </SheetTitle>
-        <SheetDescription>
-          <span className="flex items-center gap-1">
-            <GitBranch className="size-3" />
-            {task.branch}
-          </span>
-        </SheetDescription>
-      </SheetHeader>
-
-      {/* Timeline */}
-      <div className="flex flex-col gap-3">
-        <h4 className="text-sm font-medium">Timeline</h4>
-        <div className="flex flex-col gap-2 text-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Circle className="size-3" />
-            <span>Created {formatTimestamp(task.createdAt)}</span>
-          </div>
-          {task.startedAt && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="size-3" />
-              <span>Started {formatTimestamp(task.startedAt)}</span>
-            </div>
-          )}
-          {task.completedAt && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              {task.status === "completed" ? (
-                <CheckCircle2 className="size-3 text-green-500" />
-              ) : (
-                <AlertCircle className="size-3 text-destructive" />
-              )}
-              <span>
-                {task.status === "completed" ? "Completed" : "Failed"}{" "}
-                {formatTimestamp(task.completedAt)}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Workspace */}
-      {workspace && (
-        <div className="flex flex-col gap-3">
-          <h4 className="text-sm font-medium">Workspace</h4>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="gap-1.5" asChild>
-              <a href={workspace.url} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="size-3" />
-                Open workspace
-              </a>
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              {workspace.branch}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Result */}
-      {task.result && (
-        <div className="flex flex-col gap-3">
-          <h4 className="text-sm font-medium">Result</h4>
-          <div className="rounded-md border bg-muted/50 p-3">
-            <p className="whitespace-pre-wrap text-sm">{task.result}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Error */}
-      {task.error && (
-        <div className="flex flex-col gap-3">
-          <h4 className="text-sm font-medium text-destructive">Error</h4>
-          <Alert variant="destructive">
-            <AlertDescription>{task.error}</AlertDescription>
-          </Alert>
-        </div>
-      )}
-    </>
   );
 }
 

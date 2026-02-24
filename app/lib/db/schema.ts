@@ -142,6 +142,9 @@ export const tasks = pgTable("tasks", {
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
   prompt: text("prompt").notNull(),
+  model: varchar("model", { length: 100 })
+    .notNull()
+    .default("claude-sonnet-4-20250514"),
   status: varchar("status", { length: 32 }).notNull().default("pending"),
   result: text("result"),
   error: text("error"),

@@ -7,6 +7,7 @@ import { Input } from "~/components/ui/input";
 import {
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
   CardDescription,
@@ -208,7 +209,8 @@ export default function NewProject() {
           name: repoName,
           private: true,
           templateRepo: selectedTemplate
-            ? TEMPLATES.find((t) => t.id === selectedTemplate)?.repo ?? undefined
+            ? (TEMPLATES.find((t) => t.id === selectedTemplate)?.repo ??
+              undefined)
             : undefined,
         }),
       });
@@ -408,82 +410,90 @@ export default function NewProject() {
                 <X className="size-3.5" />
               </Button>
             </div>
-          ) : showCreateRepo ? (
-            <div className="flex flex-col gap-3">
+          ) : null}
+        </CardContent>
+        {githubConnected && !selectedGithubRepo && (
+          <CardFooter
+            className={`border-t ${showCreateRepo ? "justify-end" : "justify-between"}`}
+          >
+            {!showCreateRepo && <Muted>No repository selected.</Muted>}
+            {showCreateRepo ? (
+              <div className="flex flex-col gap-3 w-full">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    value={newRepoName}
+                    onChange={(e) => setNewRepoName(e.target.value)}
+                    placeholder={name.trim() || "repository-name"}
+                    className="max-w-xs"
+                    onKeyDown={(e) => e.key === "Enter" && handleCreateRepo()}
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleCreateRepo}
+                    disabled={creatingRepo}
+                  >
+                    {creatingRepo ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      "Create"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowCreateRepo(false);
+                      setNewRepoName("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+                <Muted className="text-xs">
+                  Creates a private repository
+                  {selectedTemplate &&
+                  TEMPLATES.find((t) => t.id === selectedTemplate)?.repo
+                    ? " from the selected template"
+                    : ""}
+                  . Leave blank to use the project name.
+                </Muted>
+              </div>
+            ) : (
               <div className="flex items-center gap-2">
-                <Input
-                  type="text"
-                  value={newRepoName}
-                  onChange={(e) => setNewRepoName(e.target.value)}
-                  placeholder={name.trim() || "repository-name"}
-                  className="max-w-xs"
-                  onKeyDown={(e) => e.key === "Enter" && handleCreateRepo()}
-                  autoFocus
-                />
-                <Button
-                  size="sm"
-                  onClick={handleCreateRepo}
-                  disabled={creatingRepo}
-                >
-                  {creatingRepo ? (
-                    <>
-                      <Loader2 className="size-3.5 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    "Create"
+                <ResourcePicker
+                  items={githubRepos}
+                  loading={githubLoading}
+                  error={githubError}
+                  renderItem={(repo) => (
+                    <span className="truncate">{repo.fullName}</span>
                   )}
-                </Button>
+                  getItemValue={(repo) => repo.fullName}
+                  getItemKey={(repo) => String(repo.id)}
+                  selectedKey={null}
+                  onSelect={handleSelectGithubRepo}
+                  onOpen={loadGithubRepos}
+                  triggerLabel="Select existing"
+                  placeholder="Search repositories..."
+                  emptyMessage="No repositories found."
+                  notConnectedMessage="GitHub token not configured."
+                />
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setShowCreateRepo(false);
-                    setNewRepoName("");
-                  }}
+                  onClick={() => setShowCreateRepo(true)}
                 >
-                  Cancel
+                  <Plus className="size-3.5" />
+                  Create new
                 </Button>
               </div>
-              <Muted className="text-xs">
-                Creates a private repository
-                {selectedTemplate &&
-                TEMPLATES.find((t) => t.id === selectedTemplate)?.repo
-                  ? " from the selected template"
-                  : ""}
-                . Leave blank to use the project name.
-              </Muted>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <ResourcePicker
-                items={githubRepos}
-                loading={githubLoading}
-                error={githubError}
-                renderItem={(repo) => (
-                  <span className="truncate">{repo.fullName}</span>
-                )}
-                getItemValue={(repo) => repo.fullName}
-                getItemKey={(repo) => String(repo.id)}
-                selectedKey={null}
-                onSelect={handleSelectGithubRepo}
-                onOpen={loadGithubRepos}
-                triggerLabel="Select existing"
-                placeholder="Search repositories..."
-                emptyMessage="No repositories found."
-                notConnectedMessage="GitHub token not configured."
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowCreateRepo(true)}
-              >
-                <Plus className="size-3.5" />
-                Create new
-              </Button>
-            </div>
-          )}
-        </CardContent>
+            )}
+          </CardFooter>
+        )}
       </Card>
 
       {/* Card 4: Vercel Project */}
@@ -524,88 +534,96 @@ export default function NewProject() {
                 <X className="size-3.5" />
               </Button>
             </div>
-          ) : showCreateVercel ? (
-            <div className="flex flex-col gap-3">
+          ) : null}
+        </CardContent>
+        {vercelConnected && !selectedVercel && (
+          <CardFooter
+            className={`border-t ${showCreateVercel ? "justify-end" : "justify-between"}`}
+          >
+            {!showCreateVercel && <Muted>No Vercel project selected.</Muted>}
+            {showCreateVercel ? (
+              <div className="flex flex-col gap-3 w-full">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    value={newVercelName}
+                    onChange={(e) => setNewVercelName(e.target.value)}
+                    placeholder={name.trim() || "project-name"}
+                    className="max-w-xs"
+                    onKeyDown={(e) => e.key === "Enter" && handleCreateVercel()}
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleCreateVercel}
+                    disabled={creatingVercel}
+                  >
+                    {creatingVercel ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      "Create"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowCreateVercel(false);
+                      setNewVercelName("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+                <Muted className="text-xs">
+                  Creates a new Vercel project.
+                  {selectedGithubRepo
+                    ? ` Will be linked to ${selectedGithubRepo.fullName}.`
+                    : " Leave blank to use the project name."}
+                </Muted>
+              </div>
+            ) : (
               <div className="flex items-center gap-2">
-                <Input
-                  type="text"
-                  value={newVercelName}
-                  onChange={(e) => setNewVercelName(e.target.value)}
-                  placeholder={name.trim() || "project-name"}
-                  className="max-w-xs"
-                  onKeyDown={(e) => e.key === "Enter" && handleCreateVercel()}
-                  autoFocus
-                />
-                <Button
-                  size="sm"
-                  onClick={handleCreateVercel}
-                  disabled={creatingVercel}
-                >
-                  {creatingVercel ? (
-                    <>
-                      <Loader2 className="size-3.5 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    "Create"
+                <ResourcePicker
+                  items={vercelProjects}
+                  loading={vercelLoading}
+                  error={vercelError}
+                  renderItem={(vp) => (
+                    <div className="flex flex-col">
+                      <span className="truncate">{vp.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {vp.framework ?? "No framework"}
+                        {vp.link
+                          ? ` \u00b7 ${vp.link.org}/${vp.link.repo}`
+                          : ""}
+                      </span>
+                    </div>
                   )}
-                </Button>
+                  getItemValue={(vp) => vp.name}
+                  getItemKey={(vp) => vp.id}
+                  selectedKey={null}
+                  onSelect={handleSelectVercel}
+                  onOpen={loadVercelProjects}
+                  triggerLabel="Select existing"
+                  placeholder="Search projects..."
+                  emptyMessage="No Vercel projects found."
+                  notConnectedMessage="Vercel token not configured."
+                />
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setShowCreateVercel(false);
-                    setNewVercelName("");
-                  }}
+                  onClick={() => setShowCreateVercel(true)}
                 >
-                  Cancel
+                  <Plus className="size-3.5" />
+                  Create new
                 </Button>
               </div>
-              <Muted className="text-xs">
-                Creates a new Vercel project.
-                {selectedGithubRepo
-                  ? ` Will be linked to ${selectedGithubRepo.fullName}.`
-                  : " Leave blank to use the project name."}
-              </Muted>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <ResourcePicker
-                items={vercelProjects}
-                loading={vercelLoading}
-                error={vercelError}
-                renderItem={(vp) => (
-                  <div className="flex flex-col">
-                    <span className="truncate">{vp.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {vp.framework ?? "No framework"}
-                      {vp.link
-                        ? ` \u00b7 ${vp.link.org}/${vp.link.repo}`
-                        : ""}
-                    </span>
-                  </div>
-                )}
-                getItemValue={(vp) => vp.name}
-                getItemKey={(vp) => vp.id}
-                selectedKey={null}
-                onSelect={handleSelectVercel}
-                onOpen={loadVercelProjects}
-                triggerLabel="Select existing"
-                placeholder="Search projects..."
-                emptyMessage="No Vercel projects found."
-                notConnectedMessage="Vercel token not configured."
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowCreateVercel(true)}
-              >
-                <Plus className="size-3.5" />
-                Create new
-              </Button>
-            </div>
-          )}
-        </CardContent>
+            )}
+          </CardFooter>
+        )}
       </Card>
 
       {/* Error */}

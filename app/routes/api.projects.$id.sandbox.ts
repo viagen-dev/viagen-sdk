@@ -127,7 +127,7 @@ export async function action({
     );
   }
 
-  // Accept branch + optional prompt from request body
+  // Accept branch + optional prompt + optional model from request body
   const body = await request.json().catch(() => ({}));
   const rawBranch: string = body.branch?.trim() || "main";
   // Sanitize branch name: lowercase, replace spaces/invalid chars with dashes, collapse runs
@@ -137,6 +137,7 @@ export async function action({
     .replace(/-{2,}/g, "-")
     .replace(/^-|-$/g, "");
   const prompt: string | null = body.prompt?.trim() || null;
+  const model: string = body.model?.trim() || "claude-sonnet-4-20250514";
 
   if (rawBranch !== branch) {
     log.info({ rawBranch, branch }, "sanitized branch name");
@@ -151,6 +152,7 @@ export async function action({
       repo: project.githubRepo,
       vercelProjectId: project.vercelProjectId,
       branch,
+      model,
       hasPrompt: !!prompt,
     },
     "sandbox launch requested",
@@ -233,7 +235,10 @@ export async function action({
       );
     } catch (err) {
       log.warn(
-        { projectId: id, err: err instanceof Error ? err.message : String(err) },
+        {
+          projectId: id,
+          err: err instanceof Error ? err.message : String(err),
+        },
         "sandbox launch: repo check failed, proceeding anyway",
       );
     }
@@ -302,6 +307,7 @@ export async function action({
       envMap["VIAGEN_SESSION_START"] = String(Math.floor(Date.now() / 1000));
       envMap["VIAGEN_SESSION_TIMEOUT"] = String(timeoutMinutes * 60);
       envMap["VIAGEN_PROJECT_ID"] = id;
+      envMap["VIAGEN_MODEL"] = model;
 
       if (prompt) {
         envMap["VIAGEN_PROMPT"] = `${prompt}.
@@ -329,7 +335,10 @@ export async function action({
       ]);
 
       // 5. Install dependencies (include dev so viagen plugin loads)
-      const install = await sandbox.runCommand("npm", ["install", "--include=dev"]);
+      const install = await sandbox.runCommand("npm", [
+        "install",
+        "--include=dev",
+      ]);
       if (install.exitCode !== 0) {
         const stderr = await install.stderr();
         throw new Error(

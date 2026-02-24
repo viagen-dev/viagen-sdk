@@ -547,7 +547,7 @@ export default function Projects({
                       }
                     >
                       <GitHubIcon />
-                      {project.githubRepo ?? "GitHub not connected"}
+                      {project.githubRepo ?? "Not linked"}
                     </Badge>
 
                     <Badge
@@ -561,9 +561,7 @@ export default function Projects({
                       <VercelIcon />
                       {project.vercelProjectId
                         ? (project.vercelProjectName ?? project.vercelProjectId)
-                        : statuses[project.id]?.vercel.tokenAvailable
-                          ? "Vercel ready"
-                          : "Vercel not connected"}
+                        : "Not linked"}
                     </Badge>
 
                     <Badge
