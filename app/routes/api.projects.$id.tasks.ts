@@ -3,6 +3,8 @@ import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, tasks, orgMembers } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
+import { getSecret } from "~/lib/infisical.server";
+import { parsePrUrl, isPrMerged } from "~/lib/github.server";
 
 export async function loader({
   params,
@@ -71,6 +73,63 @@ export async function loader({
         row.status = "completed";
         row.completedAt = new Date();
       }
+    }
+  }
+
+  // Auto-complete tasks whose PR has been merged on GitHub
+  const validatingWithPr = rows.filter(
+    (t) => t.status === "validating" && t.prUrl,
+  );
+
+  if (validatingWithPr.length > 0) {
+    try {
+      const githubToken = await getSecret(org.id, "GITHUB_TOKEN");
+      if (githubToken) {
+        const checks = await Promise.allSettled(
+          validatingWithPr.map(async (t) => {
+            const parsed = parsePrUrl(t.prUrl!);
+            if (!parsed) return null;
+            const merged = await isPrMerged(
+              githubToken,
+              parsed.owner,
+              parsed.repo,
+              parsed.number,
+            );
+            return merged ? t.id : null;
+          }),
+        );
+
+        const mergedTaskIds = checks
+          .filter(
+            (r): r is PromiseFulfilledResult<string | null> =>
+              r.status === "fulfilled",
+          )
+          .map((r) => r.value)
+          .filter((id): id is string => id !== null);
+
+        if (mergedTaskIds.length > 0) {
+          log.info(
+            { projectId, mergedTaskIds },
+            "auto-completing tasks with merged PRs",
+          );
+          await db
+            .update(tasks)
+            .set({ status: "completed", completedAt: new Date() })
+            .where(inArray(tasks.id, mergedTaskIds));
+
+          for (const row of rows) {
+            if (mergedTaskIds.includes(row.id)) {
+              row.status = "completed";
+              row.completedAt = new Date();
+            }
+          }
+        }
+      }
+    } catch (err) {
+      log.warn(
+        { projectId, error: err instanceof Error ? err.message : "unknown" },
+        "failed to check PR merge status (non-fatal)",
+      );
     }
   }
 

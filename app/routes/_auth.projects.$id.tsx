@@ -54,6 +54,7 @@ import {
   CircleDot,
   Search,
   GitPullRequest,
+  GitMerge,
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -274,6 +275,7 @@ export default function ProjectTasks({
   const [filterTab, setFilterTab] = useState<FilterTab>("ready");
   const [launchingTasks, setLaunchingTasks] = useState<Map<string, number>>(new Map());
   const launchTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
+  const [mergingTasks, setMergingTasks] = useState<Set<string>>(new Set());
 
   // Track previously-seen task statuses for completion notifications
   const prevTaskStatusesRef = useRef<Map<string, TaskStatus>>(new Map());
@@ -679,6 +681,37 @@ export default function ProjectTasks({
       setSandboxError("Failed to launch preview sandbox");
     } finally {
       stopLaunchTimer(task.id);
+    }
+  };
+
+  /**
+   * Merge the PR for a task and mark it completed.
+   */
+  const mergeTask = async (task: Task) => {
+    setMergingTasks((prev) => new Set(prev).add(task.id));
+    try {
+      const res = await fetch(
+        `/api/projects/${project.id}/tasks/${task.id}/merge`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Pull request merged");
+        fetchTasks();
+      } else {
+        toast.error(data.error ?? "Failed to merge PR");
+      }
+    } catch {
+      toast.error("Failed to merge PR");
+    } finally {
+      setMergingTasks((prev) => {
+        const next = new Set(prev);
+        next.delete(task.id);
+        return next;
+      });
     }
   };
 
@@ -1161,28 +1194,62 @@ export default function ProjectTasks({
                                     </Tooltip>
                                   </TooltipProvider>
                                   {task.prUrl && (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            variant="default"
-                                            size="icon-sm"
-                                            className="sm:w-auto sm:px-2.5 sm:h-8"
-                                            onClick={() =>
-                                              window.open(task.prUrl!, "_blank")
-                                            }
-                                          >
-                                            <GitPullRequest className="size-3.5" />
-                                            <span className="hidden sm:inline">
-                                              Review PR
-                                            </span>
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          Review pull request
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
+                                    <>
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="outline"
+                                              size="icon-sm"
+                                              className="sm:w-auto sm:px-2.5 sm:h-8"
+                                              onClick={() =>
+                                                window.open(task.prUrl!, "_blank")
+                                              }
+                                            >
+                                              <GitPullRequest className="size-3.5" />
+                                              <span className="hidden sm:inline">
+                                                Review PR
+                                              </span>
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            Review pull request
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="default"
+                                              size="icon-sm"
+                                              className="sm:w-auto sm:px-2.5 sm:h-8"
+                                              disabled={mergingTasks.has(task.id)}
+                                              onClick={() => mergeTask(task)}
+                                            >
+                                              {mergingTasks.has(task.id) ? (
+                                                <>
+                                                  <Loader2 className="size-3.5 animate-spin" />
+                                                  <span className="hidden sm:inline">
+                                                    Merging…
+                                                  </span>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <GitMerge className="size-3.5" />
+                                                  <span className="hidden sm:inline">
+                                                    Merge
+                                                  </span>
+                                                </>
+                                              )}
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            Merge pull request
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </>
                                   )}
                                 </>
                               );

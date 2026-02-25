@@ -10,7 +10,7 @@ export type { OrgMembership, Org, OrgsClient } from './orgs.js'
 export type { Project, CreateProjectInput, UpdateProjectInput, SyncProjectInput, SyncResult, ProjectSecret, ProjectDatabase, ProvisionDatabaseInput, ProjectsClient } from './projects.js'
 export type { VercelProject, VercelListProjectsParams, IntegrationStatus, VercelClient } from './vercel.js'
 export type { GitHubRepo, GitHubListReposParams, GitHubClient } from './github.js'
-export type { Task, CreateTaskInput, UpdateTaskInput, TasksClient } from './tasks.js'
+export type { Task, CreateTaskInput, UpdateTaskInput, MergeResult, TasksClient } from './tasks.js'
 export { loadCredentials, saveCredentials, clearCredentials, type StoredCredentials } from './credentials.js'
 
 export interface ViagenConfig {

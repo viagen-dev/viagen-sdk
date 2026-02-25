@@ -22,6 +22,7 @@ import {
   ExternalLink,
   GitBranch,
   GitPullRequest,
+  GitMerge,
   Loader2,
   Play,
   Search,
@@ -29,6 +30,7 @@ import {
   Timer,
   Cpu,
 } from "lucide-react";
+import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
 // Loader
@@ -216,6 +218,29 @@ export default function TaskDetailRoute({
   const [launchElapsed, setLaunchElapsed] = useState(0);
   const launchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [merging, setMerging] = useState(false);
+
+  // Merge the PR for this task
+  const handleMerge = async () => {
+    setMerging(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${project.id}/tasks/${task.id}/merge`,
+        { method: "POST", credentials: "include" },
+      );
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Pull request merged");
+        if (data.task) setTask(data.task);
+      } else {
+        toast.error(data.error ?? "Failed to merge PR");
+      }
+    } catch {
+      toast.error("Failed to merge PR");
+    } finally {
+      setMerging(false);
+    }
+  };
 
   // Fetch task from API
   const refreshTask = useCallback(() => {
@@ -375,6 +400,25 @@ export default function TaskDetailRoute({
           >
             <GitPullRequest className="size-3.5" />
             {task.status === "validating" ? "Review PR" : "View PR"}
+          </Button>
+        )}
+        {task.status === "validating" && task.prUrl && (
+          <Button
+            size="sm"
+            disabled={merging}
+            onClick={handleMerge}
+          >
+            {merging ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                Merging…
+              </>
+            ) : (
+              <>
+                <GitMerge className="size-3.5" />
+                Merge
+              </>
+            )}
           </Button>
         )}
       </div>

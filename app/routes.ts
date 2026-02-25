@@ -51,6 +51,10 @@ export default [
     "api/projects/:id/tasks/:taskId",
     "routes/api.projects.$id.tasks.$taskId.ts",
   ),
+  route(
+    "api/projects/:id/tasks/:taskId/merge",
+    "routes/api.projects.$id.tasks.$taskId.merge.ts",
+  ),
   route("api/vercel/projects", "routes/api.vercel.projects.ts"),
   route("api/github/repos", "routes/api.github.repos.ts"),
   route(

@@ -34,6 +34,11 @@ export interface UpdateTaskInput {
   outputTokens?: number | null
 }
 
+export interface MergeResult {
+  task: Task
+  merge: { merged: boolean; message: string }
+}
+
 export interface TasksClient {
   /** List tasks for a project, optionally filtered by status. */
   list(projectId: string, status?: string): Promise<Task[]>
@@ -43,6 +48,8 @@ export interface TasksClient {
   create(projectId: string, input: CreateTaskInput): Promise<Task>
   /** Update a task (status, result, error, prUrl, workspaceId). */
   update(projectId: string, taskId: string, input: UpdateTaskInput): Promise<Task>
+  /** Merge the PR for a task and mark it completed. */
+  merge(projectId: string, taskId: string): Promise<MergeResult>
 }
 
 export type RequestFn = <T>(path: string, options?: RequestInit) => Promise<T>
@@ -74,6 +81,12 @@ export function createTasksClient(_baseUrl: string, request: RequestFn): TasksCl
         body: JSON.stringify(input),
       })
       return data.task
+    },
+
+    async merge(projectId, taskId) {
+      return request<MergeResult>(`/api/projects/${projectId}/tasks/${taskId}/merge`, {
+        method: 'POST',
+      })
     },
   }
 }
