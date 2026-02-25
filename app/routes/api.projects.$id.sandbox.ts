@@ -414,20 +414,26 @@ The viagen-sdk package is pre-installed globally. The VIAGEN_CALLBACK_URL, VIAGE
         })
         .returning();
 
-      // Link workspace to task and mark as running
+      // Link workspace to task; only transition to "running" for actual runs (with prompt),
+      // not for preview launches on tasks already in review.
       if (taskId) {
+        const taskUpdate: Record<string, unknown> = {
+          callbackTokenHash: tokenHash,
+          workspaceId: workspace.id,
+        };
+        if (prompt) {
+          taskUpdate.status = "running";
+          taskUpdate.startedAt = new Date();
+        }
         await db
           .update(tasks)
-          .set({
-            callbackTokenHash: tokenHash,
-            status: "running",
-            workspaceId: workspace.id,
-            startedAt: new Date(),
-          })
+          .set(taskUpdate)
           .where(eq(tasks.id, taskId));
         log.info(
-          { taskId, workspaceId: workspace.id },
-          "task linked to workspace and marked as running",
+          { taskId, workspaceId: workspace.id, isPreview: !prompt },
+          prompt
+            ? "task linked to workspace and marked as running"
+            : "task linked to preview workspace (status unchanged)",
         );
       }
 
