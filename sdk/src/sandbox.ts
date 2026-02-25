@@ -40,11 +40,15 @@ async function report(body: Record<string, unknown>): Promise<void> {
 export async function reviewReady(opts: {
   prUrl: string
   result: string
+  inputTokens?: number
+  outputTokens?: number
 }): Promise<void> {
   await report({
     status: 'validating',
     prUrl: opts.prUrl,
     result: opts.result,
+    ...(opts.inputTokens != null && { inputTokens: opts.inputTokens }),
+    ...(opts.outputTokens != null && { outputTokens: opts.outputTokens }),
   })
 }
 
@@ -52,10 +56,14 @@ export async function reviewReady(opts: {
 export async function complete(opts: {
   prUrl?: string
   result: string
+  inputTokens?: number
+  outputTokens?: number
 }): Promise<void> {
   await report({
     status: 'completed',
     prUrl: opts.prUrl,
     result: opts.result,
+    ...(opts.inputTokens != null && { inputTokens: opts.inputTokens }),
+    ...(opts.outputTokens != null && { outputTokens: opts.outputTokens }),
   })
 }

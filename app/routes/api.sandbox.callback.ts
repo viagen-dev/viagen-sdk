@@ -28,6 +28,8 @@ export async function action({ request }: { request: Request }) {
     prUrl?: string;
     result?: string;
     error?: string;
+    inputTokens?: number;
+    outputTokens?: number;
   };
   try {
     body = await request.json();
@@ -86,15 +88,23 @@ export async function action({ request }: { request: Request }) {
   }
 
   // Build update payload
+  const now = new Date();
   const updates: Record<string, unknown> = {
     status: body.status,
-    completedAt: new Date(),
+    completedAt: now,
     callbackTokenHash: null, // one-time use — consume the token
   };
+
+  // Auto-compute duration from startedAt
+  if (task.startedAt) {
+    updates.durationMs = now.getTime() - new Date(task.startedAt).getTime();
+  }
 
   if (body.prUrl) updates.prUrl = body.prUrl;
   if (body.result) updates.result = body.result;
   if (body.error) updates.error = body.error;
+  if (body.inputTokens != null) updates.inputTokens = body.inputTokens;
+  if (body.outputTokens != null) updates.outputTokens = body.outputTokens;
 
   const [updated] = await db
     .update(tasks)

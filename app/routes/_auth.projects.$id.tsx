@@ -144,6 +144,9 @@ interface Task {
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
+  durationMs: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
 }
 
 type FilterTab = "ready" | "in_review" | "completed";

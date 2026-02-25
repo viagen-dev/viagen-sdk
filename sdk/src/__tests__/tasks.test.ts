@@ -77,16 +77,20 @@ describe.skipIf(!TOKEN)('tasks', () => {
     expect(task.startedAt).toBeTruthy()
   })
 
-  it('update() transitions to completed with prUrl', async () => {
+  it('update() transitions to completed with prUrl and token usage', async () => {
     const task = await authed.tasks.update(projectId, taskId, {
       status: 'completed',
       prUrl: 'https://github.com/test/repo/pull/99',
       result: 'Done',
+      inputTokens: 15000,
+      outputTokens: 3200,
     })
     expect(task.status).toBe('completed')
     expect(task.prUrl).toBe('https://github.com/test/repo/pull/99')
     expect(task.result).toBe('Done')
     expect(task.completedAt).toBeTruthy()
+    expect(task.inputTokens).toBe(15000)
+    expect(task.outputTokens).toBe(3200)
   })
 
   // ── cross-org isolation ───────────────────────────────

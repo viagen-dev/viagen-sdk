@@ -13,6 +13,9 @@ export interface Task {
   createdAt: string
   startedAt: string | null
   completedAt: string | null
+  durationMs: number | null
+  inputTokens: number | null
+  outputTokens: number | null
 }
 
 export interface CreateTaskInput {
@@ -26,6 +29,9 @@ export interface UpdateTaskInput {
   error?: string | null
   prUrl?: string | null
   workspaceId?: string | null
+  durationMs?: number | null
+  inputTokens?: number | null
+  outputTokens?: number | null
 }
 
 export interface TasksClient {

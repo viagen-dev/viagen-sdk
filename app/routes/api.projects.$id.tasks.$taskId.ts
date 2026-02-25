@@ -69,6 +69,9 @@ export async function action({ params, request }: { params: { id: string; taskId
     error?: string | null
     prUrl?: string | null
     workspaceId?: string | null
+    durationMs?: number | null
+    inputTokens?: number | null
+    outputTokens?: number | null
   }
   try {
     body = await request.json()
@@ -102,6 +105,9 @@ export async function action({ params, request }: { params: { id: string; taskId
   if (body.error !== undefined) updates.error = body.error
   if (body.prUrl !== undefined) updates.prUrl = body.prUrl
   if (body.workspaceId !== undefined) updates.workspaceId = body.workspaceId
+  if (body.durationMs !== undefined) updates.durationMs = body.durationMs
+  if (body.inputTokens !== undefined) updates.inputTokens = body.inputTokens
+  if (body.outputTokens !== undefined) updates.outputTokens = body.outputTokens
 
   if (Object.keys(updates).length === 0) {
     return Response.json({ error: 'No fields to update' }, { status: 400 })

@@ -6,6 +6,7 @@ import {
   timestamp,
   primaryKey,
   jsonb,
+  integer,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -163,6 +164,9 @@ export const tasks = pgTable("tasks", {
   completedAt: timestamp("completed_at", { withTimezone: true }),
   prUrl: varchar("pr_url", { length: 2048 }),
   callbackTokenHash: varchar("callback_token_hash", { length: 64 }),
+  durationMs: integer("duration_ms"),
+  inputTokens: integer("input_tokens"),
+  outputTokens: integer("output_tokens"),
 });
 
 export type User = typeof users.$inferSelect;
