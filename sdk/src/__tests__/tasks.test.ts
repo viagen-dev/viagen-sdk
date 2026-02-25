@@ -49,7 +49,7 @@ describe.skipIf(!TOKEN)('tasks', () => {
       branch: 'test-branch',
     })
     expect(task.id).toBeTypeOf('string')
-    expect(task.status).toBe('pending')
+    expect(task.status).toBe('ready')
     expect(task.branch).toBe('test-branch')
     expect(task.prUrl).toBeNull()
     taskId = task.id
@@ -67,8 +67,8 @@ describe.skipIf(!TOKEN)('tasks', () => {
   })
 
   it('list() supports status filter', async () => {
-    const pending = await authed.tasks.list(projectId, 'pending')
-    expect(pending.every((t) => t.status === 'pending')).toBe(true)
+    const ready = await authed.tasks.list(projectId, 'ready')
+    expect(ready.every((t) => t.status === 'ready')).toBe(true)
   })
 
   it('update() transitions to running', async () => {

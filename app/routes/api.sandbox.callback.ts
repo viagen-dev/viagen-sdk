@@ -4,6 +4,10 @@ import { db } from "~/lib/db/index.server";
 import { tasks } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
 
+export async function loader() {
+  return Response.json({ error: "Method not allowed" }, { status: 405 });
+}
+
 export async function action({ request }: { request: Request }) {
   if (request.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
