@@ -322,10 +322,15 @@ export async function action({
         const callbackSnippet = taskId
           ? `
 
-After creating the pull request, report back to the platform using the viagen SDK:
+After creating the pull request, report back to the platform using the viagen SDK. Include your total token usage (check your usage stats or the Anthropic API response headers for input/output token counts):
 
 import { reviewReady } from "viagen-sdk/sandbox";
-await reviewReady({ prUrl: "<the full PR URL you just created>", result: "<brief one-line summary of what you did>" });
+await reviewReady({
+  prUrl: "<the full PR URL you just created>",
+  result: "<brief one-line summary of what you did>",
+  inputTokens: <total input tokens used>,
+  outputTokens: <total output tokens used>,
+});
 
 The viagen-sdk package is pre-installed globally. The VIAGEN_CALLBACK_URL, VIAGEN_AUTH_TOKEN, and VIAGEN_TASK_ID env vars are auto-configured — the SDK reads them automatically.`
           : "";
