@@ -393,13 +393,14 @@ export default function ProjectTasks({
     try {
       // 1. Create a task so the workspace is tracked in the task system
       console.log("[QuickLaunch] Creating task for project:", project.id);
+      const quickBranch = `feat-${Math.random().toString(36).slice(2, 8)}`;
       const taskRes = await fetch(`/api/projects/${project.id}/tasks`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: "Quick workspace session",
-          branch: "feat",
+          branch: quickBranch,
           model: "claude-sonnet-4-20250514",
         }),
       });
@@ -432,7 +433,7 @@ export default function ProjectTasks({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          branch: "feat",
+          branch: quickBranch,
           model: "claude-sonnet-4-20250514",
         }),
       });
@@ -1314,7 +1315,9 @@ function TaskLauncher({
   onError: (message: string) => void;
 }) {
   const [prompt, setPrompt] = useState("");
-  const [branch, setBranch] = useState("feat");
+  const [branch, setBranch] = useState(
+    () => `feat-${Math.random().toString(36).slice(2, 8)}`,
+  );
   const [model, setModel] = useState("claude-sonnet-4-20250514");
   const [autoStart, setAutoStart] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -1411,7 +1414,7 @@ function TaskLauncher({
             leadingIcon={<GitBranch className="size-3.5 overflow-visible" />}
             value={branch}
             onChange={(e) => setBranch(e.target.value)}
-            placeholder="feat"
+            placeholder="feat-abc123"
             className="h-7 w-40 text-xs"
           />
           <label className="flex items-center gap-1.5 cursor-pointer">
