@@ -17,7 +17,13 @@ interface Workspace {
   url: string;
   expiresAt: string;
   branch: string;
+  taskId: string | null;
   createdAt: string;
+}
+
+interface Task {
+  id: string;
+  prompt: string;
 }
 
 function timeAgo(dateStr: string): string {
@@ -48,10 +54,12 @@ function parseWsUrl(url: string) {
 export function WorkspaceList({
   projectId,
   workspaces,
+  tasks = [],
   onStopped,
 }: {
   projectId: string;
   workspaces: Workspace[];
+  tasks?: Task[];
   onStopped: (id: string) => void;
 }) {
   const [stoppingId, setStoppingId] = useState<string | null>(null);
@@ -90,6 +98,11 @@ export function WorkspaceList({
           const splitUrl = `${domain}/via/iframe/t/${token}`;
           const codeUrl = `${domain}/via/ui/t/${token}`;
 
+          const task = ws.taskId
+            ? tasks.find((t) => t.id === ws.taskId)
+            : undefined;
+          const promptLine = task?.prompt.split("\n")[0] ?? null;
+
           return (
             <div
               key={ws.id}
@@ -98,7 +111,12 @@ export function WorkspaceList({
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="font-medium">{ws.branch}</span>
-                <span className="text-xs text-muted-foreground">
+                {promptLine && (
+                  <span className="truncate text-xs text-muted-foreground">
+                    — {promptLine.length > 80 ? promptLine.slice(0, 80) + "…" : promptLine}
+                  </span>
+                )}
+                <span className="shrink-0 text-xs text-muted-foreground">
                   {timeAgo(ws.createdAt)}
                 </span>
               </div>

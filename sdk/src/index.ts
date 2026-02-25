@@ -3,12 +3,14 @@ import { createOrgsClient, type OrgsClient } from './orgs.js'
 import { createProjectsClient, type ProjectsClient } from './projects.js'
 import { createVercelClient, type VercelClient } from './vercel.js'
 import { createGitHubClient, type GitHubClient } from './github.js'
+import { createTasksClient, type TasksClient } from './tasks.js'
 
 export type { ViagenUser, OrgInfo, AuthResult, AuthClient, ApiTokenInfo } from './auth.js'
 export type { OrgMembership, Org, OrgsClient } from './orgs.js'
 export type { Project, CreateProjectInput, UpdateProjectInput, SyncProjectInput, SyncResult, ProjectSecret, ProjectDatabase, ProvisionDatabaseInput, ProjectsClient } from './projects.js'
 export type { VercelProject, VercelListProjectsParams, IntegrationStatus, VercelClient } from './vercel.js'
 export type { GitHubRepo, GitHubListReposParams, GitHubClient } from './github.js'
+export type { Task, CreateTaskInput, UpdateTaskInput, TasksClient } from './tasks.js'
 export { loadCredentials, saveCredentials, clearCredentials, type StoredCredentials } from './credentials.js'
 
 export interface ViagenConfig {
@@ -23,6 +25,7 @@ export interface ViagenClient {
   auth: AuthClient
   orgs: OrgsClient
   projects: ProjectsClient
+  tasks: TasksClient
   vercel: VercelClient
   github: GitHubClient
 }
@@ -75,6 +78,7 @@ export function createViagen(config: ViagenConfig): ViagenClient {
     auth: createAuthClient(baseUrl, request),
     orgs: createOrgsClient(baseUrl, request),
     projects: createProjectsClient(baseUrl, request),
+    tasks: createTasksClient(baseUrl, request),
     vercel: createVercelClient(baseUrl, request),
     github: createGitHubClient(baseUrl, request),
   }

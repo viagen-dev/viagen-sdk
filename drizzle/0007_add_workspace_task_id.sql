@@ -1,0 +1,1 @@
+ALTER TABLE "workspaces" ADD COLUMN "task_id" uuid;

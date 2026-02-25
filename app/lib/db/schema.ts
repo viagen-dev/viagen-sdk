@@ -92,6 +92,7 @@ export const workspaces = pgTable("workspaces", {
   vercelOrgId: varchar("vercel_org_id", { length: 255 }),
   vercelProjectId: varchar("vercel_project_id", { length: 255 }),
   viagenProjectId: uuid("viagen_project_id"),
+  taskId: uuid("task_id"),
   createdBy: uuid("created_by")
     .notNull()
     .references(() => users.id),
@@ -145,7 +146,7 @@ export const tasks = pgTable("tasks", {
   model: varchar("model", { length: 100 })
     .notNull()
     .default("claude-sonnet-4-20250514"),
-  status: varchar("status", { length: 32 }).notNull().default("pending"),
+  status: varchar("status", { length: 32 }).notNull().default("ready"),
   result: text("result"),
   error: text("error"),
   workspaceId: uuid("workspace_id").references(() => workspaces.id, {
@@ -160,6 +161,8 @@ export const tasks = pgTable("tasks", {
     .notNull(),
   startedAt: timestamp("started_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
+  prUrl: varchar("pr_url", { length: 2048 }),
+  callbackTokenHash: varchar("callback_token_hash", { length: 64 }),
 });
 
 export type User = typeof users.$inferSelect;

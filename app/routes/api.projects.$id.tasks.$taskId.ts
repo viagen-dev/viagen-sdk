@@ -67,6 +67,7 @@ export async function action({ params, request }: { params: { id: string; taskId
     status?: string
     result?: string | null
     error?: string | null
+    prUrl?: string | null
     workspaceId?: string | null
   }
   try {
@@ -75,7 +76,7 @@ export async function action({ params, request }: { params: { id: string; taskId
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const validStatuses = ['pending', 'running', 'completed', 'failed']
+  const validStatuses = ['ready', 'running', 'validating', 'completed']
   if (body.status && !validStatuses.includes(body.status)) {
     return Response.json(
       { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
@@ -90,15 +91,16 @@ export async function action({ params, request }: { params: { id: string; taskId
     updates.status = body.status
 
     // Automatically set timestamps based on status transitions
-    if (body.status === 'running' && existing.status === 'pending') {
+    if (body.status === 'running' && !existing.startedAt) {
       updates.startedAt = new Date()
     }
-    if (body.status === 'completed' || body.status === 'failed') {
+    if ((body.status === 'completed' || body.status === 'validating') && !existing.completedAt) {
       updates.completedAt = new Date()
     }
   }
   if (body.result !== undefined) updates.result = body.result
   if (body.error !== undefined) updates.error = body.error
+  if (body.prUrl !== undefined) updates.prUrl = body.prUrl
   if (body.workspaceId !== undefined) updates.workspaceId = body.workspaceId
 
   if (Object.keys(updates).length === 0) {

@@ -42,12 +42,12 @@ export async function loader({
 
   const rows = await query;
 
-  // Auto-complete tasks that have been running/pending for 30+ minutes
+  // Auto-complete tasks that have been running for 30+ minutes
   const THIRTY_MINUTES_MS = 30 * 60 * 1000;
   const now = Date.now();
   const expiredTaskIds = rows
     .filter((t) => {
-      if (t.status !== "running" && t.status !== "pending") return false;
+      if (t.status !== "running") return false;
       const refTime = t.startedAt ?? t.createdAt;
       if (!refTime) return false;
       const age = now - new Date(refTime).getTime();
@@ -154,7 +154,7 @@ export async function action({
       prompt,
       branch,
       model,
-      status: "pending",
+      status: "ready",
       createdBy: user.id,
     })
     .returning();

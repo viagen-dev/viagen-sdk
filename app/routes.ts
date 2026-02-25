@@ -41,6 +41,7 @@ export default [
     "routes/api.projects.$id.vercel-sync.ts",
   ),
   route("api/projects/:id/sandbox", "routes/api.projects.$id.sandbox.ts"),
+  route("api/sandbox/callback", "routes/api.sandbox.callback.ts"),
   route("api/projects/:id/workspaces/:workspaceId/logs", "routes/api.projects.$id.workspaces.$workspaceId.logs.ts"),
   route("api/databases", "routes/api.databases.ts"),
   route("api/projects/:id/status", "routes/api.projects.$id.status.ts"),

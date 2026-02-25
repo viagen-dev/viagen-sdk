@@ -13,8 +13,6 @@ import {
   Card,
   CardContent,
   CardFooter,
-  CardHeader,
-  CardAction,
 } from "~/components/ui/card";
 import {
   Item,
@@ -34,6 +32,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 import { Badge } from "~/components/ui/badge";
 
 import { Alert, AlertDescription } from "~/components/ui/alert";
+import { Switch } from "~/components/ui/switch";
 import {
   TooltipProvider,
   Tooltip,
@@ -43,26 +42,28 @@ import {
 import {
   Plus,
   Sparkles,
-  Circle,
   CheckCircle2,
   Loader2,
   GitBranch,
   Clock,
-  AlertCircle,
   ExternalLink,
   Ellipsis,
   ArrowUp,
   Copy,
-  Check,
+  Play,
+  CircleDot,
+  Search,
+  GitPullRequest,
 } from "lucide-react";
 import { toast } from "sonner";
+import { WorkspaceList } from "~/components/workspace-list";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { WorkspaceList } from "~/components/workspace-list";
+
 
 export async function loader({
   request,
@@ -108,6 +109,7 @@ interface Workspace {
   url: string;
   expiresAt: string;
   branch: string;
+  taskId: string | null;
   createdAt: string;
 }
 
@@ -125,7 +127,7 @@ interface ProjectStatus {
   claude: ClaudeStatus;
 }
 
-type TaskStatus = "pending" | "running" | "completed" | "failed";
+type TaskStatus = "ready" | "running" | "validating" | "completed";
 
 interface Task {
   id: string;
@@ -135,6 +137,7 @@ interface Task {
   status: TaskStatus;
   result: string | null;
   error: string | null;
+  prUrl: string | null;
   workspaceId: string | null;
   branch: string;
   createdBy: string;
@@ -143,7 +146,13 @@ interface Task {
   completedAt: string | null;
 }
 
-type FilterTab = "in_progress" | "completed" | "all";
+type FilterTab = "ready" | "in_review" | "completed";
+
+const FILTER_TABS: { value: FilterTab; label: string }[] = [
+  { value: "ready", label: "Ready" },
+  { value: "in_review", label: "In Review" },
+  { value: "completed", label: "Completed" },
+];
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -153,14 +162,14 @@ const STATUS_CONFIG: Record<
   TaskStatus,
   {
     label: string;
-    icon: typeof Circle;
+    icon: typeof CheckCircle2;
     className: string;
     badgeClassName: string;
   }
 > = {
-  pending: {
-    label: "Pending",
-    icon: Circle,
+  ready: {
+    label: "Ready",
+    icon: CircleDot,
     className: "text-muted-foreground",
     badgeClassName: "gap-1.5 font-normal",
   },
@@ -171,6 +180,13 @@ const STATUS_CONFIG: Record<
     badgeClassName:
       "gap-1.5 font-normal border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300",
   },
+  validating: {
+    label: "In Review",
+    icon: Search,
+    className: "text-yellow-500",
+    badgeClassName:
+      "gap-1.5 font-normal border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300",
+  },
   completed: {
     label: "Completed",
     icon: CheckCircle2,
@@ -178,20 +194,7 @@ const STATUS_CONFIG: Record<
     badgeClassName:
       "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300",
   },
-  failed: {
-    label: "Failed",
-    icon: AlertCircle,
-    className: "text-destructive",
-    badgeClassName:
-      "gap-1.5 font-normal border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300",
-  },
 };
-
-const FILTER_TABS: { value: FilterTab; label: string }[] = [
-  { value: "in_progress", label: "In Progress" },
-  { value: "completed", label: "Completed" },
-  { value: "all", label: "All" },
-];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -264,7 +267,9 @@ export default function ProjectTasks({
   // --- Tasks ---
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
-  const [filterTab, setFilterTab] = useState<FilterTab>("in_progress");
+  const [filterTab, setFilterTab] = useState<FilterTab>("ready");
+  const [launchingTasks, setLaunchingTasks] = useState<Map<string, number>>(new Map());
+  const launchTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
 
   // Track previously-seen task statuses for completion notifications
   const prevTaskStatusesRef = useRef<Map<string, TaskStatus>>(new Map());
@@ -298,7 +303,17 @@ export default function ProjectTasks({
       });
       const data = await res.json();
       if (res.ok && data.tasks) {
-        const incoming = data.tasks as Task[];
+        // Normalize legacy statuses from before schema migration
+        const incoming = (data.tasks as Task[]).map((t) => {
+          const statusMap: Record<string, TaskStatus> = {
+            queued: "ready",
+            pending: "running",
+            failed: "completed",
+          };
+          return statusMap[t.status]
+            ? { ...t, status: statusMap[t.status] }
+            : t;
+        });
 
         // Check for newly completed/failed tasks to fire toasts
         const prev = prevTaskStatusesRef.current;
@@ -307,14 +322,11 @@ export default function ProjectTasks({
           if (old && old !== task.status) {
             if (task.status === "completed") {
               toast.success(`Task completed`, {
-                description:
-                  task.prompt.length > 80
+                description: task.prUrl
+                  ? "Pull request created"
+                  : task.prompt.length > 80
                     ? task.prompt.slice(0, 80) + "..."
                     : task.prompt,
-              });
-            } else if (task.status === "failed") {
-              toast.error(`Task failed`, {
-                description: task.error ?? "Something went wrong",
               });
             }
           }
@@ -334,24 +346,26 @@ export default function ProjectTasks({
     }
   }, [project.id]);
 
+  // Refresh workspaces from API
+  const refreshWorkspaces = useCallback(() => {
+    fetch(`/api/projects/${project.id}/sandbox`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.workspaces) setActiveWorkspaces(data.workspaces);
+      })
+      .catch(() => {});
+  }, [project.id]);
+
   // Initial load
   useEffect(() => {
     refreshStatus();
     fetchTasks();
-    // Check for active workspaces
-    fetch(`/api/projects/${project.id}/sandbox`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.workspaces?.length) {
-          setActiveWorkspaces(data.workspaces);
-        }
-      })
-      .catch(() => {});
-  }, [project.id, refreshStatus, fetchTasks]);
+    refreshWorkspaces();
+  }, [project.id, refreshStatus, fetchTasks, refreshWorkspaces]);
 
-  // Polling — 5s when there are running/pending tasks, 30s otherwise
+  // Polling — 5s when there are running/validating tasks, 30s otherwise
   const hasActiveTasks = tasks.some(
-    (t) => t.status === "running" || t.status === "pending",
+    (t) => t.status === "running" || t.status === "validating",
   );
   useEffect(() => {
     const interval = hasActiveTasks ? 5000 : 30000;
@@ -532,6 +546,101 @@ export default function ProjectTasks({
     setTimeout(() => fetchTasks(), 1000);
   };
 
+  // Launch timer helpers — supports multiple concurrent launches
+  const startLaunchTimer = (taskId: string) => {
+    setLaunchingTasks((prev) => new Map(prev).set(taskId, 0));
+    const timer = setInterval(() => {
+      setLaunchingTasks((prev) => {
+        const next = new Map(prev);
+        const cur = next.get(taskId);
+        if (cur !== undefined) next.set(taskId, cur + 1);
+        return next;
+      });
+    }, 1000);
+    launchTimersRef.current.set(taskId, timer);
+  };
+  const stopLaunchTimer = (taskId: string) => {
+    setLaunchingTasks((prev) => {
+      const next = new Map(prev);
+      next.delete(taskId);
+      return next;
+    });
+    const timer = launchTimersRef.current.get(taskId);
+    if (timer) {
+      clearInterval(timer);
+      launchTimersRef.current.delete(taskId);
+    }
+  };
+
+  /**
+   * Launch a sandbox for a pending task (run from backlog).
+   */
+  const runTask = async (task: Task) => {
+    // Start the elapsed-time counter
+    startLaunchTimer(task.id);
+
+    // Optimistically mark as running in the UI
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === task.id
+          ? { ...t, status: "running" as TaskStatus, startedAt: new Date().toISOString() }
+          : t,
+      ),
+    );
+    prevTaskStatusesRef.current.set(task.id, "running");
+
+    try {
+      const sandboxRes = await fetch(
+        `/api/projects/${project.id}/sandbox`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            branch: task.branch,
+            prompt: task.prompt,
+            model: task.model,
+            taskId: task.id,
+          }),
+        },
+      );
+      const sandboxData = await sandboxRes.json();
+
+      if (sandboxRes.ok && sandboxData.workspace) {
+        // Server already linked workspace to task and set status to running
+        // Update local task with workspaceId so buttons appear immediately
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === task.id
+              ? { ...t, status: "running" as TaskStatus, workspaceId: sandboxData.workspace.id }
+              : t,
+          ),
+        );
+        // Refresh workspaces from server so WorkspaceList picks it up
+        refreshWorkspaces();
+        fetchTasks();
+      } else {
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === task.id ? { ...t, status: "ready" as TaskStatus, startedAt: null } : t,
+          ),
+        );
+        prevTaskStatusesRef.current.set(task.id, "ready");
+        setSandboxError(sandboxData.error ?? "Failed to launch sandbox");
+      }
+    } catch {
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id ? { ...t, status: "ready" as TaskStatus, startedAt: null } : t,
+        ),
+      );
+      prevTaskStatusesRef.current.set(task.id, "ready");
+      setSandboxError("Failed to launch sandbox");
+    } finally {
+      stopLaunchTimer(task.id);
+    }
+  };
+
   // -----------------------------------------------------------------------
   // Derived state
   // -----------------------------------------------------------------------
@@ -551,26 +660,20 @@ export default function ProjectTasks({
         ? "claude"
         : null;
 
-  const inProgressCount = tasks.filter(
-    (t) => t.status === "pending" || t.status === "running",
-  ).length;
-  const completedCount = tasks.filter(
-    (t) => t.status === "completed" || t.status === "failed",
-  ).length;
-
-  const filteredTasks =
-    filterTab === "all"
-      ? tasks
-      : filterTab === "in_progress"
-        ? tasks.filter((t) => t.status === "pending" || t.status === "running")
-        : tasks.filter(
-            (t) => t.status === "completed" || t.status === "failed",
-          );
+  const readyTasks = tasks.filter((t) => t.status === "ready");
+  const inReviewTasks = tasks.filter((t) => t.status === "validating");
+  const completedTasks = tasks.filter((t) => t.status === "completed");
 
   const filterCounts: Record<FilterTab, number> = {
-    all: tasks.length,
-    in_progress: inProgressCount,
-    completed: completedCount,
+    ready: readyTasks.length,
+    in_review: inReviewTasks.length,
+    completed: completedTasks.length,
+  };
+
+  const tabTasks: Record<FilterTab, Task[]> = {
+    ready: readyTasks,
+    in_review: inReviewTasks,
+    completed: completedTasks,
   };
 
   // -----------------------------------------------------------------------
@@ -678,7 +781,7 @@ export default function ProjectTasks({
         </div>
       </div>
 
-      {/* Tasks */}
+      {/* Main content */}
       <div>
         {/* Claude manage section (toggled by clicking badge) */}
         {showClaudeManage && claudeConnected && (
@@ -741,6 +844,20 @@ export default function ProjectTasks({
           <Alert variant="destructive" className="mb-6">
             <AlertDescription>{sandboxError}</AlertDescription>
           </Alert>
+        )}
+
+        {/* Active workspaces — always visible at the top */}
+        {activeWorkspaces.length > 0 && (
+          <WorkspaceList
+            projectId={project.id}
+            workspaces={activeWorkspaces}
+            tasks={tasks}
+            onStopped={(id) =>
+              setActiveWorkspaces((prev) =>
+                prev.filter((w) => w.id !== id),
+              )
+            }
+          />
         )}
 
         {/* Create a Task */}
@@ -851,110 +968,114 @@ export default function ProjectTasks({
           <TaskLauncher
             projectId={project.id}
             allReady={allReady}
+            launchingTasks={launchingTasks}
             onTaskCreated={handleTaskCreated}
+            onRunTask={runTask}
             onError={(message) => setSandboxError(message)}
           />
         )}
 
-        {/* Tasks section */}
-        <H4 className="mb-4 mt-2">Tasks</H4>
-        <Tabs
-          value={filterTab}
-          onValueChange={(v) => setFilterTab(v as FilterTab)}
-        >
-          {tasks.length > 0 && (
-            <TabsList variant="line" className="mb-4">
-              {FILTER_TABS.map((tab) => (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className="gap-1.5"
-                >
-                  {tab.label}
-                  <Badge
-                    variant="secondary"
-                    className="h-5 min-w-5 justify-center rounded-full px-1.5 text-xs"
+        {/* Task list with tabs: Ready | In Review | Completed */}
+        {tasks.length > 0 && (
+          <>
+            <H4 className="mb-4 mt-2">Tasks</H4>
+            <Tabs
+              value={filterTab}
+              onValueChange={(v) => setFilterTab(v as FilterTab)}
+            >
+              <TabsList variant="line" className="mb-4">
+                {FILTER_TABS.map((tab) => (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="gap-1.5"
                   >
-                    {filterCounts[tab.value]}
-                  </Badge>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          )}
+                    {tab.label}
+                    <Badge
+                      variant="secondary"
+                      className="h-5 min-w-5 justify-center rounded-full px-1.5 text-xs"
+                    >
+                      {filterCounts[tab.value]}
+                    </Badge>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
-          {/* Shared task content for all tabs */}
-          {FILTER_TABS.map((tab) => (
-            <TabsContent key={tab.value} value={tab.value}>
-              {tasksLoading && tasks.length === 0 ? (
-                <Card className="border-dashed bg-muted/50">
-                  <CardContent className="flex items-center justify-center px-8 py-16">
-                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                  </CardContent>
-                </Card>
-              ) : tasks.length === 0 && allReady ? (
-                <Card className="border-dashed bg-muted/50">
-                  <CardContent className="flex flex-col items-center justify-center px-8 py-16">
-                    <Sparkles className="mb-3 size-8 text-muted-foreground/50" />
-                    <h3 className="mb-1 text-lg font-semibold">No tasks yet</h3>
-                    <p className="text-center text-sm text-muted-foreground">
-                      Describe what you want to build and Claude will get to
-                      work.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : filteredTasks.length === 0 && tasks.length > 0 ? (
-                <Card className="border-dashed bg-muted/50">
-                  <CardContent className="flex flex-col items-center justify-center px-8 py-10">
-                    <p className="text-sm text-muted-foreground">
-                      {tab.value === "in_progress"
-                        ? "No tasks in progress"
-                        : tab.value === "completed"
-                          ? "No completed tasks"
-                          : "No tasks"}
-                    </p>
-                    {tab.value !== "all" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => setFilterTab("all")}
-                      >
-                        Show all tasks
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {filteredTasks.map((task) => {
-                    const config = STATUS_CONFIG[task.status];
-
-                    return (
-                      <Item key={task.id} variant="outline">
-                        <ItemContent>
-                          <ItemTitle>{task.prompt}</ItemTitle>
-                          <ItemDescription>
-                            <span className="flex items-center gap-3">
-                              <Badge
-                                variant="secondary"
-                                className={config.badgeClassName}
-                              >
-                                {config.label}
-                              </Badge>
-                              <span className="flex items-center gap-1">
-                                <Clock className="size-3" />
-                                {timeAgo(task.createdAt)}
+              {FILTER_TABS.map((tab) => (
+                <TabsContent key={tab.value} value={tab.value}>
+                  {tabTasks[tab.value].length === 0 ? (
+                    <Card className="border-dashed bg-muted/50">
+                      <CardContent className="flex flex-col items-center justify-center px-8 py-10">
+                        <p className="text-sm text-muted-foreground">
+                          {tab.value === "ready"
+                            ? "No tasks ready to run"
+                            : tab.value === "in_review"
+                              ? "No tasks in review"
+                              : "No completed tasks"}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {tabTasks[tab.value].map((task) => (
+                        <Item key={task.id} variant="outline">
+                          <ItemContent>
+                            <ItemTitle>{task.prompt}</ItemTitle>
+                            <ItemDescription>
+                              <span className="flex items-center gap-3">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="size-3" />
+                                  {timeAgo(task.createdAt)}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <GitBranch className="size-3" />
+                                  {task.branch}
+                                </span>
                               </span>
-                              <span className="flex items-center gap-1">
-                                <GitBranch className="size-3" />
-                                {task.branch}
-                              </span>
-                            </span>
-                          </ItemDescription>
-                        </ItemContent>
-                        <ItemActions>
-                          {task.workspaceId && task.status === "running" && (
-                            <>
+                            </ItemDescription>
+                          </ItemContent>
+                          <ItemActions>
+                            {/* Ready — Run button (or launching timer) */}
+                            {task.status === "ready" && (() => {
+                              const elapsed = launchingTasks.get(task.id);
+                              const isLaunching = elapsed !== undefined;
+                              return (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="default"
+                                        size="icon-sm"
+                                        className="sm:w-auto sm:px-2.5 sm:h-8"
+                                        disabled={isLaunching}
+                                        onClick={() => runTask(task)}
+                                      >
+                                        {isLaunching ? (
+                                          <>
+                                            <Loader2 className="size-3.5 animate-spin" />
+                                            <span className="hidden sm:inline">
+                                              Launching… {elapsed}s
+                                            </span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Play className="size-3.5" />
+                                            <span className="hidden sm:inline">
+                                              Run
+                                            </span>
+                                          </>
+                                        )}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Launch sandbox for this task
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            })()}
+                            {/* In Review — PR link */}
+                            {task.status === "validating" && task.prUrl && (
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -962,132 +1083,57 @@ export default function ProjectTasks({
                                       variant="default"
                                       size="icon-sm"
                                       className="sm:w-auto sm:px-2.5 sm:h-8"
-                                      onClick={() => {
-                                        const ws = activeWorkspaces.find(
-                                          (w) => w.id === task.workspaceId,
-                                        );
-                                        if (ws) window.open(ws.url, "_blank");
-                                      }}
+                                      onClick={() =>
+                                        window.open(task.prUrl!, "_blank")
+                                      }
                                     >
-                                      <ExternalLink className="size-3.5" />
+                                      <GitPullRequest className="size-3.5" />
                                       <span className="hidden sm:inline">
-                                        Open
+                                        Review PR
                                       </span>
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    Open workspace
+                                    Review pull request
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
+                            )}
+                            {/* Completed — PR link */}
+                            {task.status === "completed" && task.prUrl && (
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
-                                      variant="outline"
+                                      variant="default"
                                       size="icon-sm"
-                                      onClick={() => {
-                                        const ws = activeWorkspaces.find(
-                                          (w) => w.id === task.workspaceId,
-                                        );
-                                        if (ws) {
-                                          navigator.clipboard.writeText(ws.url);
-                                          toast.success("Link copied");
-                                        }
-                                      }}
+                                      className="sm:w-auto sm:px-2.5 sm:h-8"
+                                      onClick={() =>
+                                        window.open(task.prUrl!, "_blank")
+                                      }
                                     >
-                                      <Copy className="size-3.5" />
+                                      <GitPullRequest className="size-3.5" />
+                                      <span className="hidden sm:inline">
+                                        View PR
+                                      </span>
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    Copy link to workspace
+                                    View pull request
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
-                            </>
-                          )}
-                          {task.status === "running" && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    size="icon-sm"
-                                    onClick={async () => {
-                                      try {
-                                        const res = await fetch(
-                                          `/api/projects/${project.id}/tasks/${task.id}`,
-                                          {
-                                            method: "PATCH",
-                                            credentials: "include",
-                                            headers: {
-                                              "Content-Type":
-                                                "application/json",
-                                            },
-                                            body: JSON.stringify({
-                                              status: "completed",
-                                            }),
-                                          },
-                                        );
-                                        if (res.ok) {
-                                          toast.success(
-                                            "Task marked as completed",
-                                          );
-                                          // Update ref so fetchTasks polling won't fire a duplicate toast
-                                          prevTaskStatusesRef.current.set(
-                                            task.id,
-                                            "completed",
-                                          );
-                                          fetchTasks();
-                                        }
-                                      } catch {
-                                        toast.error("Failed to complete task");
-                                      }
-                                    }}
-                                  >
-                                    <Check className="size-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Mark as complete
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </ItemActions>
-                      </Item>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
-          ))}
-        </Tabs>
-
-        {/* Orphan workspaces (not linked to any task) */}
-        {(() => {
-          const taskWorkspaceIds = new Set(
-            tasks.map((t) => t.workspaceId).filter(Boolean),
-          );
-          const orphanWorkspaces = activeWorkspaces.filter(
-            (w) => !taskWorkspaceIds.has(w.id),
-          );
-          return (
-            orphanWorkspaces.length > 0 && (
-              <div className="mt-6">
-                <WorkspaceList
-                  projectId={project.id}
-                  workspaces={orphanWorkspaces}
-                  onStopped={(id) =>
-                    setActiveWorkspaces((prev) =>
-                      prev.filter((w) => w.id !== id),
-                    )
-                  }
-                />
-              </div>
-            )
-          );
-        })()}
+                            )}
+                          </ItemActions>
+                        </Item>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+              ))}
+            </Tabs>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1100,129 +1146,71 @@ export default function ProjectTasks({
 function TaskLauncher({
   projectId,
   allReady,
+  launchingTasks,
   onTaskCreated,
+  onRunTask,
   onError,
 }: {
   projectId: string;
   allReady: boolean;
+  launchingTasks: Map<string, number>;
   onTaskCreated: (task: Task, workspace?: Workspace) => void;
+  onRunTask: (task: Task) => void;
   onError: (message: string) => void;
 }) {
   const [prompt, setPrompt] = useState("");
   const [branch, setBranch] = useState("feat");
   const [model, setModel] = useState("claude-sonnet-4-20250514");
-  const [launching, setLaunching] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [autoStart, setAutoStart] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [autoStartedTaskId, setAutoStartedTaskId] = useState<string | null>(null);
 
+  // Track elapsed time for the auto-started task
+  const autoStartElapsed = autoStartedTaskId !== null
+    ? launchingTasks.get(autoStartedTaskId)
+    : undefined;
+  const isAutoLaunching = autoStartElapsed !== undefined;
+
+  // Clear auto-started task ID when launch finishes
   useEffect(() => {
-    if (launching) {
-      setElapsed(0);
-      timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-      setElapsed(0);
+    if (autoStartedTaskId && !launchingTasks.has(autoStartedTaskId)) {
+      setAutoStartedTaskId(null);
     }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [launching]);
+  }, [autoStartedTaskId, launchingTasks]);
 
   const handleLaunch = async () => {
-    if (launching || !prompt.trim()) return;
-    setLaunching(true);
-
-    // Capture current values before resetting the form
-    const currentPrompt = prompt.trim();
-    const currentBranch = branch;
-    const currentModel = model;
+    if (creating || isAutoLaunching || !prompt.trim()) return;
+    setCreating(true);
 
     try {
-      // 1. Create the task in the DB
-      console.log("[TaskLauncher] Creating task for project:", projectId);
       const taskRes = await fetch(`/api/projects/${projectId}/tasks`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: currentPrompt,
-          branch: currentBranch,
-          model: currentModel,
+          prompt: prompt.trim(),
+          branch,
+          model,
         }),
       });
       const taskData = await taskRes.json();
       if (!taskRes.ok) {
         onError(taskData.error ?? "Failed to create task");
-        setLaunching(false);
         return;
       }
 
       const task = taskData.task as Task;
-      console.log(
-        "[TaskLauncher] Task created:",
-        task.id,
-        "— adding to list as pending",
-      );
-
-      // 2. Immediately add the task as "pending" and reset the form
       onTaskCreated(task);
       setPrompt("");
-      setLaunching(false);
 
-      // 3. Launch the sandbox in the background — the form is already free
-      console.log(
-        "[TaskLauncher] Launching sandbox in background for task:",
-        task.id,
-      );
-      try {
-        const sandboxRes = await fetch(`/api/projects/${projectId}/sandbox`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            branch: currentBranch,
-            prompt: currentPrompt,
-            model: currentModel,
-          }),
-        });
-        const sandboxData = await sandboxRes.json();
-
-        if (sandboxRes.ok && sandboxData.workspace) {
-          // Link the workspace to the task and mark as running
-          console.log(
-            "[TaskLauncher] Sandbox launched, linking workspace",
-            sandboxData.workspace.id,
-            "to task",
-            task.id,
-          );
-          await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
-            method: "PATCH",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              status: "running",
-              workspaceId: sandboxData.workspace.id,
-            }),
-          });
-          // Polling will pick up the running status automatically
-        } else {
-          console.warn(
-            "[TaskLauncher] Sandbox failed for task:",
-            task.id,
-            sandboxData.error,
-          );
-          onError(sandboxData.error ?? "Failed to launch sandbox");
-        }
-      } catch (sandboxErr) {
-        console.error(
-          "[TaskLauncher] Background sandbox launch error:",
-          sandboxErr,
-        );
-        onError("Failed to launch sandbox for task");
+      if (autoStart) {
+        setAutoStartedTaskId(task.id);
+        onRunTask(task);
       }
     } catch {
       onError("Failed to create task");
-      setLaunching(false);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -1265,20 +1253,35 @@ function TaskLauncher({
           </Select>
           <Input
             type="text"
-            leadingIcon={<GitBranch className="size-3.5" />}
+            leadingIcon={<GitBranch className="size-3.5 overflow-visible" />}
             value={branch}
             onChange={(e) => setBranch(e.target.value)}
             placeholder="feat"
-            className="h-7 w-28 text-xs"
+            className="h-7 w-40 text-xs"
           />
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Switch
+              checked={autoStart}
+              onCheckedChange={setAutoStart}
+              className="scale-75"
+            />
+            <span className="text-xs text-muted-foreground select-none">
+              Auto-start
+            </span>
+          </label>
         </div>
         <Button
-          size="icon-sm"
-          disabled={!allReady || launching || !prompt.trim()}
+          size={isAutoLaunching ? "sm" : "icon-sm"}
+          disabled={!allReady || creating || isAutoLaunching || !prompt.trim()}
           onClick={handleLaunch}
-          className="size-7 rounded-lg"
+          className={isAutoLaunching ? "h-7 rounded-lg px-2.5 text-xs" : "size-7 rounded-lg"}
         >
-          {launching ? (
+          {isAutoLaunching ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" />
+              Launching… {autoStartElapsed}s
+            </>
+          ) : creating ? (
             <Loader2 className="size-3.5 animate-spin" />
           ) : (
             <ArrowUp className="size-3.5" />

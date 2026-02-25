@@ -1,8 +1,8 @@
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
 import { Sandbox } from "@vercel/sandbox";
 import { requireAuth, isAdminRole } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { projects, workspaces } from "~/lib/db/schema";
+import { projects, workspaces, tasks } from "~/lib/db/schema";
 import { eq, and, gt, desc } from "drizzle-orm";
 import { resolveAllSecrets, flattenSecrets } from "~/lib/infisical.server";
 import { log } from "~/lib/logger.server";
@@ -138,6 +138,7 @@ export async function action({
     .replace(/^-|-$/g, "");
   const prompt: string | null = body.prompt?.trim() || null;
   const model: string = body.model?.trim() || "claude-sonnet-4-20250514";
+  const taskId: string | null = body.taskId?.trim() || null;
 
   if (rawBranch !== branch) {
     log.info({ rawBranch, branch }, "sanitized branch name");
@@ -246,6 +247,7 @@ export async function action({
 
   // ── Build sandbox ───────────────────────────────────
   const token = randomUUID();
+  const tokenHash = createHash("sha256").update(token).digest("hex");
   const timeoutMinutes = 30;
   const timeoutMs = timeoutMinutes * 60 * 1000;
 
@@ -297,8 +299,8 @@ export async function action({
         ]);
       }
 
-      // 3. Install vercel CLI
-      await sandbox.runCommand("npm", ["install", "-g", "vercel", "--silent"]);
+      // 3. Install vercel CLI + viagen SDK (global so it's available anywhere)
+      await sandbox.runCommand("npm", ["install", "-g", "vercel", "viagen-sdk", "--silent"]);
 
       // 4. Build .env — layer sandbox-specific vars on top of resolved secrets
       const envMap: Record<string, string> = { ...envVars };
@@ -309,10 +311,28 @@ export async function action({
       envMap["VIAGEN_PROJECT_ID"] = id;
       envMap["VIAGEN_MODEL"] = model;
 
+      const redirectBase =
+        process.env.AUTH_REDIRECT_BASE ?? "http://localhost:5173";
+      envMap["VIAGEN_CALLBACK_URL"] = `${redirectBase}/api/sandbox/callback`;
+      if (taskId) {
+        envMap["VIAGEN_TASK_ID"] = taskId;
+      }
+
       if (prompt) {
+        const callbackSnippet = taskId
+          ? `
+
+After creating the pull request, report back to the platform using the viagen SDK:
+
+import { reviewReady } from "viagen-sdk/sandbox";
+await reviewReady({ prUrl: "<the full PR URL you just created>", result: "<brief one-line summary of what you did>" });
+
+The viagen-sdk package is pre-installed globally. The VIAGEN_CALLBACK_URL, VIAGEN_AUTH_TOKEN, and VIAGEN_TASK_ID env vars are auto-configured — the SDK reads them automatically.`
+          : "";
+
         envMap["VIAGEN_PROMPT"] = `${prompt}.
 
-          GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (the gh CLI is not installed). When you are done, commit your changes, push, and create a pull request using the GitHub REST API.`;
+          GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (the gh CLI is not installed). When you are done, commit your changes, push, and create a pull request using the GitHub REST API.${callbackSnippet}`;
       }
 
       if (githubToken) {
@@ -384,9 +404,27 @@ export async function action({
           vercelOrgId: project.vercelOrgId ?? null,
           vercelProjectId: project.vercelProjectId ?? null,
           viagenProjectId: id,
+          taskId: taskId ?? undefined,
           createdBy: user.id,
         })
         .returning();
+
+      // Link workspace to task and mark as running
+      if (taskId) {
+        await db
+          .update(tasks)
+          .set({
+            callbackTokenHash: tokenHash,
+            status: "running",
+            workspaceId: workspace.id,
+            startedAt: new Date(),
+          })
+          .where(eq(tasks.id, taskId));
+        log.info(
+          { taskId, workspaceId: workspace.id },
+          "task linked to workspace and marked as running",
+        );
+      }
 
       const durationMs = Date.now() - start;
       log.info(

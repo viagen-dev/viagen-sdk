@@ -45,10 +45,23 @@ try {
     [userA.id, orgA.id],
   )
 
-  await client.query(
+  const {
+    rows: [testProject],
+  } = await client.query(
     `INSERT INTO projects (organization_id, name, template_id)
-     VALUES ($1, 'Test Project', 'react-router')`,
+     VALUES ($1, 'Test Project', 'react-router')
+     RETURNING id`,
     [orgA.id],
+  )
+
+  // Seed a running task with a known callback token for sandbox callback tests
+  const callbackToken = randomBytes(32).toString('hex')
+  const callbackTokenHash = createHash('sha256').update(callbackToken).digest('hex')
+
+  await client.query(
+    `INSERT INTO tasks (project_id, prompt, status, branch, created_by, callback_token_hash, started_at)
+     VALUES ($1, 'Seeded callback test task', 'running', 'test-callback', $2, $3, NOW())`,
+    [testProject.id, userA.id, callbackTokenHash],
   )
 
   const tokenA = createToken(userA.id)
@@ -98,6 +111,7 @@ try {
       `VIAGEN_TEST_URL=http://localhost:5173`,
       `VIAGEN_TEST_TOKEN=${tokenA.plaintext}`,
       `VIAGEN_TEST_TOKEN_OTHER=${tokenB.plaintext}`,
+      `VIAGEN_TEST_CALLBACK_TOKEN=${callbackToken}`,
     ].join('\n') + '\n',
   )
 
@@ -106,6 +120,7 @@ try {
   console.log(`  User B:   ${userB.id} (other@example.com) → Other Org`)
   console.log(`  Token A:  ${tokenA.plaintext.slice(0, 8)}...`)
   console.log(`  Token B:  ${tokenB.plaintext.slice(0, 8)}...`)
+  console.log(`  Callback: ${callbackToken.slice(0, 8)}...`)
   console.log(`  Env:      ${envPath}`)
 } finally {
   await client.end()
