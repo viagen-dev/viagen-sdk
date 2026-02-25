@@ -1023,7 +1023,14 @@ export default function ProjectTasks({
                       {tabTasks[tab.value].map((task) => (
                         <Item key={task.id} variant="outline">
                           <ItemContent>
-                            <ItemTitle>{task.prompt}</ItemTitle>
+                            <ItemTitle>
+                              <Link
+                                to={`/projects/${project.id}/tasks/${task.id}`}
+                                className="hover:underline"
+                              >
+                                {task.prompt}
+                              </Link>
+                            </ItemTitle>
                             <ItemDescription>
                               <span className="flex items-center gap-3">
                                 <span className="flex items-center gap-1">

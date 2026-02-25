@@ -18,6 +18,7 @@ export default [
     route("projects/new", "routes/_auth.projects.new.tsx"),
     route("projects/:id", "routes/_auth.projects.$id.tsx"),
     route("projects/:id/settings", "routes/_auth.projects.$id_.settings.tsx"),
+    route("projects/:id/tasks/:taskId", "routes/_auth.projects.$id_.tasks.$taskId.tsx"),
     route("settings", "routes/_auth.settings.tsx"),
     route("billing", "routes/_auth.billing.tsx"),
   ]),
