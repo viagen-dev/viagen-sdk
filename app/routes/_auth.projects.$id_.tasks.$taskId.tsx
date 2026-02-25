@@ -261,8 +261,9 @@ export default function TaskDetailRoute({
     return () => clearInterval(timer);
   }, [isActive, refreshTask, refreshWorkspaces]);
 
-  // Launch preview workspace
-  const handleLaunchPreview = async () => {
+  // Launch workspace — "Run" includes prompt, "Preview" is empty session
+  const handleLaunch = async () => {
+    const isRun = task.status === "ready";
     setLaunching(true);
     setLaunchElapsed(0);
     setError(null);
@@ -278,6 +279,7 @@ export default function TaskDetailRoute({
         body: JSON.stringify({
           branch: task.branch,
           taskId: task.id,
+          ...(isRun ? { prompt: task.prompt, model: task.model } : {}),
         }),
       });
       const data = await res.json();
@@ -348,7 +350,7 @@ export default function TaskDetailRoute({
         {(task.status === "ready" || task.status === "validating" || task.status === "completed") &&
           workspaces.length === 0 && (
             <Button
-              onClick={handleLaunchPreview}
+              onClick={handleLaunch}
               disabled={launching}
               size="sm"
             >
@@ -360,7 +362,7 @@ export default function TaskDetailRoute({
               ) : (
                 <>
                   <Play className="size-3.5" />
-                  Start Preview
+                  {task.status === "ready" ? "Run" : "Preview"}
                 </>
               )}
             </Button>
