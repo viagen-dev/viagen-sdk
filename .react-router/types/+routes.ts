@@ -36,6 +36,12 @@ type Pages = {
       "id": string;
     };
   };
+  "/projects/:id/tasks/:taskId": {
+    params: {
+      "id": string;
+      "taskId": string;
+    };
+  };
   "/settings": {
     params: {};
   };
@@ -101,6 +107,9 @@ type Pages = {
       "id": string;
     };
   };
+  "/api/sandbox/callback": {
+    params: {};
+  };
   "/api/projects/:id/workspaces/:workspaceId/logs": {
     params: {
       "id": string;
@@ -158,7 +167,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/onboarding" | "/cli/authorize" | "/projects/new" | "/projects/:id" | "/projects/:id/settings" | "/settings" | "/billing" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/profile" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/sync" | "/api/projects/:id" | "/api/projects/:id/claude" | "/api/projects/:id/secrets" | "/api/projects/:id/vercel-sync" | "/api/projects/:id/sandbox" | "/api/projects/:id/workspaces/:workspaceId/logs" | "/api/databases" | "/api/projects/:id/status" | "/api/projects/:id/tasks" | "/api/projects/:id/tasks/:taskId" | "/api/vercel/projects" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
+    page: "/" | "/login" | "/onboarding" | "/cli/authorize" | "/projects/new" | "/projects/:id" | "/projects/:id/settings" | "/projects/:id/tasks/:taskId" | "/settings" | "/billing" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/profile" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/sync" | "/api/projects/:id" | "/api/projects/:id/claude" | "/api/projects/:id/secrets" | "/api/projects/:id/vercel-sync" | "/api/projects/:id/sandbox" | "/api/sandbox/callback" | "/api/projects/:id/workspaces/:workspaceId/logs" | "/api/databases" | "/api/projects/:id/status" | "/api/projects/:id/tasks" | "/api/projects/:id/tasks/:taskId" | "/api/vercel/projects" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
   };
   "routes/login.tsx": {
     id: "routes/login";
@@ -174,7 +183,7 @@ type RouteFiles = {
   };
   "routes/_auth.tsx": {
     id: "routes/_auth";
-    page: "/" | "/projects/new" | "/projects/:id" | "/projects/:id/settings" | "/settings" | "/billing";
+    page: "/" | "/projects/new" | "/projects/:id" | "/projects/:id/settings" | "/projects/:id/tasks/:taskId" | "/settings" | "/billing";
   };
   "routes/_auth.projects.tsx": {
     id: "routes/_auth.projects";
@@ -191,6 +200,10 @@ type RouteFiles = {
   "routes/_auth.projects.$id_.settings.tsx": {
     id: "routes/_auth.projects.$id_.settings";
     page: "/projects/:id/settings";
+  };
+  "routes/_auth.projects.$id_.tasks.$taskId.tsx": {
+    id: "routes/_auth.projects.$id_.tasks.$taskId";
+    page: "/projects/:id/tasks/:taskId";
   };
   "routes/_auth.settings.tsx": {
     id: "routes/_auth.settings";
@@ -260,6 +273,10 @@ type RouteFiles = {
     id: "routes/api.projects.$id.sandbox";
     page: "/api/projects/:id/sandbox";
   };
+  "routes/api.sandbox.callback.ts": {
+    id: "routes/api.sandbox.callback";
+    page: "/api/sandbox/callback";
+  };
   "routes/api.projects.$id.workspaces.$workspaceId.logs.ts": {
     id: "routes/api.projects.$id.workspaces.$workspaceId.logs";
     page: "/api/projects/:id/workspaces/:workspaceId/logs";
@@ -328,6 +345,7 @@ type RouteModules = {
   "routes/_auth.projects.new": typeof import("./app/routes/_auth.projects.new.tsx");
   "routes/_auth.projects.$id": typeof import("./app/routes/_auth.projects.$id.tsx");
   "routes/_auth.projects.$id_.settings": typeof import("./app/routes/_auth.projects.$id_.settings.tsx");
+  "routes/_auth.projects.$id_.tasks.$taskId": typeof import("./app/routes/_auth.projects.$id_.tasks.$taskId.tsx");
   "routes/_auth.settings": typeof import("./app/routes/_auth.settings.tsx");
   "routes/_auth.billing": typeof import("./app/routes/_auth.billing.tsx");
   "routes/api.auth.login.$provider": typeof import("./app/routes/api.auth.login.$provider.ts");
@@ -345,6 +363,7 @@ type RouteModules = {
   "routes/api.projects.$id.secrets": typeof import("./app/routes/api.projects.$id.secrets.ts");
   "routes/api.projects.$id.vercel-sync": typeof import("./app/routes/api.projects.$id.vercel-sync.ts");
   "routes/api.projects.$id.sandbox": typeof import("./app/routes/api.projects.$id.sandbox.ts");
+  "routes/api.sandbox.callback": typeof import("./app/routes/api.sandbox.callback.ts");
   "routes/api.projects.$id.workspaces.$workspaceId.logs": typeof import("./app/routes/api.projects.$id.workspaces.$workspaceId.logs.ts");
   "routes/api.databases": typeof import("./app/routes/api.databases.ts");
   "routes/api.projects.$id.status": typeof import("./app/routes/api.projects.$id.status.ts");
