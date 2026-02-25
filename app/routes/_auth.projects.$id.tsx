@@ -54,6 +54,7 @@ import {
   CircleDot,
   Search,
   GitPullRequest,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { WorkspaceList } from "~/components/workspace-list";
@@ -644,6 +645,43 @@ export default function ProjectTasks({
     }
   };
 
+  /**
+   * Launch a sandbox for a task in preview mode (no prompt).
+   */
+  const previewTask = async (task: Task) => {
+    // Start the elapsed-time counter
+    startLaunchTimer(task.id);
+
+    try {
+      const sandboxRes = await fetch(
+        `/api/projects/${project.id}/sandbox`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            branch: task.branch,
+            taskId: task.id,
+            // No prompt or model - this creates a preview session
+          }),
+        },
+      );
+      const sandboxData = await sandboxRes.json();
+
+      if (sandboxRes.ok && sandboxData.workspace) {
+        // Refresh workspaces from server so WorkspaceList picks it up
+        refreshWorkspaces();
+        fetchTasks();
+      } else {
+        setSandboxError("Failed to launch preview sandbox");
+      }
+    } catch {
+      setSandboxError("Failed to launch preview sandbox");
+    } finally {
+      stopLaunchTimer(task.id);
+    }
+  };
+
   // -----------------------------------------------------------------------
   // Derived state
   // -----------------------------------------------------------------------
@@ -1084,31 +1122,71 @@ export default function ProjectTasks({
                                 </TooltipProvider>
                               );
                             })()}
-                            {/* In Review — PR link */}
-                            {task.status === "validating" && task.prUrl && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="default"
-                                      size="icon-sm"
-                                      className="sm:w-auto sm:px-2.5 sm:h-8"
-                                      onClick={() =>
-                                        window.open(task.prUrl!, "_blank")
-                                      }
-                                    >
-                                      <GitPullRequest className="size-3.5" />
-                                      <span className="hidden sm:inline">
-                                        Review PR
-                                      </span>
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    Review pull request
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
+                            {/* In Review — Preview button and PR link */}
+                            {task.status === "validating" && (() => {
+                              const elapsed = launchingTasks.get(task.id);
+                              const isLaunching = elapsed !== undefined;
+                              return (
+                                <>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="icon-sm"
+                                          className="sm:w-auto sm:px-2.5 sm:h-8"
+                                          disabled={isLaunching}
+                                          onClick={() => previewTask(task)}
+                                        >
+                                          {isLaunching ? (
+                                            <>
+                                              <Loader2 className="size-3.5 animate-spin" />
+                                              <span className="hidden sm:inline">
+                                                Launching… {elapsed}s
+                                              </span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Eye className="size-3.5" />
+                                              <span className="hidden sm:inline">
+                                                Preview
+                                              </span>
+                                            </>
+                                          )}
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        Launch sandbox to preview changes
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                  {task.prUrl && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="default"
+                                            size="icon-sm"
+                                            className="sm:w-auto sm:px-2.5 sm:h-8"
+                                            onClick={() =>
+                                              window.open(task.prUrl!, "_blank")
+                                            }
+                                          >
+                                            <GitPullRequest className="size-3.5" />
+                                            <span className="hidden sm:inline">
+                                              Review PR
+                                            </span>
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          Review pull request
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                </>
+                              );
+                            })()}
                             {/* Completed — PR link */}
                             {task.status === "completed" && task.prUrl && (
                               <TooltipProvider>
