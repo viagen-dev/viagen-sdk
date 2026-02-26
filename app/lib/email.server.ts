@@ -57,3 +57,71 @@ export async function sendOrgInviteEmail({
     log.info({ to, orgName }, "org invite email sent");
   }
 }
+
+export async function sendTaskReadyEmail({
+  to,
+  projectName,
+  projectId,
+  taskId,
+  taskPrompt,
+  prUrl,
+}: {
+  to: string;
+  projectName: string;
+  projectId: string;
+  taskId: string;
+  taskPrompt: string;
+  prUrl?: string | null;
+}) {
+  if (!resend) {
+    log.warn("skipping task ready email: RESEND_API_KEY not configured");
+    return;
+  }
+
+  const promptPreview =
+    taskPrompt.length > 120 ? taskPrompt.slice(0, 120) + "..." : taskPrompt;
+
+  const taskUrl = `${APP_URL}/projects/${projectId}/tasks/${taskId}`;
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Task ready for review — ${projectName}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px; color: #1a1a1a;">
+  <h2 style="margin: 0 0 16px;">Task ready for review</h2>
+  <p style="line-height: 1.6; margin: 0 0 12px;">
+    A task in <strong>${projectName}</strong> has finished and is ready for review:
+  </p>
+  <p style="line-height: 1.6; margin: 0 0 24px; padding: 12px 16px; background: #f4f4f5; border-radius: 6px; font-size: 14px;">
+    ${promptPreview}
+  </p>
+  <div style="margin: 0 0 24px;">
+    <a href="${taskUrl}"
+       style="display: inline-block; background: #18181b; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+      View Task
+    </a>${
+      prUrl
+        ? `&nbsp;&nbsp;<a href="${prUrl}"
+       style="display: inline-block; background: #fff; color: #18181b; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; border: 1px solid #e4e4e7;">
+      Review PR
+    </a>`
+        : ""
+    }
+  </div>
+  <p style="margin-top: 32px; font-size: 13px; color: #71717a;">
+    Viagen — ${projectName}
+  </p>
+</body>
+</html>`.trim(),
+  });
+
+  if (error) {
+    log.error({ to, projectName, taskId, error }, "failed to send task ready email");
+  } else {
+    log.info({ to, projectName, taskId }, "task ready email sent");
+  }
+}

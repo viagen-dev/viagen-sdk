@@ -1,8 +1,9 @@
 import { createHash } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "~/lib/db/index.server";
-import { tasks } from "~/lib/db/schema";
+import { tasks, projects, orgMembers, users } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
+import { sendTaskReadyEmail } from "~/lib/email.server";
 
 export async function loader() {
   return Response.json({ error: "Method not allowed" }, { status: 405 });
@@ -125,6 +126,46 @@ export async function action({ request }: { request: Request }) {
     },
     "sandbox callback: task updated successfully",
   );
+
+  // Notify org members when task is ready for review
+  if (body.status === "validating") {
+    (async () => {
+      try {
+        const [project] = await db
+          .select({ name: projects.name, organizationId: projects.organizationId })
+          .from(projects)
+          .where(eq(projects.id, task.projectId));
+
+        if (!project) return;
+
+        const members = await db
+          .select({ email: users.email })
+          .from(orgMembers)
+          .innerJoin(users, eq(orgMembers.userId, users.id))
+          .where(eq(orgMembers.organizationId, project.organizationId));
+
+        for (const member of members) {
+          sendTaskReadyEmail({
+            to: member.email,
+            projectName: project.name,
+            projectId: task.projectId,
+            taskId: updated.id,
+            taskPrompt: task.prompt,
+            prUrl: body.prUrl,
+          }).catch((err) =>
+            log.error({ email: member.email, taskId: updated.id, err }, "task ready email failed"),
+          );
+        }
+
+        log.info(
+          { taskId: updated.id, recipientCount: members.length },
+          "task ready emails dispatched",
+        );
+      } catch (err) {
+        log.error({ taskId: updated.id, err }, "failed to send task ready notifications");
+      }
+    })();
+  }
 
   return Response.json({ task: updated });
 }
