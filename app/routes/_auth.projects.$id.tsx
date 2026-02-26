@@ -506,6 +506,10 @@ export default function ProjectTasks({
    * Launch a sandbox for a pending task (run from backlog).
    */
   const runTask = async (task: Task) => {
+    // If this task already has an active workspace, don't launch another
+    const existingWs = activeWorkspaces.find((ws) => ws.taskId === task.id);
+    if (existingWs) return;
+
     // Start the elapsed-time counter
     startLaunchTimer(task.id);
 
@@ -575,6 +579,10 @@ export default function ProjectTasks({
    * Launch a sandbox for a task in preview mode (no prompt).
    */
   const previewTask = async (task: Task) => {
+    // If this task already has an active workspace, don't launch another
+    const existingWs = activeWorkspaces.find((ws) => ws.taskId === task.id);
+    if (existingWs) return;
+
     // Start the elapsed-time counter
     startLaunchTimer(task.id);
 
@@ -1046,6 +1054,7 @@ export default function ProjectTasks({
                             {task.status === "ready" && (() => {
                               const elapsed = launchingTasks.get(task.id);
                               const isLaunching = elapsed !== undefined;
+                              const hasWorkspace = activeWorkspaces.some((ws) => ws.taskId === task.id);
                               return (
                                 <TooltipProvider>
                                   <Tooltip>
@@ -1054,7 +1063,7 @@ export default function ProjectTasks({
                                         variant="default"
                                         size="icon-sm"
                                         className="sm:w-auto sm:px-2.5 sm:h-8"
-                                        disabled={isLaunching}
+                                        disabled={isLaunching || hasWorkspace}
                                         onClick={() => runTask(task)}
                                       >
                                         {isLaunching ? (
@@ -1075,7 +1084,7 @@ export default function ProjectTasks({
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      Launch sandbox for this task
+                                      {hasWorkspace ? "Workspace already running" : "Launch sandbox for this task"}
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -1110,6 +1119,7 @@ export default function ProjectTasks({
                             {task.status === "validating" && (() => {
                               const elapsed = launchingTasks.get(task.id);
                               const isLaunching = elapsed !== undefined;
+                              const hasWorkspace = activeWorkspaces.some((ws) => ws.taskId === task.id);
                               return (
                                 <>
                                   <TooltipProvider>
@@ -1119,7 +1129,7 @@ export default function ProjectTasks({
                                           variant="outline"
                                           size="icon-sm"
                                           className="sm:w-auto sm:px-2.5 sm:h-8"
-                                          disabled={isLaunching}
+                                          disabled={isLaunching || hasWorkspace}
                                           onClick={() => previewTask(task)}
                                         >
                                           {isLaunching ? (
@@ -1140,7 +1150,7 @@ export default function ProjectTasks({
                                         </Button>
                                       </TooltipTrigger>
                                       <TooltipContent>
-                                        Launch sandbox to preview changes
+                                        {hasWorkspace ? "Workspace already running" : "Launch sandbox to preview changes"}
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
