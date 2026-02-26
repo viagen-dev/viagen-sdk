@@ -966,7 +966,6 @@ export default function ProjectTasks({
           <TaskLauncher
             projectId={project.id}
             allReady={allReady}
-            launchingTasks={launchingTasks}
             onTaskCreated={handleTaskCreated}
             onRunTask={runTask}
             onError={(message) => setSandboxError(message)}
@@ -1228,14 +1227,12 @@ export default function ProjectTasks({
 function TaskLauncher({
   projectId,
   allReady,
-  launchingTasks,
   onTaskCreated,
   onRunTask,
   onError,
 }: {
   projectId: string;
   allReady: boolean;
-  launchingTasks: Map<string, number>;
   onTaskCreated: (task: Task, workspace?: Workspace) => void;
   onRunTask: (task: Task) => void;
   onError: (message: string) => void;
@@ -1247,23 +1244,9 @@ function TaskLauncher({
   const [model, setModel] = useState("claude-sonnet-4-20250514");
   const [autoStart, setAutoStart] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [autoStartedTaskId, setAutoStartedTaskId] = useState<string | null>(null);
-
-  // Track elapsed time for the auto-started task
-  const autoStartElapsed = autoStartedTaskId !== null
-    ? launchingTasks.get(autoStartedTaskId)
-    : undefined;
-  const isAutoLaunching = autoStartElapsed !== undefined;
-
-  // Clear auto-started task ID when launch finishes
-  useEffect(() => {
-    if (autoStartedTaskId && !launchingTasks.has(autoStartedTaskId)) {
-      setAutoStartedTaskId(null);
-    }
-  }, [autoStartedTaskId, launchingTasks]);
 
   const handleLaunch = async () => {
-    if (creating || isAutoLaunching || !prompt.trim()) return;
+    if (creating || !prompt.trim()) return;
     setCreating(true);
 
     try {
@@ -1288,7 +1271,6 @@ function TaskLauncher({
       setPrompt("");
 
       if (autoStart) {
-        setAutoStartedTaskId(task.id);
         onRunTask(task);
       }
     } catch {
@@ -1355,17 +1337,12 @@ function TaskLauncher({
           </label>
         </div>
         <Button
-          size={isAutoLaunching ? "sm" : "icon-sm"}
-          disabled={!allReady || creating || isAutoLaunching || !prompt.trim()}
+          size="icon-sm"
+          disabled={!allReady || creating || !prompt.trim()}
           onClick={handleLaunch}
-          className={isAutoLaunching ? "h-7 rounded-lg px-2.5 text-xs" : "size-7 rounded-lg"}
+          className="size-7 rounded-lg"
         >
-          {isAutoLaunching ? (
-            <>
-              <Loader2 className="size-3.5 animate-spin" />
-              Launching… {autoStartElapsed}s
-            </>
-          ) : creating ? (
+          {creating ? (
             <Loader2 className="size-3.5 animate-spin" />
           ) : (
             <ArrowUp className="size-3.5" />
