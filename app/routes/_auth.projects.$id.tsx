@@ -155,7 +155,7 @@ type FilterTab = "ready" | "in_review" | "completed";
 
 const FILTER_TABS: { value: FilterTab; label: string }[] = [
   { value: "ready", label: "Ready" },
-  { value: "in_review", label: "In Review" },
+  { value: "in_review", label: "In Progress" },
   { value: "completed", label: "Completed" },
 ];
 
@@ -186,7 +186,7 @@ const STATUS_CONFIG: Record<
       "gap-1.5 font-normal border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300",
   },
   validating: {
-    label: "In Review",
+    label: "In Progress",
     icon: Search,
     className: "text-yellow-500",
     badgeClassName:
@@ -972,7 +972,7 @@ export default function ProjectTasks({
           />
         )}
 
-        {/* Task list with tabs: Ready | In Review | Completed */}
+        {/* Task list with tabs: Ready | In Progress | Completed */}
         {tasks.length > 0 && (
           <>
             <H4 className="mb-4 mt-2">Tasks</H4>
@@ -1010,7 +1010,7 @@ export default function ProjectTasks({
                           {tab.value === "ready"
                             ? "No tasks ready to run"
                             : tab.value === "in_review"
-                              ? "No tasks in review"
+                              ? "No tasks in progress"
                               : "No completed tasks"}
                         </p>
                       </CardContent>
@@ -1081,6 +1081,31 @@ export default function ProjectTasks({
                                 </TooltipProvider>
                               );
                             })()}
+                            {/* Running — View button */}
+                            {task.status === "running" && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="icon-sm"
+                                      className="sm:w-auto sm:px-2.5 sm:h-8"
+                                      asChild
+                                    >
+                                      <Link to={`/projects/${project.id}/tasks/${task.id}`}>
+                                        <Eye className="size-3.5" />
+                                        <span className="hidden sm:inline">
+                                          View
+                                        </span>
+                                      </Link>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    View task details
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                             {/* In Review — Preview button and PR link */}
                             {task.status === "validating" && (() => {
                               const elapsed = launchingTasks.get(task.id);
