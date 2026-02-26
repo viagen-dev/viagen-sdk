@@ -759,8 +759,12 @@ export default function ProjectTasks({
         ? "claude"
         : null;
 
-  const readyTasks = tasks.filter((t) => t.status === "ready");
-  const inReviewTasks = tasks.filter((t) => t.status !== "ready" && t.status !== "completed");
+  const readyTasks = tasks.filter(
+    (t) => t.status === "ready" || launchingTasks.has(t.id),
+  );
+  const inReviewTasks = tasks.filter(
+    (t) => t.status !== "ready" && t.status !== "completed" && !launchingTasks.has(t.id),
+  );
   const completedTasks = tasks.filter((t) => t.status === "completed");
 
   const filterCounts: Record<FilterTab, number> = {
