@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { useRouteLoaderData, useNavigate } from "react-router";
-import { Sparkles, TriangleAlert } from "lucide-react";
+import { useRouteLoaderData, useNavigate, Link } from "react-router";
+import { ArrowLeft, Sparkles, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -121,15 +121,17 @@ export function ProjectSettingsPanel({
     undefined,
   );
   const [localVercelProjectId, setLocalVercelProjectId] = useState<
-    string | undefined
+    string | null | undefined
   >(undefined);
   const [localVercelProjectName, setLocalVercelProjectName] = useState<
-    string | undefined
+    string | null | undefined
   >(undefined);
 
   const effectiveGithubRepo = localGithubRepo ?? project.githubRepo;
   const effectiveVercelProjectId =
-    localVercelProjectId ?? project.vercelProjectId;
+    localVercelProjectId !== undefined
+      ? localVercelProjectId
+      : project.vercelProjectId;
   const vercelConnected = !!effectiveVercelProjectId;
 
   // --- GitHub picker state ---
@@ -147,6 +149,7 @@ export function ProjectSettingsPanel({
   );
   const [vercelProjectsFetched, setVercelProjectsFetched] = useState(false);
   const [savingVercel, setSavingVercel] = useState(false);
+  const [unlinkingVercel, setUnlinkingVercel] = useState(false);
 
   // --- Project name ---
   const [projectName, setProjectName] = useState(project.name);
@@ -439,6 +442,34 @@ export function ProjectSettingsPanel({
     }
   };
 
+  const handleUnlinkVercel = async () => {
+    setUnlinkingVercel(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vercelProjectId: null,
+          vercelProjectName: null,
+          vercelOrgId: null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to unlink Vercel");
+        return;
+      }
+      setLocalVercelProjectId(null);
+      setLocalVercelProjectName(null);
+      toast.success("Vercel project unlinked");
+    } catch {
+      toast.error("Failed to unlink Vercel");
+    } finally {
+      setUnlinkingVercel(false);
+    }
+  };
+
   // Vercel sync handlers
   const handleToggleSync = async (key: string, enabled: boolean) => {
     // Optimistic update
@@ -542,6 +573,14 @@ export function ProjectSettingsPanel({
 
   return (
     <div className="flex flex-col gap-6">
+      <Link
+        to={`/projects/${project.id}`}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors w-fit"
+      >
+        <ArrowLeft className="size-3.5" />
+        Back to project
+      </Link>
+
       {/* ================================================================= */}
       {/* Project Name                                                      */}
       {/* ================================================================= */}
@@ -674,38 +713,51 @@ export function ProjectSettingsPanel({
             ) : (
               <Muted>No Vercel project linked.</Muted>
             )}
-            {vercelIntegration ? (
-              <ResourcePicker
-                items={vercelProjects}
-                loading={vercelProjectsLoading}
-                error={vercelProjectsError}
-                renderItem={(vp) => (
-                  <div className="flex flex-col">
-                    <span className="truncate">{vp.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {vp.framework ?? "No framework"}
-                      {vp.link ? ` \u00b7 ${vp.link.org}/${vp.link.repo}` : ""}
-                    </span>
-                  </div>
-                )}
-                getItemValue={(vp) => vp.name}
-                getItemKey={(vp) => vp.id}
-                selectedKey={effectiveVercelProjectId}
-                onSelect={handleChangeVercelProject}
-                onOpen={loadVercelProjects}
-                triggerLabel={
-                  effectiveVercelProjectId ? "Change" : "Link project"
-                }
-                disabled={savingVercel}
-                placeholder="Search projects..."
-                emptyMessage="No Vercel projects found."
-                notConnectedMessage="Vercel token not configured."
-              />
-            ) : (
-              <Muted className="text-xs">
-                Connect Vercel in org settings to link a project.
-              </Muted>
-            )}
+            <div className="flex items-center gap-2">
+              {vercelIntegration ? (
+                <ResourcePicker
+                  items={vercelProjects}
+                  loading={vercelProjectsLoading}
+                  error={vercelProjectsError}
+                  renderItem={(vp) => (
+                    <div className="flex flex-col">
+                      <span className="truncate">{vp.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {vp.framework ?? "No framework"}
+                        {vp.link ? ` \u00b7 ${vp.link.org}/${vp.link.repo}` : ""}
+                      </span>
+                    </div>
+                  )}
+                  getItemValue={(vp) => vp.name}
+                  getItemKey={(vp) => vp.id}
+                  selectedKey={effectiveVercelProjectId}
+                  onSelect={handleChangeVercelProject}
+                  onOpen={loadVercelProjects}
+                  triggerLabel={
+                    effectiveVercelProjectId ? "Change" : "Link project"
+                  }
+                  disabled={savingVercel}
+                  placeholder="Search projects..."
+                  emptyMessage="No Vercel projects found."
+                  notConnectedMessage="Vercel token not configured."
+                />
+              ) : (
+                <Muted className="text-xs">
+                  Connect Vercel in org settings to link a project.
+                </Muted>
+              )}
+              {effectiveVercelProjectId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleUnlinkVercel}
+                  disabled={unlinkingVercel}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  {unlinkingVercel ? "Unlinking..." : "Unlink"}
+                </Button>
+              )}
+            </div>
           </CardFooter>
         )}
       </Card>
