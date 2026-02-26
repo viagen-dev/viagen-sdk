@@ -164,6 +164,7 @@ export async function createVercelDeployment(
 ): Promise<VercelDeployment> {
   const url = new URL(`${VERCEL_API}/v13/deployments`)
   if (params.teamId) url.searchParams.set('teamId', params.teamId)
+  url.searchParams.set('skipAutoDetectionConfirmation', '1')
 
   const body: Record<string, unknown> = { name: params.name }
   if (params.target) body.target = params.target
