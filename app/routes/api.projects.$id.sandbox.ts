@@ -286,14 +286,7 @@ export async function action({
           "user.email",
           "bot@viagen.dev",
         ]);
-        if (prompt) {
-          // Run mode: create a fresh branch off the default branch
-          await sandbox.runCommand("git", ["checkout", "-B", branch]);
-        } else {
-          // Preview mode: fetch and checkout the remote branch with the task's changes
-          await sandbox.runCommand("git", ["fetch", "origin", branch]);
-          await sandbox.runCommand("git", ["checkout", branch]);
-        }
+        await sandbox.runCommand("git", ["checkout", "-B", branch]);
         await sandbox.runCommand("bash", [
           "-c",
           `echo 'https://x-access-token:${githubToken}@github.com' > ~/.git-credentials`,
@@ -344,7 +337,7 @@ The viagen-sdk package is pre-installed globally. The VIAGEN_CALLBACK_URL, VIAGE
 
         envMap["VIAGEN_PROMPT"] = `${prompt}.
 
-          GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (the gh CLI is not installed). You are already on a git branch called "${branch}" — do NOT create or switch to a different branch. When you are done, commit your changes, push this branch, and create a pull request from "${branch}" using the GitHub REST API.${callbackSnippet}`;
+          GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (the gh CLI is not installed). When you are done, commit your changes, push, and create a pull request using the GitHub REST API.${callbackSnippet}`;
       }
 
       if (githubToken) {
@@ -421,26 +414,20 @@ The viagen-sdk package is pre-installed globally. The VIAGEN_CALLBACK_URL, VIAGE
         })
         .returning();
 
-      // Link workspace to task; only transition to "running" for actual runs (with prompt),
-      // not for preview launches on tasks already in review.
+      // Link workspace to task and mark as running
       if (taskId) {
-        const taskUpdate: Record<string, unknown> = {
-          callbackTokenHash: tokenHash,
-          workspaceId: workspace.id,
-        };
-        if (prompt) {
-          taskUpdate.status = "running";
-          taskUpdate.startedAt = new Date();
-        }
         await db
           .update(tasks)
-          .set(taskUpdate)
+          .set({
+            callbackTokenHash: tokenHash,
+            status: "running",
+            workspaceId: workspace.id,
+            startedAt: new Date(),
+          })
           .where(eq(tasks.id, taskId));
         log.info(
-          { taskId, workspaceId: workspace.id, isPreview: !prompt },
-          prompt
-            ? "task linked to workspace and marked as running"
-            : "task linked to preview workspace (status unchanged)",
+          { taskId, workspaceId: workspace.id },
+          "task linked to workspace and marked as running",
         );
       }
 

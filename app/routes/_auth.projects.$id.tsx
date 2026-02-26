@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link, isRouteErrorResponse } from "react-router";
+import { Link } from "react-router";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import { Textarea } from "~/components/ui/textarea";
 import { H4 } from "~/components/ui/typography";
@@ -9,18 +9,8 @@ import { projects } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-} from "~/components/ui/card";
-import {
-  Item,
-  ItemContent,
-  ItemTitle,
-  ItemDescription,
-  ItemActions,
-} from "~/components/ui/item";
+import { Card, CardContent, CardFooter } from "~/components/ui/card";
+
 import {
   Select,
   SelectContent,
@@ -28,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
+
 import { Badge } from "~/components/ui/badge";
 
 import { Alert, AlertDescription } from "~/components/ui/alert";
@@ -46,16 +36,17 @@ import {
   Loader2,
   GitBranch,
   Clock,
-  ExternalLink,
   Ellipsis,
   ArrowUp,
-  Copy,
   Play,
   CircleDot,
   Search,
   GitPullRequest,
   GitMerge,
   Eye,
+  LayoutGrid,
+  List,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { WorkspaceList } from "~/components/workspace-list";
@@ -65,7 +56,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-
 
 export async function loader({
   request,
@@ -131,6 +121,19 @@ interface ProjectStatus {
 
 type TaskStatus = "ready" | "running" | "validating" | "completed";
 
+type BoardColumn = "backlog" | "review" | "merged";
+type DisplayMode = "board" | "list";
+
+const BOARD_COLUMNS: {
+  key: BoardColumn;
+  label: string;
+  statuses: TaskStatus[];
+}[] = [
+  { key: "backlog", label: "Backlog", statuses: ["ready", "running"] },
+  { key: "review", label: "Review", statuses: ["validating"] },
+  { key: "merged", label: "Merged", statuses: ["completed"] },
+];
+
 interface Task {
   id: string;
   projectId: string;
@@ -143,6 +146,8 @@ interface Task {
   workspaceId: string | null;
   branch: string;
   createdBy: string;
+  creatorName: string | null;
+  creatorAvatarUrl: string | null;
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
@@ -151,31 +156,9 @@ interface Task {
   outputTokens: number | null;
 }
 
-interface Deployment {
-  uid: string;
-  name: string;
-  url: string;
-  state: "QUEUED" | "BUILDING" | "READY" | "ERROR" | "CANCELED";
-  created: number;
-  ready?: number;
-  meta?: {
-    githubCommitRef?: string;
-    githubCommitSha?: string;
-    githubCommitMessage?: string;
-    githubCommitAuthorLogin?: string;
-  };
-  target: string | null;
-  inspectorUrl?: string;
-  creator?: { username: string };
+function shortTaskId(id: string): string {
+  return `VI-${id.slice(0, 4).toUpperCase()}`;
 }
-
-type FilterTab = "ready" | "in_review" | "completed";
-
-const FILTER_TABS: { value: FilterTab; label: string }[] = [
-  { value: "ready", label: "Ready" },
-  { value: "in_review", label: "In Progress" },
-  { value: "completed", label: "Completed" },
-];
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -204,7 +187,7 @@ const STATUS_CONFIG: Record<
       "gap-1.5 font-normal border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300",
   },
   validating: {
-    label: "In Progress",
+    label: "In Review",
     icon: Search,
     className: "text-yellow-500",
     badgeClassName:
@@ -216,34 +199,6 @@ const STATUS_CONFIG: Record<
     className: "text-green-500",
     badgeClassName:
       "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300",
-  },
-};
-
-const DEPLOY_STATE: Record<string, { label: string; className: string }> = {
-  QUEUED: {
-    label: "Queued",
-    className:
-      "gap-1.5 font-normal border-gray-200 bg-gray-50 text-gray-800 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-300",
-  },
-  BUILDING: {
-    label: "Building",
-    className:
-      "gap-1.5 font-normal border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300",
-  },
-  READY: {
-    label: "Ready",
-    className:
-      "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300",
-  },
-  ERROR: {
-    label: "Error",
-    className:
-      "gap-1.5 font-normal border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300",
-  },
-  CANCELED: {
-    label: "Canceled",
-    className:
-      "gap-1.5 font-normal border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300",
   },
 };
 
@@ -318,20 +273,15 @@ export default function ProjectTasks({
   // --- Tasks ---
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
-  const [filterTab, setFilterTab] = useState<FilterTab>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(`viagen:tab:${project.id}`);
-      if (saved === "ready" || saved === "in_review" || saved === "completed") return saved;
-    }
-    return "ready";
-  });
-  const [launchingTasks, setLaunchingTasks] = useState<Map<string, number>>(new Map());
-  const launchTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
-  const [mergingTasks, setMergingTasks] = useState<Set<string>>(new Set());
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("board");
 
-  // --- Deployments ---
-  const [deployments, setDeployments] = useState<Deployment[]>([]);
-  const [deploying, setDeploying] = useState(false);
+  const [launchingTasks, setLaunchingTasks] = useState<Map<string, number>>(
+    new Map(),
+  );
+  const launchTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(
+    new Map(),
+  );
+  const [mergingTasks, setMergingTasks] = useState<Set<string>>(new Set());
 
   // Track previously-seen task statuses for completion notifications
   const prevTaskStatusesRef = useRef<Map<string, TaskStatus>>(new Map());
@@ -418,46 +368,26 @@ export default function ProjectTasks({
       .catch(() => {});
   }, [project.id]);
 
-  const fetchDeployments = useCallback(async () => {
-    if (!project.vercelProjectId) return;
-    try {
-      const res = await fetch(`/api/projects/${project.id}/deployments`, {
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (res.ok && data.deployments) {
-        setDeployments(data.deployments);
-      }
-    } catch {
-      // silently fail — deployments are supplementary
-    }
-  }, [project.id, project.vercelProjectId]);
-
   // Initial load
   useEffect(() => {
     refreshStatus();
     fetchTasks();
     refreshWorkspaces();
-    fetchDeployments();
-  }, [project.id, refreshStatus, fetchTasks, refreshWorkspaces, fetchDeployments]);
+  }, [project.id, refreshStatus, fetchTasks, refreshWorkspaces]);
 
-  // Polling — 5s when there are active tasks or building deployments, 30s otherwise
+  // Polling — 5s when there are running/validating tasks, 30s otherwise
   const hasActiveTasks = tasks.some(
     (t) => t.status === "running" || t.status === "validating",
   );
-  const hasActiveDeployments = deployments.some(
-    (d) => d.state === "BUILDING" || d.state === "QUEUED",
-  );
   useEffect(() => {
-    const interval = (hasActiveTasks || hasActiveDeployments) ? 5000 : 30000;
+    const interval = hasActiveTasks ? 5000 : 30000;
 
     const timer = setInterval(() => {
       fetchTasks();
-      fetchDeployments();
     }, interval);
 
     return () => clearInterval(timer);
-  }, [hasActiveTasks, hasActiveDeployments, fetchTasks, fetchDeployments]);
+  }, [hasActiveTasks, fetchTasks]);
 
   // -----------------------------------------------------------------------
   // Actions
@@ -467,20 +397,103 @@ export default function ProjectTasks({
     setLaunchingQuick(true);
     setSandboxError(null);
     try {
+      // 1. Create a task so the workspace is tracked in the task system
+      console.log("[QuickLaunch] Creating task for project:", project.id);
       const quickBranch = `feat-${Math.random().toString(36).slice(2, 8)}`;
+      const taskRes = await fetch(`/api/projects/${project.id}/tasks`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: "Quick workspace session",
+          branch: quickBranch,
+          model: "claude-sonnet-4-20250514",
+        }),
+      });
+
+      const taskText = await taskRes.text();
+      console.log(
+        "[QuickLaunch] Task response status:",
+        taskRes.status,
+        "body:",
+        taskText,
+      );
+      let taskData: any;
+      try {
+        taskData = JSON.parse(taskText);
+      } catch {
+        throw new Error(
+          `Task creation returned non-JSON (status ${taskRes.status}): ${taskText.slice(0, 200)}`,
+        );
+      }
+      if (!taskRes.ok) {
+        throw new Error(taskData.error ?? "Failed to create task");
+      }
+      const task = taskData.task as Task;
+      console.log("[QuickLaunch] Task created:", task.id);
+
+      // 2. Launch the sandbox workspace
+      console.log("[QuickLaunch] Launching sandbox...");
       const res = await fetch(`/api/projects/${project.id}/sandbox`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ branch: quickBranch }),
+        body: JSON.stringify({
+          branch: quickBranch,
+          model: "claude-sonnet-4-20250514",
+        }),
       });
-      const data = await res.json();
+
+      const sandboxText = await res.text();
+      console.log(
+        "[QuickLaunch] Sandbox response status:",
+        res.status,
+        "body:",
+        sandboxText.slice(0, 300),
+      );
+      let data: any;
+      try {
+        data = JSON.parse(sandboxText);
+      } catch {
+        throw new Error(
+          `Sandbox launch returned non-JSON (status ${res.status}): ${sandboxText.slice(0, 200)}`,
+        );
+      }
       if (!res.ok) {
+        // Sandbox failed but task was created — leave as pending
+        handleTaskCreated(task);
         throw new Error(data.error ?? "Failed to launch sandbox");
       }
-      refreshWorkspaces();
+
+      // 3. Link workspace to the task and mark as running
+      console.log(
+        "[QuickLaunch] Linking workspace",
+        data.workspace.id,
+        "to task",
+        task.id,
+      );
+      await fetch(`/api/projects/${project.id}/tasks/${task.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "running",
+          workspaceId: data.workspace.id,
+        }),
+      });
+
+      const updatedTask: Task = {
+        ...task,
+        status: "running",
+        workspaceId: data.workspace.id,
+        startedAt: new Date().toISOString(),
+      };
+
+      handleTaskCreated(updatedTask, data.workspace);
+      console.log("[QuickLaunch] Success — opening workspace URL");
       window.open(data.workspace.url, "_blank");
     } catch (err) {
+      console.error("[QuickLaunch] Error:", err);
       setSandboxError(
         err instanceof Error ? err.message : "Failed to launch workspace",
       );
@@ -576,10 +589,6 @@ export default function ProjectTasks({
    * Launch a sandbox for a pending task (run from backlog).
    */
   const runTask = async (task: Task) => {
-    // If this task already has an active workspace, don't launch another
-    const existingWs = activeWorkspaces.find((ws) => ws.taskId === task.id);
-    if (existingWs) return;
-
     // Start the elapsed-time counter
     startLaunchTimer(task.id);
 
@@ -587,27 +596,28 @@ export default function ProjectTasks({
     setTasks((prev) =>
       prev.map((t) =>
         t.id === task.id
-          ? { ...t, status: "running" as TaskStatus, startedAt: new Date().toISOString() }
+          ? {
+              ...t,
+              status: "running" as TaskStatus,
+              startedAt: new Date().toISOString(),
+            }
           : t,
       ),
     );
     prevTaskStatusesRef.current.set(task.id, "running");
 
     try {
-      const sandboxRes = await fetch(
-        `/api/projects/${project.id}/sandbox`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            branch: task.branch,
-            prompt: task.prompt,
-            model: task.model,
-            taskId: task.id,
-          }),
-        },
-      );
+      const sandboxRes = await fetch(`/api/projects/${project.id}/sandbox`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          branch: task.branch,
+          prompt: task.prompt,
+          model: task.model,
+          taskId: task.id,
+        }),
+      });
       const sandboxData = await sandboxRes.json();
 
       if (sandboxRes.ok && sandboxData.workspace) {
@@ -616,7 +626,11 @@ export default function ProjectTasks({
         setTasks((prev) =>
           prev.map((t) =>
             t.id === task.id
-              ? { ...t, status: "running" as TaskStatus, workspaceId: sandboxData.workspace.id }
+              ? {
+                  ...t,
+                  status: "running" as TaskStatus,
+                  workspaceId: sandboxData.workspace.id,
+                }
               : t,
           ),
         );
@@ -626,7 +640,9 @@ export default function ProjectTasks({
       } else {
         setTasks((prev) =>
           prev.map((t) =>
-            t.id === task.id ? { ...t, status: "ready" as TaskStatus, startedAt: null } : t,
+            t.id === task.id
+              ? { ...t, status: "ready" as TaskStatus, startedAt: null }
+              : t,
           ),
         );
         prevTaskStatusesRef.current.set(task.id, "ready");
@@ -635,7 +651,9 @@ export default function ProjectTasks({
     } catch {
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === task.id ? { ...t, status: "ready" as TaskStatus, startedAt: null } : t,
+          t.id === task.id
+            ? { ...t, status: "ready" as TaskStatus, startedAt: null }
+            : t,
         ),
       );
       prevTaskStatusesRef.current.set(task.id, "ready");
@@ -649,27 +667,20 @@ export default function ProjectTasks({
    * Launch a sandbox for a task in preview mode (no prompt).
    */
   const previewTask = async (task: Task) => {
-    // If this task already has an active workspace, don't launch another
-    const existingWs = activeWorkspaces.find((ws) => ws.taskId === task.id);
-    if (existingWs) return;
-
     // Start the elapsed-time counter
     startLaunchTimer(task.id);
 
     try {
-      const sandboxRes = await fetch(
-        `/api/projects/${project.id}/sandbox`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            branch: task.branch,
-            taskId: task.id,
-            // No prompt or model - this creates a preview session
-          }),
-        },
-      );
+      const sandboxRes = await fetch(`/api/projects/${project.id}/sandbox`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          branch: task.branch,
+          taskId: task.id,
+          // No prompt or model - this creates a preview session
+        }),
+      });
       const sandboxData = await sandboxRes.json();
 
       if (sandboxRes.ok && sandboxData.workspace) {
@@ -717,29 +728,6 @@ export default function ProjectTasks({
     }
   };
 
-  const handleRedeploy = async (target?: "production" | "preview") => {
-    setDeploying(true);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/deployments`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success("Deployment triggered");
-        fetchDeployments();
-      } else {
-        toast.error(data.error ?? "Failed to trigger deployment");
-      }
-    } catch {
-      toast.error("Failed to trigger deployment");
-    } finally {
-      setDeploying(false);
-    }
-  };
-
   // -----------------------------------------------------------------------
   // Derived state
   // -----------------------------------------------------------------------
@@ -759,24 +747,12 @@ export default function ProjectTasks({
         ? "claude"
         : null;
 
-  const readyTasks = tasks.filter(
-    (t) => t.status === "ready" || launchingTasks.has(t.id),
-  );
-  const inReviewTasks = tasks.filter(
-    (t) => t.status !== "ready" && t.status !== "completed" && !launchingTasks.has(t.id),
-  );
-  const completedTasks = tasks.filter((t) => t.status === "completed");
-
-  const filterCounts: Record<FilterTab, number> = {
-    ready: readyTasks.length,
-    in_review: inReviewTasks.length,
-    completed: completedTasks.length,
-  };
-
-  const tabTasks: Record<FilterTab, Task[]> = {
-    ready: readyTasks,
-    in_review: inReviewTasks,
-    completed: completedTasks,
+  const boardTasks: Record<BoardColumn, Task[]> = {
+    backlog: tasks.filter(
+      (t) => t.status === "ready" || t.status === "running",
+    ),
+    review: tasks.filter((t) => t.status === "validating"),
+    merged: tasks.filter((t) => t.status === "completed"),
   };
 
   // -----------------------------------------------------------------------
@@ -956,9 +932,7 @@ export default function ProjectTasks({
             workspaces={activeWorkspaces}
             tasks={tasks}
             onStopped={(id) =>
-              setActiveWorkspaces((prev) =>
-                prev.filter((w) => w.id !== id),
-              )
+              setActiveWorkspaces((prev) => prev.filter((w) => w.id !== id))
             }
           />
         )}
@@ -1071,411 +1045,499 @@ export default function ProjectTasks({
           <TaskLauncher
             projectId={project.id}
             allReady={allReady}
+            launchingTasks={launchingTasks}
             onTaskCreated={handleTaskCreated}
             onRunTask={runTask}
             onError={(message) => setSandboxError(message)}
           />
         )}
 
-        {/* Task list with tabs: Ready | In Progress | Completed */}
+        {/* Task board — Kanban columns: Backlog | Review | Merged */}
         {tasks.length > 0 && (
           <>
-            <H4 className="mb-4 mt-2">Tasks</H4>
-            <Tabs
-              value={filterTab}
-              onValueChange={(v) => {
-                setFilterTab(v as FilterTab);
-                localStorage.setItem(`viagen:tab:${project.id}`, v);
-              }}
-            >
-              <TabsList variant="line" className="mb-4">
-                {FILTER_TABS.map((tab) => (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    className="gap-1.5"
+            <div className="mb-4 mt-2 flex items-center justify-between">
+              <H4 className="mb-0">Tasks</H4>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 text-xs">
+                    Display
+                    <ChevronDown className="size-3.5 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => setDisplayMode("board")}
+                    className={displayMode === "board" ? "bg-accent" : ""}
                   >
-                    {tab.label}
-                    <Badge
-                      variant="secondary"
-                      className="h-5 min-w-5 justify-center rounded-full px-1.5 text-xs"
-                    >
-                      {filterCounts[tab.value]}
-                    </Badge>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+                    <LayoutGrid className="size-3.5" />
+                    Board
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setDisplayMode("list")}
+                    className={displayMode === "list" ? "bg-accent" : ""}
+                  >
+                    <List className="size-3.5" />
+                    List
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
-              {FILTER_TABS.map((tab) => (
-                <TabsContent key={tab.value} value={tab.value}>
-                  {tabTasks[tab.value].length === 0 ? (
-                    <Card className="border-dashed bg-muted/50">
-                      <CardContent className="flex flex-col items-center justify-center px-8 py-10">
-                        <p className="text-sm text-muted-foreground">
-                          {tab.value === "ready"
-                            ? "No tasks ready to run"
-                            : tab.value === "in_review"
-                              ? "No tasks in progress"
-                              : "No completed tasks"}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {tabTasks[tab.value].map((task) => (
-                        <Item key={task.id} variant="outline">
-                          <ItemContent>
-                            <ItemTitle>
+            {displayMode === "board" ? (
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                {BOARD_COLUMNS.map((col) => {
+                  const colTasks = boardTasks[col.key];
+                  return (
+                    <div key={col.key} className="flex flex-col">
+                      {/* Column header */}
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="text-sm font-semibold">
+                          {col.label}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {colTasks.length}
+                        </span>
+                      </div>
+
+                      {/* Column body */}
+                      <div className="flex flex-col gap-3">
+                        {colTasks.length === 0 ? (
+                          <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
+                            {col.key === "backlog"
+                              ? "No tasks in backlog"
+                              : col.key === "review"
+                                ? "No tasks in review"
+                                : "No merged tasks"}
+                          </div>
+                        ) : (
+                          colTasks.map((task) => {
+                            const elapsed = launchingTasks.get(task.id);
+                            const isLaunching = elapsed !== undefined;
+                            return (
                               <Link
+                                key={task.id}
                                 to={`/projects/${project.id}/tasks/${task.id}`}
-                                className="hover:underline"
+                                className="group block"
                               >
-                                {task.prompt}
-                              </Link>
-                            </ItemTitle>
-                            <ItemDescription>
-                              <span className="flex items-center gap-3">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="size-3" />
-                                  {timeAgo(task.createdAt)}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <GitBranch className="size-3" />
-                                  {task.branch}
-                                </span>
-                              </span>
-                            </ItemDescription>
-                          </ItemContent>
-                          <ItemActions>
-                            {/* Ready — Run button (or launching timer) */}
-                            {task.status === "ready" && (() => {
-                              const elapsed = launchingTasks.get(task.id);
-                              const isLaunching = elapsed !== undefined;
-                              const hasWorkspace = activeWorkspaces.some((ws) => ws.taskId === task.id);
-                              return (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="default"
-                                        size="icon-sm"
-                                        className="sm:w-auto sm:px-2.5 sm:h-8"
-                                        disabled={isLaunching || hasWorkspace}
-                                        onClick={() => runTask(task)}
-                                      >
-                                        {isLaunching ? (
-                                          <>
-                                            <Loader2 className="size-3.5 animate-spin" />
-                                            <span className="hidden sm:inline">
-                                              Launching… {elapsed}s
-                                            </span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Play className="size-3.5" />
-                                            <span className="hidden sm:inline">
-                                              Run
-                                            </span>
-                                          </>
-                                        )}
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      {hasWorkspace ? "Workspace already running" : "Launch sandbox for this task"}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              );
-                            })()}
-                            {/* Running — View button */}
-                            {task.status === "running" && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
+                                <div className="rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50">
+                                  {/* Top row: short ID + avatar */}
+                                  <div className="mb-1.5 flex items-start justify-between">
+                                    <span className="text-sm font-semibold">
+                                      {shortTaskId(task.id)}
+                                    </span>
+                                    <Avatar size="sm">
+                                      {task.creatorAvatarUrl && (
+                                        <AvatarImage
+                                          src={task.creatorAvatarUrl}
+                                          alt={task.creatorName ?? "User"}
+                                        />
+                                      )}
+                                      <AvatarFallback className="bg-muted text-muted-foreground text-[10px] font-medium">
+                                        {task.creatorName
+                                          ? task.creatorName
+                                              .split(/\s+/)
+                                              .map((w) => w[0])
+                                              .join("")
+                                              .slice(0, 2)
+                                              .toUpperCase()
+                                          : "??"}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  </div>
+
+                                  {/* Description */}
+                                  <p className="mb-3 text-sm text-muted-foreground line-clamp-2">
+                                    {task.prompt}
+                                  </p>
+
+                                  {/* Branch badge */}
+                                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                                    <Badge
                                       variant="outline"
-                                      size="icon-sm"
-                                      className="sm:w-auto sm:px-2.5 sm:h-8"
-                                      asChild
+                                      className="gap-1 text-xs font-normal"
                                     >
-                                      <Link to={`/projects/${project.id}/tasks/${task.id}`}>
-                                        <Eye className="size-3.5" />
-                                        <span className="hidden sm:inline">
-                                          View
-                                        </span>
-                                      </Link>
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    View task details
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
-                            {/* In Review — Preview button and PR link */}
-                            {task.status === "validating" && (() => {
-                              const elapsed = launchingTasks.get(task.id);
-                              const isLaunching = elapsed !== undefined;
-                              const hasWorkspace = activeWorkspaces.some((ws) => ws.taskId === task.id);
-                              return (
-                                <>
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
+                                      <GitBranch className="size-3" />
+                                      {task.branch}
+                                    </Badge>
+                                    {task.status === "running" && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="gap-1 text-xs font-normal border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300"
+                                      >
+                                        <Loader2 className="size-3 animate-spin" />
+                                        Running
+                                      </Badge>
+                                    )}
+                                    {task.prUrl && (
+                                      <Badge
+                                        variant="outline"
+                                        className="gap-1 text-xs font-normal"
+                                      >
+                                        <GitPullRequest className="size-3" />
+                                        PR
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  {/* Timestamp */}
+                                  <p className="text-xs text-muted-foreground">
+                                    Updated{" "}
+                                    {timeAgo(task.startedAt ?? task.createdAt)}
+                                  </p>
+
+                                  {/* Action buttons — stop propagation so they don't navigate */}
+                                  {(task.status === "ready" ||
+                                    task.status === "validating") && (
+                                    <div
+                                      className="mt-3 flex items-center gap-2 border-t pt-3"
+                                      onClick={(e) => e.preventDefault()}
+                                    >
+                                      {task.status === "ready" && (
                                         <Button
-                                          variant="outline"
-                                          size="icon-sm"
-                                          className="sm:w-auto sm:px-2.5 sm:h-8"
-                                          disabled={isLaunching || hasWorkspace}
-                                          onClick={() => previewTask(task)}
+                                          variant="default"
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          disabled={isLaunching}
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            runTask(task);
+                                          }}
                                         >
                                           {isLaunching ? (
                                             <>
-                                              <Loader2 className="size-3.5 animate-spin" />
-                                              <span className="hidden sm:inline">
-                                                Launching… {elapsed}s
-                                              </span>
+                                              <Loader2 className="size-3 animate-spin" />
+                                              Launching… {elapsed}s
                                             </>
                                           ) : (
                                             <>
-                                              <Eye className="size-3.5" />
-                                              <span className="hidden sm:inline">
-                                                Preview
-                                              </span>
+                                              <Play className="size-3" />
+                                              Run
                                             </>
                                           )}
                                         </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        {hasWorkspace ? "Workspace already running" : "Launch sandbox to preview changes"}
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                  {task.prUrl && (
-                                    <>
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
+                                      )}
+                                      {task.status === "validating" && (
+                                        <>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-xs"
+                                            disabled={isLaunching}
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              previewTask(task);
+                                            }}
+                                          >
+                                            {isLaunching ? (
+                                              <>
+                                                <Loader2 className="size-3 animate-spin" />
+                                                Launching… {elapsed}s
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Eye className="size-3" />
+                                                Preview
+                                              </>
+                                            )}
+                                          </Button>
+                                          {task.prUrl && (
+                                            <>
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 text-xs"
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  window.open(
+                                                    task.prUrl!,
+                                                    "_blank",
+                                                  );
+                                                }}
+                                              >
+                                                <GitPullRequest className="size-3" />
+                                                Review PR
+                                              </Button>
+                                              <Button
+                                                variant="default"
+                                                size="sm"
+                                                className="h-7 text-xs"
+                                                disabled={mergingTasks.has(
+                                                  task.id,
+                                                )}
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  mergeTask(task);
+                                                }}
+                                              >
+                                                {mergingTasks.has(task.id) ? (
+                                                  <>
+                                                    <Loader2 className="size-3 animate-spin" />
+                                                    Merging…
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <GitMerge className="size-3" />
+                                                    Merge
+                                                  </>
+                                                )}
+                                              </Button>
+                                            </>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                  {task.status === "completed" &&
+                                    task.prUrl && (
+                                      <div
+                                        className="mt-3 flex items-center gap-2 border-t pt-3"
+                                        onClick={(e) => e.preventDefault()}
+                                      >
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            window.open(task.prUrl!, "_blank");
+                                          }}
+                                        >
+                                          <GitPullRequest className="size-3" />
+                                          View PR
+                                        </Button>
+                                      </div>
+                                    )}
+                                </div>
+                              </Link>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* ---- List view ---- */
+              <div className="flex flex-col gap-6">
+                {BOARD_COLUMNS.map((col) => {
+                  const colTasks = boardTasks[col.key];
+                  return (
+                    <div key={col.key}>
+                      {/* Section header */}
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="text-sm font-semibold">
+                          {col.label}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {colTasks.length}
+                        </span>
+                      </div>
+
+                      {/* Section rows */}
+                      <div className="flex flex-col gap-2">
+                        {colTasks.length === 0 ? (
+                          <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
+                            {col.key === "backlog"
+                              ? "No tasks in backlog"
+                              : col.key === "review"
+                                ? "No tasks in review"
+                                : "No merged tasks"}
+                          </div>
+                        ) : (
+                          colTasks.map((task) => {
+                            const config = STATUS_CONFIG[task.status];
+                            const StatusIcon = config.icon;
+                            const elapsed = launchingTasks.get(task.id);
+                            const isLaunching = elapsed !== undefined;
+                            return (
+                              <Link
+                                key={task.id}
+                                to={`/projects/${project.id}/tasks/${task.id}`}
+                                className="group block"
+                              >
+                                <div className="flex items-center gap-4 rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-accent/50">
+                                  {/* Avatar */}
+                                  <Avatar size="sm" className="shrink-0">
+                                    {task.creatorAvatarUrl && (
+                                      <AvatarImage
+                                        src={task.creatorAvatarUrl}
+                                        alt={task.creatorName ?? "User"}
+                                      />
+                                    )}
+                                    <AvatarFallback className="bg-muted text-muted-foreground text-[10px] font-medium">
+                                      {task.creatorName
+                                        ? task.creatorName
+                                            .split(/\s+/)
+                                            .map((w) => w[0])
+                                            .join("")
+                                            .slice(0, 2)
+                                            .toUpperCase()
+                                        : "??"}
+                                    </AvatarFallback>
+                                  </Avatar>
+
+                                  {/* Task info */}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-semibold text-muted-foreground">
+                                        {shortTaskId(task.id)}
+                                      </span>
+                                      <span className="truncate text-sm font-medium">
+                                        {task.prompt}
+                                      </span>
+                                    </div>
+                                    <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                                      <span className="flex items-center gap-1">
+                                        <GitBranch className="size-3" />
+                                        {task.branch}
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="size-3" />
+                                        {timeAgo(
+                                          task.startedAt ?? task.createdAt,
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Status badge */}
+                                  <Badge
+                                    variant="secondary"
+                                    className={config.badgeClassName}
+                                  >
+                                    <StatusIcon
+                                      className={`size-3 ${config.className} ${task.status === "running" ? "animate-spin" : ""}`}
+                                    />
+                                    {config.label}
+                                  </Badge>
+
+                                  {/* Actions */}
+                                  <div
+                                    className="flex shrink-0 items-center gap-2"
+                                    onClick={(e) => e.preventDefault()}
+                                  >
+                                    {task.status === "ready" && (
+                                      <Button
+                                        variant="default"
+                                        size="sm"
+                                        className="h-7 text-xs"
+                                        disabled={isLaunching}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          runTask(task);
+                                        }}
+                                      >
+                                        {isLaunching ? (
+                                          <>
+                                            <Loader2 className="size-3 animate-spin" />
+                                            Launching… {elapsed}s
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Play className="size-3" />
+                                            Run
+                                          </>
+                                        )}
+                                      </Button>
+                                    )}
+                                    {task.status === "validating" && (
+                                      <>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          disabled={isLaunching}
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            previewTask(task);
+                                          }}
+                                        >
+                                          {isLaunching ? (
+                                            <>
+                                              <Loader2 className="size-3 animate-spin" />
+                                              Launching… {elapsed}s
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Eye className="size-3" />
+                                              Preview
+                                            </>
+                                          )}
+                                        </Button>
+                                        {task.prUrl && (
+                                          <>
                                             <Button
                                               variant="outline"
-                                              size="icon-sm"
-                                              className="sm:w-auto sm:px-2.5 sm:h-8"
-                                              onClick={() =>
-                                                window.open(task.prUrl!, "_blank")
-                                              }
+                                              size="sm"
+                                              className="h-7 text-xs"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                window.open(
+                                                  task.prUrl!,
+                                                  "_blank",
+                                                );
+                                              }}
                                             >
-                                              <GitPullRequest className="size-3.5" />
-                                              <span className="hidden sm:inline">
-                                                Review PR
-                                              </span>
+                                              <GitPullRequest className="size-3" />
+                                              Review PR
                                             </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            Review pull request
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
                                             <Button
                                               variant="default"
-                                              size="icon-sm"
-                                              className="sm:w-auto sm:px-2.5 sm:h-8"
-                                              disabled={mergingTasks.has(task.id)}
-                                              onClick={() => mergeTask(task)}
+                                              size="sm"
+                                              className="h-7 text-xs"
+                                              disabled={mergingTasks.has(
+                                                task.id,
+                                              )}
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                mergeTask(task);
+                                              }}
                                             >
                                               {mergingTasks.has(task.id) ? (
                                                 <>
-                                                  <Loader2 className="size-3.5 animate-spin" />
-                                                  <span className="hidden sm:inline">
-                                                    Merging…
-                                                  </span>
+                                                  <Loader2 className="size-3 animate-spin" />
+                                                  Merging…
                                                 </>
                                               ) : (
                                                 <>
-                                                  <GitMerge className="size-3.5" />
-                                                  <span className="hidden sm:inline">
-                                                    Merge
-                                                  </span>
+                                                  <GitMerge className="size-3" />
+                                                  Merge
                                                 </>
                                               )}
                                             </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            Merge pull request
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    </>
-                                  )}
-                                </>
-                              );
-                            })()}
-                            {/* Completed — PR link */}
-                            {task.status === "completed" && task.prUrl && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="default"
-                                      size="icon-sm"
-                                      className="sm:w-auto sm:px-2.5 sm:h-8"
-                                      onClick={() =>
-                                        window.open(task.prUrl!, "_blank")
-                                      }
-                                    >
-                                      <GitPullRequest className="size-3.5" />
-                                      <span className="hidden sm:inline">
-                                        View PR
-                                      </span>
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    View pull request
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
-                          </ItemActions>
-                        </Item>
-                      ))}
+                                          </>
+                                        )}
+                                      </>
+                                    )}
+                                    {task.status === "completed" &&
+                                      task.prUrl && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            window.open(task.prUrl!, "_blank");
+                                          }}
+                                        >
+                                          <GitPullRequest className="size-3" />
+                                          View PR
+                                        </Button>
+                                      )}
+                                  </div>
+                                </div>
+                              </Link>
+                            );
+                          })
+                        )}
+                      </div>
                     </div>
-                  )}
-                </TabsContent>
-              ))}
-            </Tabs>
-          </>
-        )}
-
-        {/* Deployments — only visible when Vercel is connected */}
-        {project.vercelProjectId && (
-          <div className="mt-8">
-            <div className="flex items-center justify-between mb-4">
-              <H4 className="mb-0">Deployments</H4>
-              {isAdmin && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={deploying}
-                  onClick={() => handleRedeploy("production")}
-                >
-                  {deploying ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <ArrowUp className="size-3.5" />
-                  )}
-                  {deploying ? "Deploying..." : "Deploy"}
-                </Button>
-              )}
-            </div>
-            {deployments.length === 0 ? (
-              <Card className="border-dashed bg-muted/50">
-                <CardContent className="flex flex-col items-center justify-center px-8 py-10">
-                  <p className="text-sm text-muted-foreground">
-                    No deployments yet
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {deployments.slice(0, 3).map((d) => {
-                  const cfg = DEPLOY_STATE[d.state] ?? {
-                    label: d.state,
-                    className: "gap-1.5 font-normal",
-                  };
-                  return (
-                    <Item key={d.uid} variant="outline">
-                      <ItemContent>
-                        <ItemTitle>
-                          {d.meta?.githubCommitMessage
-                            ? d.meta.githubCommitMessage.length > 80
-                              ? d.meta.githubCommitMessage.slice(0, 80) + "..."
-                              : d.meta.githubCommitMessage
-                            : d.url}
-                        </ItemTitle>
-                        <ItemDescription>
-                          <span className="flex items-center gap-3 flex-wrap">
-                            <Badge variant="secondary" className={cfg.className}>
-                              {d.state === "BUILDING" && (
-                                <Loader2 className="size-3 animate-spin" />
-                              )}
-                              {cfg.label}
-                            </Badge>
-                            {d.meta?.githubCommitRef && (
-                              <span className="flex items-center gap-1">
-                                <GitBranch className="size-3" />
-                                {d.meta.githubCommitRef}
-                              </span>
-                            )}
-                            {d.target === "production" && (
-                              <Badge variant="outline" className="text-xs font-normal">
-                                Production
-                              </Badge>
-                            )}
-                            <span className="flex items-center gap-1">
-                              <Clock className="size-3" />
-                              {timeAgo(new Date(d.created).toISOString())}
-                            </span>
-                          </span>
-                        </ItemDescription>
-                      </ItemContent>
-                      <ItemActions>
-                        {d.state === "READY" && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="icon-sm"
-                                  className="sm:w-auto sm:px-2.5 sm:h-8"
-                                  onClick={() =>
-                                    window.open(`https://${d.url}`, "_blank")
-                                  }
-                                >
-                                  <ExternalLink className="size-3.5" />
-                                  <span className="hidden sm:inline">Visit</span>
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Open deployment</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                        {d.inspectorUrl && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  onClick={() =>
-                                    window.open(d.inspectorUrl, "_blank")
-                                  }
-                                >
-                                  <ExternalLink className="size-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>View build logs</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </ItemActions>
-                    </Item>
                   );
                 })}
-                {deployments.length > 3 && (
-                  <a
-                    href={`https://vercel.com/${project.vercelProjectName ?? project.vercelProjectId}/deployments`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors text-center py-1"
-                  >
-                    View all deployments on Vercel
-                  </a>
-                )}
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </div>
@@ -1489,12 +1551,14 @@ export default function ProjectTasks({
 function TaskLauncher({
   projectId,
   allReady,
+  launchingTasks,
   onTaskCreated,
   onRunTask,
   onError,
 }: {
   projectId: string;
   allReady: boolean;
+  launchingTasks: Map<string, number>;
   onTaskCreated: (task: Task, workspace?: Workspace) => void;
   onRunTask: (task: Task) => void;
   onError: (message: string) => void;
@@ -1506,9 +1570,26 @@ function TaskLauncher({
   const [model, setModel] = useState("claude-sonnet-4-20250514");
   const [autoStart, setAutoStart] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [autoStartedTaskId, setAutoStartedTaskId] = useState<string | null>(
+    null,
+  );
+
+  // Track elapsed time for the auto-started task
+  const autoStartElapsed =
+    autoStartedTaskId !== null
+      ? launchingTasks.get(autoStartedTaskId)
+      : undefined;
+  const isAutoLaunching = autoStartElapsed !== undefined;
+
+  // Clear auto-started task ID when launch finishes
+  useEffect(() => {
+    if (autoStartedTaskId && !launchingTasks.has(autoStartedTaskId)) {
+      setAutoStartedTaskId(null);
+    }
+  }, [autoStartedTaskId, launchingTasks]);
 
   const handleLaunch = async () => {
-    if (creating || !prompt.trim()) return;
+    if (creating || isAutoLaunching || !prompt.trim()) return;
     setCreating(true);
 
     try {
@@ -1531,9 +1612,9 @@ function TaskLauncher({
       const task = taskData.task as Task;
       onTaskCreated(task);
       setPrompt("");
-      setBranch(`feat-${Math.random().toString(36).slice(2, 8)}`);
 
       if (autoStart) {
+        setAutoStartedTaskId(task.id);
         onRunTask(task);
       }
     } catch {
@@ -1600,12 +1681,21 @@ function TaskLauncher({
           </label>
         </div>
         <Button
-          size="icon-sm"
-          disabled={!allReady || creating || !prompt.trim()}
+          size={isAutoLaunching ? "sm" : "icon-sm"}
+          disabled={!allReady || creating || isAutoLaunching || !prompt.trim()}
           onClick={handleLaunch}
-          className="size-7 rounded-lg"
+          className={
+            isAutoLaunching
+              ? "h-7 rounded-lg px-2.5 text-xs"
+              : "size-7 rounded-lg"
+          }
         >
-          {creating ? (
+          {isAutoLaunching ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" />
+              Launching… {autoStartElapsed}s
+            </>
+          ) : creating ? (
             <Loader2 className="size-3.5 animate-spin" />
           ) : (
             <ArrowUp className="size-3.5" />
@@ -1638,28 +1728,5 @@ function GitHubIcon({ size = 12 }: { size?: number }) {
     >
       <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
     </svg>
-  );
-}
-
-export function ErrorBoundary({ error }: { error: unknown }) {
-  const is404 = isRouteErrorResponse(error) && error.status === 404;
-
-  return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <h1 className="text-4xl font-bold tracking-tight">
-        {is404 ? "404" : "Something went wrong"}
-      </h1>
-      <p className="mt-3 text-muted-foreground">
-        {is404
-          ? "This project doesn't exist or you don't have access to it."
-          : "An unexpected error occurred."}
-      </p>
-      <Link
-        to="/"
-        className="mt-6 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-      >
-        Back to projects
-      </Link>
-    </div>
   );
 }

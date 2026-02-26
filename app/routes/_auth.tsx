@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
+import { redirect } from "react-router";
 import { requireAuth } from "~/lib/session.server";
 import { listOrgSecrets } from "~/lib/infisical.server";
 import { log } from "~/lib/logger.server";
@@ -125,7 +126,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
       return;
     }
     document.cookie = `viagen-org=${value}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-    window.location.href = "/";
+    window.location.reload();
   };
 
   const handleLogout = async () => {

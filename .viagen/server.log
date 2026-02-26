@@ -1,3 +1,279 @@
 [2026-02-26T20:25:34.490Z] [INFO]   ➜  Local:   http://localhost:5173/
 [2026-02-26T20:25:34.490Z] [INFO]   ➜  Network: use --host to expose
 [2026-02-26T20:25:34.490Z] [INFO]   ➜  press h + enter to show help
+[2026-02-26T20:26:57.155Z] [INFO] page reload app/components/project-settings.tsx
+[2026-02-26T20:26:57.156Z] [INFO] page reload app/lib/email.server.ts
+[2026-02-26T20:26:57.156Z] [INFO] page reload app/lib/vercel.server.ts
+[2026-02-26T20:26:57.176Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/api.projects.$id.tasks.ts:4:0: ERROR: Unexpected "<<"
+
+Unexpected "<<"
+2  |  import { requireAuth } from "~/lib/session.server";
+3  |  import { db } from "~/lib/db/index.server";
+4  |  <<<<<<< HEAD
+   |  ^
+5  |  import { projects, tasks, orgMembers, users } from "~/lib/db/schema";
+6  |  import { log } from "~/lib/logger.server";
+
+[2026-02-26T20:26:57.176Z] [INFO] page reload app/routes/api.projects.$id.tasks.ts
+[2026-02-26T20:26:57.177Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+
+Unexpected "<<"
+157 |  }
+158 |  
+159 |  <<<<<<< HEAD
+    |  ^
+160 |  function shortTaskId(id: string): string {
+161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+
+[2026-02-26T20:26:57.178Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-26T20:26:57.180Z] [INFO] page reload app/routes/api.auth.logout.ts
+[2026-02-26T20:26:57.180Z] [INFO] page reload app/routes/api.sandbox.callback.ts
+[2026-02-26T20:26:57.180Z] [INFO] page reload app/routes/api.projects.$id.tasks.$taskId.ts
+[2026-02-26T20:26:57.180Z] [INFO] page reload app/routes/api.projects.$id.sandbox.ts
+[2026-02-26T20:26:57.184Z] [INFO] hmr update /app/routes/_auth.tsx
+[2026-02-26T20:26:57.184Z] [INFO] hmr update /app/routes/_auth.tsx
+[2026-02-26T20:26:57.184Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
+[2026-02-26T20:26:57.184Z] [INFO] page reload app/routes/_auth.tsx
+[2026-02-26T20:26:57.314Z] [ERROR] Error when evaluating SSR module virtual:react-router/server-build: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0
+  
+  Unexpected "<<"
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  function shortTaskId(id: string): string {
+  161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-26T20:26:57.315Z] [ERROR] Internal server error: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0
+  
+  Unexpected "<<"
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  function shortTaskId(id: string): string {
+  161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-26T20:26:57.315Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+
+Unexpected "<<"
+157 |  }
+158 |  
+159 |  <<<<<<< HEAD
+    |  ^
+160 |  function shortTaskId(id: string): string {
+161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+
+[2026-02-26T20:26:57.317Z] [ERROR] Internal server error: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0
+  
+  Unexpected "<<"
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  function shortTaskId(id: string): string {
+  161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-26T20:26:57.317Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+
+Unexpected "<<"
+157 |  }
+158 |  
+159 |  <<<<<<< HEAD
+    |  ^
+160 |  function shortTaskId(id: string): string {
+161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+
+[2026-02-26T20:26:57.397Z] [ERROR] Internal server error: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0
+  
+  Unexpected "<<"
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  function shortTaskId(id: string): string {
+  161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-26T20:26:57.397Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+
+Unexpected "<<"
+157 |  }
+158 |  
+159 |  <<<<<<< HEAD
+    |  ^
+160 |  function shortTaskId(id: string): string {
+161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+
+[2026-02-26T20:27:44.549Z] [INFO] page reload app/routes/api.projects.$id.tasks.ts
+[2026-02-26T20:27:44.588Z] [ERROR] Error when evaluating SSR module virtual:react-router/server-build: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0
+  
+  Unexpected "<<"
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  function shortTaskId(id: string): string {
+  161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-26T20:27:44.588Z] [ERROR] Internal server error: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0
+  
+  Unexpected "<<"
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  function shortTaskId(id: string): string {
+  161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-26T20:27:44.589Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+
+Unexpected "<<"
+157 |  }
+158 |  
+159 |  <<<<<<< HEAD
+    |  ^
+160 |  function shortTaskId(id: string): string {
+161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+
+[2026-02-26T20:27:44.670Z] [ERROR] Internal server error: Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+  Plugin: vite:esbuild
+  File: /Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0
+  
+  Unexpected "<<"
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  function shortTaskId(id: string): string {
+  161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+  
+      at failureErrorWithLog (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/nkirschner/Developer/viagen-sdk/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Socket.Readable.push (node:internal/streams/readable:392:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+      at Pipe.callbackTrampoline (node:internal/async_hooks:130:17)
+[2026-02-26T20:27:44.671Z] [ERROR] [vite:build] Transform failed with 1 error:
+/Users/nkirschner/Developer/viagen-sdk/app/routes/_auth.projects.$id.tsx:159:0: ERROR: Unexpected "<<"
+
+Unexpected "<<"
+157 |  }
+158 |  
+159 |  <<<<<<< HEAD
+    |  ^
+160 |  function shortTaskId(id: string): string {
+161 |    return `VI-${id.slice(0, 4).toUpperCase()}`;
+
+[2026-02-26T20:28:30.726Z] [INFO] page reload app/routes/api.projects.$id.tasks.ts
+[2026-02-26T20:28:30.734Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-02-26T20:28:58.059Z] [INFO] page reload app/routes/api.projects.$id.tasks.ts
+[2026-02-26T20:30:39.038Z] [INFO] page reload app/components/project-settings.tsx
+[2026-02-26T20:30:39.038Z] [INFO] page reload app/lib/email.server.ts
+[2026-02-26T20:30:39.039Z] [INFO] page reload app/lib/vercel.server.ts
+[2026-02-26T20:30:39.059Z] [INFO] page reload app/routes/api.projects.$id.deployments.ts
+[2026-02-26T20:30:39.072Z] [INFO] hmr update /app/routes/_auth.tsx
+[2026-02-26T20:30:39.073Z] [INFO] hmr update /app/routes/_auth.tsx
+[2026-02-26T20:30:39.073Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
+[2026-02-26T20:30:39.073Z] [INFO] page reload app/routes/_auth.tsx
+[2026-02-26T20:30:39.081Z] [INFO] page reload app/routes/api.auth.logout.ts
+[2026-02-26T20:30:39.081Z] [INFO] page reload app/routes/api.sandbox.callback.ts
+[2026-02-26T20:30:39.082Z] [INFO] page reload app/routes/api.projects.$id.tasks.$taskId.ts
+[2026-02-26T20:30:39.082Z] [INFO] page reload app/routes/api.projects.$id.tasks.ts
+[2026-02-26T20:30:39.083Z] [INFO] page reload app/routes/api.projects.$id.sandbox.ts
+[2026-02-26T20:30:39.085Z] [INFO] page reload app/routes/_auth.projects.$id.tsx

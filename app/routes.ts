@@ -45,7 +45,6 @@ export default [
   route("api/sandbox/callback", "routes/api.sandbox.callback.ts"),
   route("api/projects/:id/workspaces/:workspaceId/logs", "routes/api.projects.$id.workspaces.$workspaceId.logs.ts"),
   route("api/databases", "routes/api.databases.ts"),
-  route("api/projects/:id/deployments", "routes/api.projects.$id.deployments.ts"),
   route("api/projects/:id/status", "routes/api.projects.$id.status.ts"),
   route("api/projects/:id/tasks", "routes/api.projects.$id.tasks.ts"),
   route(
