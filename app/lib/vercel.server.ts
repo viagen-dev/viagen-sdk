@@ -158,6 +158,34 @@ export async function redeployVercelDeployment(
   return res.json()
 }
 
+export async function createVercelDeployment(
+  token: string,
+  params: { name: string; target?: 'production' | 'preview'; teamId?: string; gitSource?: { type: string; org: string; repo: string; ref: string } },
+): Promise<VercelDeployment> {
+  const url = new URL(`${VERCEL_API}/v13/deployments`)
+  if (params.teamId) url.searchParams.set('teamId', params.teamId)
+
+  const body: Record<string, unknown> = { name: params.name }
+  if (params.target) body.target = params.target
+  if (params.gitSource) body.gitSource = params.gitSource
+
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const resBody = await res.json().catch(() => ({}))
+    throw new VercelApiError(res.status, resBody.error?.message ?? 'Vercel API error')
+  }
+
+  return res.json()
+}
+
 // ── Environment Variables ────────────────────────────
 
 export interface VercelEnvVar {

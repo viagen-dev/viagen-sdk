@@ -6,6 +6,7 @@ import { getSecret } from "~/lib/infisical.server";
 import {
   listVercelDeployments,
   redeployVercelDeployment,
+  createVercelDeployment,
 } from "~/lib/vercel.server";
 import { log } from "~/lib/logger.server";
 
@@ -120,25 +121,27 @@ export async function action({
     : undefined;
 
   try {
-    // Get the most recent deployment to redeploy
+    // Try to redeploy the most recent deployment, or create a fresh one
     const { deployments } = await listVercelDeployments(token, {
       projectId: project.vercelProjectId,
       teamId: project.vercelOrgId ?? undefined,
       limit: 1,
     });
 
-    if (deployments.length === 0) {
-      return Response.json(
-        { error: "No deployments found to redeploy" },
-        { status: 400 },
+    let deployment;
+    if (deployments.length > 0) {
+      deployment = await redeployVercelDeployment(
+        token,
+        deployments[0].uid,
+        { target, teamId: project.vercelOrgId ?? undefined },
       );
+    } else {
+      deployment = await createVercelDeployment(token, {
+        name: project.vercelProjectName ?? project.vercelProjectId,
+        target,
+        teamId: project.vercelOrgId ?? undefined,
+      });
     }
-
-    const deployment = await redeployVercelDeployment(
-      token,
-      deployments[0].uid,
-      { target, teamId: project.vercelOrgId ?? undefined },
-    );
 
     log.info(
       { projectId, userId: user.id, deploymentId: deployment.uid, target },

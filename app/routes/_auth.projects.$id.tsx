@@ -1353,7 +1353,7 @@ export default function ProjectTasks({
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={deploying || deployments.length === 0}
+                  disabled={deploying}
                   onClick={() => handleRedeploy("production")}
                 >
                   {deploying ? (
@@ -1361,7 +1361,7 @@ export default function ProjectTasks({
                   ) : (
                     <ArrowUp className="size-3.5" />
                   )}
-                  {deploying ? "Deploying..." : "Redeploy"}
+                  {deploying ? "Deploying..." : "Deploy"}
                 </Button>
               )}
             </div>
