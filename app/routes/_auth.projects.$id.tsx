@@ -272,7 +272,13 @@ export default function ProjectTasks({
   // --- Tasks ---
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
-  const [filterTab, setFilterTab] = useState<FilterTab>("ready");
+  const [filterTab, setFilterTab] = useState<FilterTab>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`viagen:tab:${project.id}`);
+      if (saved === "ready" || saved === "in_review" || saved === "completed") return saved;
+    }
+    return "ready";
+  });
   const [launchingTasks, setLaunchingTasks] = useState<Map<string, number>>(new Map());
   const launchTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const [mergingTasks, setMergingTasks] = useState<Set<string>>(new Set());
@@ -1056,7 +1062,10 @@ export default function ProjectTasks({
             <H4 className="mb-4 mt-2">Tasks</H4>
             <Tabs
               value={filterTab}
-              onValueChange={(v) => setFilterTab(v as FilterTab)}
+              onValueChange={(v) => {
+                setFilterTab(v as FilterTab);
+                localStorage.setItem(`viagen:tab:${project.id}`, v);
+              }}
             >
               <TabsList variant="line" className="mb-4">
                 {FILTER_TABS.map((tab) => (
