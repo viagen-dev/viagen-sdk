@@ -1375,7 +1375,7 @@ export default function ProjectTasks({
               </Card>
             ) : (
               <div className="flex flex-col gap-3">
-                {deployments.map((d) => {
+                {deployments.slice(0, 3).map((d) => {
                   const cfg = DEPLOY_STATE[d.state] ?? {
                     label: d.state,
                     className: "gap-1.5 font-normal",
@@ -1459,6 +1459,16 @@ export default function ProjectTasks({
                     </Item>
                   );
                 })}
+                {deployments.length > 3 && (
+                  <a
+                    href={`https://vercel.com/${project.vercelProjectName ?? project.vercelProjectId}/deployments`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors text-center py-1"
+                  >
+                    View all deployments on Vercel
+                  </a>
+                )}
               </div>
             )}
           </div>
