@@ -397,103 +397,20 @@ export default function ProjectTasks({
     setLaunchingQuick(true);
     setSandboxError(null);
     try {
-      // 1. Create a task so the workspace is tracked in the task system
-      console.log("[QuickLaunch] Creating task for project:", project.id);
       const quickBranch = `feat-${Math.random().toString(36).slice(2, 8)}`;
-      const taskRes = await fetch(`/api/projects/${project.id}/tasks`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: "Quick workspace session",
-          branch: quickBranch,
-          model: "claude-sonnet-4-20250514",
-        }),
-      });
-
-      const taskText = await taskRes.text();
-      console.log(
-        "[QuickLaunch] Task response status:",
-        taskRes.status,
-        "body:",
-        taskText,
-      );
-      let taskData: any;
-      try {
-        taskData = JSON.parse(taskText);
-      } catch {
-        throw new Error(
-          `Task creation returned non-JSON (status ${taskRes.status}): ${taskText.slice(0, 200)}`,
-        );
-      }
-      if (!taskRes.ok) {
-        throw new Error(taskData.error ?? "Failed to create task");
-      }
-      const task = taskData.task as Task;
-      console.log("[QuickLaunch] Task created:", task.id);
-
-      // 2. Launch the sandbox workspace
-      console.log("[QuickLaunch] Launching sandbox...");
       const res = await fetch(`/api/projects/${project.id}/sandbox`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          branch: quickBranch,
-          model: "claude-sonnet-4-20250514",
-        }),
+        body: JSON.stringify({ branch: quickBranch }),
       });
-
-      const sandboxText = await res.text();
-      console.log(
-        "[QuickLaunch] Sandbox response status:",
-        res.status,
-        "body:",
-        sandboxText.slice(0, 300),
-      );
-      let data: any;
-      try {
-        data = JSON.parse(sandboxText);
-      } catch {
-        throw new Error(
-          `Sandbox launch returned non-JSON (status ${res.status}): ${sandboxText.slice(0, 200)}`,
-        );
-      }
+      const data = await res.json();
       if (!res.ok) {
-        // Sandbox failed but task was created — leave as pending
-        handleTaskCreated(task);
         throw new Error(data.error ?? "Failed to launch sandbox");
       }
-
-      // 3. Link workspace to the task and mark as running
-      console.log(
-        "[QuickLaunch] Linking workspace",
-        data.workspace.id,
-        "to task",
-        task.id,
-      );
-      await fetch(`/api/projects/${project.id}/tasks/${task.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "running",
-          workspaceId: data.workspace.id,
-        }),
-      });
-
-      const updatedTask: Task = {
-        ...task,
-        status: "running",
-        workspaceId: data.workspace.id,
-        startedAt: new Date().toISOString(),
-      };
-
-      handleTaskCreated(updatedTask, data.workspace);
-      console.log("[QuickLaunch] Success — opening workspace URL");
+      refreshWorkspaces();
       window.open(data.workspace.url, "_blank");
     } catch (err) {
-      console.error("[QuickLaunch] Error:", err);
       setSandboxError(
         err instanceof Error ? err.message : "Failed to launch workspace",
       );
