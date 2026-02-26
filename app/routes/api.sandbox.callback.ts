@@ -91,9 +91,13 @@ export async function action({ request }: { request: Request }) {
   const now = new Date();
   const updates: Record<string, unknown> = {
     status: body.status,
-    completedAt: now,
     callbackTokenHash: null, // one-time use — consume the token
   };
+
+  // Only set completedAt when actually completed, not when entering review
+  if (body.status === "completed") {
+    updates.completedAt = now;
+  }
 
   // Auto-compute duration from startedAt
   if (task.startedAt) {

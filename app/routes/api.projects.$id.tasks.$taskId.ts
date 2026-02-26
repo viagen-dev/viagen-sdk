@@ -97,7 +97,7 @@ export async function action({ params, request }: { params: { id: string; taskId
     if (body.status === 'running' && !existing.startedAt) {
       updates.startedAt = new Date()
     }
-    if ((body.status === 'completed' || body.status === 'validating') && !existing.completedAt) {
+    if (body.status === 'completed' && !existing.completedAt) {
       updates.completedAt = new Date()
     }
   }
