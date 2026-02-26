@@ -1304,6 +1304,7 @@ function TaskLauncher({
       const task = taskData.task as Task;
       onTaskCreated(task);
       setPrompt("");
+      setBranch(`feat-${Math.random().toString(36).slice(2, 8)}`);
 
       if (autoStart) {
         onRunTask(task);
