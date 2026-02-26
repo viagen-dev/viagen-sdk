@@ -2,6 +2,8 @@ import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, tasks, workspaces, orgMembers } from "~/lib/db/schema";
+import { getSecret } from "~/lib/infisical.server";
+import { parsePrUrl, isPrMerged } from "~/lib/github.server";
 import { log } from "~/lib/logger.server";
 
 export async function loader({
@@ -82,6 +84,53 @@ export async function loader({
       for (const row of rows) {
         if (staleTaskIds.includes(row.id)) {
           row.status = "validating";
+        }
+      }
+    }
+  }
+
+  // Auto-detect merged PRs for validating tasks
+  const validatingWithPr = rows.filter(
+    (t) => t.status === "validating" && t.prUrl,
+  );
+  if (validatingWithPr.length > 0) {
+    let githubToken: string | null = null;
+    try {
+      githubToken = await getSecret(org.id, "GITHUB_TOKEN");
+    } catch {
+      // no token — skip merge detection
+    }
+
+    if (githubToken) {
+      const mergedIds: string[] = [];
+      await Promise.all(
+        validatingWithPr.map(async (t) => {
+          const parsed = parsePrUrl(t.prUrl!);
+          if (!parsed) return;
+          const merged = await isPrMerged(
+            githubToken,
+            parsed.owner,
+            parsed.repo,
+            parsed.number,
+          );
+          if (merged) mergedIds.push(t.id);
+        }),
+      );
+
+      if (mergedIds.length > 0) {
+        log.info(
+          { projectId, mergedIds },
+          "auto-completing tasks with merged PRs",
+        );
+        await db
+          .update(tasks)
+          .set({ status: "completed", completedAt: new Date() })
+          .where(inArray(tasks.id, mergedIds));
+
+        for (const row of rows) {
+          if (mergedIds.includes(row.id)) {
+            row.status = "completed";
+          }
         }
       }
     }
