@@ -135,12 +135,19 @@ export async function action({
         deployments[0].uid,
         { target, teamId: project.vercelOrgId ?? undefined },
       );
-    } else {
+    } else if (project.githubRepo) {
+      const [org, repo] = project.githubRepo.split("/");
       deployment = await createVercelDeployment(token, {
         name: project.vercelProjectName ?? project.vercelProjectId,
         target,
         teamId: project.vercelOrgId ?? undefined,
+        gitSource: { type: "github", org, repo, ref: "main" },
       });
+    } else {
+      return Response.json(
+        { error: "No deployments to redeploy and no GitHub repo linked" },
+        { status: 400 },
+      );
     }
 
     log.info(
