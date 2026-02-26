@@ -5,7 +5,7 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-const FROM = "Viagen <boa@viagen.dev>";
+const FROM = "Viagen <notifications@viagen.dev>";
 const APP_URL = "https://app.viagen.dev";
 
 export async function sendOrgInviteEmail({
@@ -24,10 +24,13 @@ export async function sendOrgInviteEmail({
     return;
   }
 
+  const dashboardUrl = `${APP_URL}/?org=${orgId}`;
+
   const { error } = await resend.emails.send({
     from: FROM,
     to,
     subject: `You've been added to ${orgName} on Viagen`,
+    text: `You're in!\n\n${inviterName} added you to ${orgName} on Viagen.\n\nYou can now access shared projects, launch sandboxes, and manage secrets for the team.\n\nOpen Dashboard: ${dashboardUrl}\n\nIf you don't have an account yet, you'll be prompted to log in first.`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -40,7 +43,7 @@ export async function sendOrgInviteEmail({
   <p style="line-height: 1.6; margin: 0 0 24px;">
     You can now access shared projects, launch sandboxes, and manage secrets for the team.
   </p>
-  <a href="${APP_URL}/?org=${orgId}"
+  <a href="${dashboardUrl}"
      style="display: inline-block; background: #18181b; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">
     Open Dashboard
   </a>
@@ -83,10 +86,20 @@ export async function sendTaskReadyEmail({
 
   const taskUrl = `${APP_URL}/projects/${projectId}/tasks/${taskId}`;
 
+  const textParts = [
+    `Task ready for review`,
+    `\nA task in ${projectName} has finished and is ready for review:`,
+    `\n"${promptPreview}"`,
+    `\nView Task: ${taskUrl}`,
+  ];
+  if (prUrl) textParts.push(`Review PR: ${prUrl}`);
+  textParts.push(`\n—\nViagen — ${projectName}`);
+
   const { error } = await resend.emails.send({
     from: FROM,
     to,
     subject: `Task ready for review — ${projectName}`,
+    text: textParts.join("\n"),
     html: `
 <!DOCTYPE html>
 <html>
