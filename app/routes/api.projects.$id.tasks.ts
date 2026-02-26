@@ -1,7 +1,7 @@
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { projects, tasks, orgMembers } from "~/lib/db/schema";
+import { projects, tasks, orgMembers, users } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
 import { getSecret } from "~/lib/infisical.server";
 import { parsePrUrl, isPrMerged } from "~/lib/github.server";
@@ -36,13 +36,24 @@ export async function loader({
   const url = new URL(request.url);
   const statusFilter = url.searchParams.get("status");
 
-  let query = db
-    .select()
+  // Join with users to get creator name + avatar
+  const rowsWithCreator = await db
+    .select({
+      task: tasks,
+      creatorName: users.name,
+      creatorAvatarUrl: users.avatarUrl,
+    })
     .from(tasks)
+    .leftJoin(users, eq(tasks.createdBy, users.id))
     .where(eq(tasks.projectId, projectId))
     .orderBy(desc(tasks.createdAt));
 
-  const rows = await query;
+  // Flatten into task objects with creator info
+  const rows = rowsWithCreator.map((r) => ({
+    ...r.task,
+    creatorName: r.creatorName ?? null,
+    creatorAvatarUrl: r.creatorAvatarUrl ?? null,
+  }));
 
   // Auto-complete tasks that have been running for 30+ minutes
   const THIRTY_MINUTES_MS = 30 * 60 * 1000;
