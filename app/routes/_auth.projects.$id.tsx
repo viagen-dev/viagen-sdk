@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import { Textarea } from "~/components/ui/textarea";
 import { H4 } from "~/components/ui/typography";
-import { requireAuth } from "~/lib/session.server";
+import { requireAuth, serializeCookie } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -74,19 +74,51 @@ export async function loader({
   request: Request;
   params: { id: string };
 }) {
-  const { org, role } = await requireAuth(request);
-  const [project] = await db
+  const { org, role, memberships } = await requireAuth(request);
+
+  // Try current org first
+  let [project] = await db
     .select()
     .from(projects)
     .where(
       and(eq(projects.id, params.id), eq(projects.organizationId, org.id)),
     );
 
-  if (!project) {
+  if (project) {
+    return { project, role };
+  }
+
+  // Project not in current org — check if user has access via another org
+  const [anyProject] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, params.id));
+
+  if (!anyProject) {
     throw Response.json({ error: "Project not found" }, { status: 404 });
   }
 
-  return { project, role };
+  const match = memberships.find(
+    (m) => m.organizationId === anyProject.organizationId,
+  );
+
+  if (!match) {
+    throw Response.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  // Auto-switch org cookie and return the project
+  return new Response(JSON.stringify({ project: anyProject, role: match.role }), {
+    headers: {
+      "Content-Type": "application/json",
+      "Set-Cookie": serializeCookie("viagen-org", match.organizationId, {
+        path: "/",
+        httpOnly: true,
+        secure: true,
+        sameSite: "Lax",
+        maxAge: 60 * 60 * 24 * 365,
+      }),
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
