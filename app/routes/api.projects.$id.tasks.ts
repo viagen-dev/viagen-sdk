@@ -1,10 +1,10 @@
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { projects, tasks, orgMembers, users } from "~/lib/db/schema";
-import { log } from "~/lib/logger.server";
+import { projects, tasks, workspaces, orgMembers } from "~/lib/db/schema";
 import { getSecret } from "~/lib/infisical.server";
 import { parsePrUrl, isPrMerged } from "~/lib/github.server";
+import { log } from "~/lib/logger.server";
 
 export async function loader({
   params,
@@ -36,111 +36,103 @@ export async function loader({
   const url = new URL(request.url);
   const statusFilter = url.searchParams.get("status");
 
-  // Join with users to get creator name + avatar
-  const rowsWithCreator = await db
-    .select({
-      task: tasks,
-      creatorName: users.name,
-      creatorAvatarUrl: users.avatarUrl,
-    })
+  let query = db
+    .select()
     .from(tasks)
-    .leftJoin(users, eq(tasks.createdBy, users.id))
     .where(eq(tasks.projectId, projectId))
     .orderBy(desc(tasks.createdAt));
 
-  // Flatten into task objects with creator info
-  const rows = rowsWithCreator.map((r) => ({
-    ...r.task,
-    creatorName: r.creatorName ?? null,
-    creatorAvatarUrl: r.creatorAvatarUrl ?? null,
-  }));
+  const rows = await query;
 
-  // Auto-complete tasks that have been running for 30+ minutes
-  const THIRTY_MINUTES_MS = 30 * 60 * 1000;
-  const now = Date.now();
-  const expiredTaskIds = rows
-    .filter((t) => {
-      if (t.status !== "running") return false;
-      const refTime = t.startedAt ?? t.createdAt;
-      if (!refTime) return false;
-      const age = now - new Date(refTime).getTime();
-      return age >= THIRTY_MINUTES_MS;
-    })
-    .map((t) => t.id);
+  // Running tasks whose workspace is expired or missing → back to "validating"
+  const runningTasks = rows.filter((t) => t.status === "running");
 
-  if (expiredTaskIds.length > 0) {
-    log.info(
-      { projectId, expiredTaskIds },
-      "auto-completing tasks older than 30 minutes",
-    );
-    await db
-      .update(tasks)
-      .set({ status: "completed", completedAt: new Date() })
-      .where(inArray(tasks.id, expiredTaskIds));
+  if (runningTasks.length > 0) {
+    const runningWithWs = runningTasks.filter((t) => t.workspaceId);
+    const runningWithoutWs = runningTasks.filter((t) => !t.workspaceId);
 
-    // Update the in-memory rows so the response reflects the change
-    for (const row of rows) {
-      if (expiredTaskIds.includes(row.id)) {
-        row.status = "completed";
-        row.completedAt = new Date();
+    // Check which workspaces are still active
+    let expiredWsTaskIds: string[] = [];
+    if (runningWithWs.length > 0) {
+      const wsIds = runningWithWs.map((t) => t.workspaceId!);
+      const activeWs = await db
+        .select({ id: workspaces.id })
+        .from(workspaces)
+        .where(inArray(workspaces.id, wsIds));
+      const activeWsIds = new Set(activeWs.map((w) => w.id));
+
+      expiredWsTaskIds = runningWithWs
+        .filter((t) => !activeWsIds.has(t.workspaceId!))
+        .map((t) => t.id);
+    }
+
+    const staleTaskIds = [
+      ...expiredWsTaskIds,
+      ...runningWithoutWs.map((t) => t.id),
+    ];
+
+    if (staleTaskIds.length > 0) {
+      log.info(
+        { projectId, staleTaskIds },
+        "clearing running status on tasks with expired/missing workspaces",
+      );
+      await db
+        .update(tasks)
+        .set({ status: "validating" })
+        .where(inArray(tasks.id, staleTaskIds));
+
+      for (const row of rows) {
+        if (staleTaskIds.includes(row.id)) {
+          row.status = "validating";
+        }
       }
     }
   }
 
-  // Auto-complete tasks whose PR has been merged on GitHub
+  // Auto-detect merged PRs for validating tasks
   const validatingWithPr = rows.filter(
     (t) => t.status === "validating" && t.prUrl,
   );
-
   if (validatingWithPr.length > 0) {
+    let githubToken: string | null = null;
     try {
-      const githubToken = await getSecret(org.id, "GITHUB_TOKEN");
-      if (githubToken) {
-        const checks = await Promise.allSettled(
-          validatingWithPr.map(async (t) => {
-            const parsed = parsePrUrl(t.prUrl!);
-            if (!parsed) return null;
-            const merged = await isPrMerged(
-              githubToken,
-              parsed.owner,
-              parsed.repo,
-              parsed.number,
-            );
-            return merged ? t.id : null;
-          }),
-        );
+      githubToken = await getSecret(org.id, "GITHUB_TOKEN");
+    } catch {
+      // no token — skip merge detection
+    }
 
-        const mergedTaskIds = checks
-          .filter(
-            (r): r is PromiseFulfilledResult<string | null> =>
-              r.status === "fulfilled",
-          )
-          .map((r) => r.value)
-          .filter((id): id is string => id !== null);
-
-        if (mergedTaskIds.length > 0) {
-          log.info(
-            { projectId, mergedTaskIds },
-            "auto-completing tasks with merged PRs",
+    if (githubToken) {
+      const mergedIds: string[] = [];
+      await Promise.all(
+        validatingWithPr.map(async (t) => {
+          const parsed = parsePrUrl(t.prUrl!);
+          if (!parsed) return;
+          const merged = await isPrMerged(
+            githubToken,
+            parsed.owner,
+            parsed.repo,
+            parsed.number,
           );
-          await db
-            .update(tasks)
-            .set({ status: "completed", completedAt: new Date() })
-            .where(inArray(tasks.id, mergedTaskIds));
+          if (merged) mergedIds.push(t.id);
+        }),
+      );
 
-          for (const row of rows) {
-            if (mergedTaskIds.includes(row.id)) {
-              row.status = "completed";
-              row.completedAt = new Date();
-            }
+      if (mergedIds.length > 0) {
+        log.info(
+          { projectId, mergedIds },
+          "auto-completing tasks with merged PRs",
+        );
+        await db
+          .update(tasks)
+          .set({ status: "completed", completedAt: new Date() })
+          .where(inArray(tasks.id, mergedIds));
+
+        for (const row of rows) {
+          if (mergedIds.includes(row.id)) {
+            row.status = "completed";
           }
         }
       }
-    } catch (err) {
-      log.warn(
-        { projectId, error: err instanceof Error ? err.message : "unknown" },
-        "failed to check PR merge status (non-fatal)",
-      );
     }
   }
 

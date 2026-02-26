@@ -10,7 +10,8 @@ export async function action({ request }: { request: Request }) {
     await deleteSession(token)
     log.info('user logged out')
   }
-  return Response.json({ success: true }, {
-    headers: { 'Set-Cookie': deleteCookieHeader(SESSION_COOKIE) },
-  })
+  const headers = new Headers()
+  headers.append('Set-Cookie', deleteCookieHeader(SESSION_COOKIE))
+  headers.append('Set-Cookie', deleteCookieHeader('viagen-org'))
+  return Response.json({ success: true }, { headers })
 }
