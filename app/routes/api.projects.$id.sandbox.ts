@@ -286,7 +286,14 @@ export async function action({
           "user.email",
           "bot@viagen.dev",
         ]);
-        await sandbox.runCommand("git", ["checkout", "-B", branch]);
+        if (prompt) {
+          // Run mode: create a fresh branch off the default branch
+          await sandbox.runCommand("git", ["checkout", "-B", branch]);
+        } else {
+          // Preview mode: fetch and checkout the remote branch with the task's changes
+          await sandbox.runCommand("git", ["fetch", "origin", branch]);
+          await sandbox.runCommand("git", ["checkout", branch]);
+        }
         await sandbox.runCommand("bash", [
           "-c",
           `echo 'https://x-access-token:${githubToken}@github.com' > ~/.git-credentials`,
@@ -337,7 +344,7 @@ The viagen-sdk package is pre-installed globally. The VIAGEN_CALLBACK_URL, VIAGE
 
         envMap["VIAGEN_PROMPT"] = `${prompt}.
 
-          GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (the gh CLI is not installed). When you are done, commit your changes, push, and create a pull request using the GitHub REST API.${callbackSnippet}`;
+          GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (the gh CLI is not installed). You are already on a git branch called "${branch}" — do NOT create or switch to a different branch. When you are done, commit your changes, push this branch, and create a pull request from "${branch}" using the GitHub REST API.${callbackSnippet}`;
       }
 
       if (githubToken) {
