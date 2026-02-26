@@ -151,6 +151,24 @@ interface Task {
   outputTokens: number | null;
 }
 
+interface Deployment {
+  uid: string;
+  name: string;
+  url: string;
+  state: "QUEUED" | "BUILDING" | "READY" | "ERROR" | "CANCELED";
+  created: number;
+  ready?: number;
+  meta?: {
+    githubCommitRef?: string;
+    githubCommitSha?: string;
+    githubCommitMessage?: string;
+    githubCommitAuthorLogin?: string;
+  };
+  target: string | null;
+  inspectorUrl?: string;
+  creator?: { username: string };
+}
+
 type FilterTab = "ready" | "in_review" | "completed";
 
 const FILTER_TABS: { value: FilterTab; label: string }[] = [
@@ -198,6 +216,34 @@ const STATUS_CONFIG: Record<
     className: "text-green-500",
     badgeClassName:
       "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300",
+  },
+};
+
+const DEPLOY_STATE: Record<string, { label: string; className: string }> = {
+  QUEUED: {
+    label: "Queued",
+    className:
+      "gap-1.5 font-normal border-gray-200 bg-gray-50 text-gray-800 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-300",
+  },
+  BUILDING: {
+    label: "Building",
+    className:
+      "gap-1.5 font-normal border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300",
+  },
+  READY: {
+    label: "Ready",
+    className:
+      "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300",
+  },
+  ERROR: {
+    label: "Error",
+    className:
+      "gap-1.5 font-normal border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300",
+  },
+  CANCELED: {
+    label: "Canceled",
+    className:
+      "gap-1.5 font-normal border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300",
   },
 };
 
@@ -282,6 +328,10 @@ export default function ProjectTasks({
   const [launchingTasks, setLaunchingTasks] = useState<Map<string, number>>(new Map());
   const launchTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const [mergingTasks, setMergingTasks] = useState<Set<string>>(new Set());
+
+  // --- Deployments ---
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [deploying, setDeploying] = useState(false);
 
   // Track previously-seen task statuses for completion notifications
   const prevTaskStatusesRef = useRef<Map<string, TaskStatus>>(new Map());
@@ -368,26 +418,46 @@ export default function ProjectTasks({
       .catch(() => {});
   }, [project.id]);
 
+  const fetchDeployments = useCallback(async () => {
+    if (!project.vercelProjectId) return;
+    try {
+      const res = await fetch(`/api/projects/${project.id}/deployments`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok && data.deployments) {
+        setDeployments(data.deployments);
+      }
+    } catch {
+      // silently fail — deployments are supplementary
+    }
+  }, [project.id, project.vercelProjectId]);
+
   // Initial load
   useEffect(() => {
     refreshStatus();
     fetchTasks();
     refreshWorkspaces();
-  }, [project.id, refreshStatus, fetchTasks, refreshWorkspaces]);
+    fetchDeployments();
+  }, [project.id, refreshStatus, fetchTasks, refreshWorkspaces, fetchDeployments]);
 
-  // Polling — 5s when there are running/validating tasks, 30s otherwise
+  // Polling — 5s when there are active tasks or building deployments, 30s otherwise
   const hasActiveTasks = tasks.some(
     (t) => t.status === "running" || t.status === "validating",
   );
+  const hasActiveDeployments = deployments.some(
+    (d) => d.state === "BUILDING" || d.state === "QUEUED",
+  );
   useEffect(() => {
-    const interval = hasActiveTasks ? 5000 : 30000;
+    const interval = (hasActiveTasks || hasActiveDeployments) ? 5000 : 30000;
 
     const timer = setInterval(() => {
       fetchTasks();
+      fetchDeployments();
     }, interval);
 
     return () => clearInterval(timer);
-  }, [hasActiveTasks, fetchTasks]);
+  }, [hasActiveTasks, hasActiveDeployments, fetchTasks, fetchDeployments]);
 
   // -----------------------------------------------------------------------
   // Actions
@@ -644,6 +714,29 @@ export default function ProjectTasks({
         next.delete(task.id);
         return next;
       });
+    }
+  };
+
+  const handleRedeploy = async (target?: "production" | "preview") => {
+    setDeploying(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/deployments`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Deployment triggered");
+        fetchDeployments();
+      } else {
+        toast.error(data.error ?? "Failed to trigger deployment");
+      }
+    } catch {
+      toast.error("Failed to trigger deployment");
+    } finally {
+      setDeploying(false);
     }
   };
 
@@ -1249,6 +1342,126 @@ export default function ProjectTasks({
               ))}
             </Tabs>
           </>
+        )}
+
+        {/* Deployments — only visible when Vercel is connected */}
+        {project.vercelProjectId && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-4">
+              <H4 className="mb-0">Deployments</H4>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={deploying || deployments.length === 0}
+                  onClick={() => handleRedeploy("production")}
+                >
+                  {deploying ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <ArrowUp className="size-3.5" />
+                  )}
+                  {deploying ? "Deploying..." : "Redeploy"}
+                </Button>
+              )}
+            </div>
+            {deployments.length === 0 ? (
+              <Card className="border-dashed bg-muted/50">
+                <CardContent className="flex flex-col items-center justify-center px-8 py-10">
+                  <p className="text-sm text-muted-foreground">
+                    No deployments yet
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {deployments.map((d) => {
+                  const cfg = DEPLOY_STATE[d.state] ?? {
+                    label: d.state,
+                    className: "gap-1.5 font-normal",
+                  };
+                  return (
+                    <Item key={d.uid} variant="outline">
+                      <ItemContent>
+                        <ItemTitle>
+                          {d.meta?.githubCommitMessage
+                            ? d.meta.githubCommitMessage.length > 80
+                              ? d.meta.githubCommitMessage.slice(0, 80) + "..."
+                              : d.meta.githubCommitMessage
+                            : d.url}
+                        </ItemTitle>
+                        <ItemDescription>
+                          <span className="flex items-center gap-3 flex-wrap">
+                            <Badge variant="secondary" className={cfg.className}>
+                              {d.state === "BUILDING" && (
+                                <Loader2 className="size-3 animate-spin" />
+                              )}
+                              {cfg.label}
+                            </Badge>
+                            {d.meta?.githubCommitRef && (
+                              <span className="flex items-center gap-1">
+                                <GitBranch className="size-3" />
+                                {d.meta.githubCommitRef}
+                              </span>
+                            )}
+                            {d.target === "production" && (
+                              <Badge variant="outline" className="text-xs font-normal">
+                                Production
+                              </Badge>
+                            )}
+                            <span className="flex items-center gap-1">
+                              <Clock className="size-3" />
+                              {timeAgo(new Date(d.created).toISOString())}
+                            </span>
+                          </span>
+                        </ItemDescription>
+                      </ItemContent>
+                      <ItemActions>
+                        {d.state === "READY" && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="icon-sm"
+                                  className="sm:w-auto sm:px-2.5 sm:h-8"
+                                  onClick={() =>
+                                    window.open(`https://${d.url}`, "_blank")
+                                  }
+                                >
+                                  <ExternalLink className="size-3.5" />
+                                  <span className="hidden sm:inline">Visit</span>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Open deployment</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {d.inspectorUrl && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() =>
+                                    window.open(d.inspectorUrl, "_blank")
+                                  }
+                                >
+                                  <ExternalLink className="size-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>View build logs</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </ItemActions>
+                    </Item>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
