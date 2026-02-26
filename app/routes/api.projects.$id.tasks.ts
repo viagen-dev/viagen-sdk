@@ -1,7 +1,7 @@
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { projects, tasks, orgMembers } from "~/lib/db/schema";
+import { projects, tasks, workspaces, orgMembers } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
 
 export async function loader({
@@ -42,34 +42,47 @@ export async function loader({
 
   const rows = await query;
 
-  // Auto-complete tasks that have been running for 30+ minutes
-  const THIRTY_MINUTES_MS = 30 * 60 * 1000;
-  const now = Date.now();
-  const expiredTaskIds = rows
-    .filter((t) => {
-      if (t.status !== "running") return false;
-      const refTime = t.startedAt ?? t.createdAt;
-      if (!refTime) return false;
-      const age = now - new Date(refTime).getTime();
-      return age >= THIRTY_MINUTES_MS;
-    })
-    .map((t) => t.id);
+  // Running tasks whose workspace is expired or missing → back to "validating"
+  const runningTasks = rows.filter((t) => t.status === "running");
 
-  if (expiredTaskIds.length > 0) {
-    log.info(
-      { projectId, expiredTaskIds },
-      "auto-completing tasks older than 30 minutes",
-    );
-    await db
-      .update(tasks)
-      .set({ status: "completed", completedAt: new Date() })
-      .where(inArray(tasks.id, expiredTaskIds));
+  if (runningTasks.length > 0) {
+    const runningWithWs = runningTasks.filter((t) => t.workspaceId);
+    const runningWithoutWs = runningTasks.filter((t) => !t.workspaceId);
 
-    // Update the in-memory rows so the response reflects the change
-    for (const row of rows) {
-      if (expiredTaskIds.includes(row.id)) {
-        row.status = "completed";
-        row.completedAt = new Date();
+    // Check which workspaces are still active
+    let expiredWsTaskIds: string[] = [];
+    if (runningWithWs.length > 0) {
+      const wsIds = runningWithWs.map((t) => t.workspaceId!);
+      const activeWs = await db
+        .select({ id: workspaces.id })
+        .from(workspaces)
+        .where(inArray(workspaces.id, wsIds));
+      const activeWsIds = new Set(activeWs.map((w) => w.id));
+
+      expiredWsTaskIds = runningWithWs
+        .filter((t) => !activeWsIds.has(t.workspaceId!))
+        .map((t) => t.id);
+    }
+
+    const staleTaskIds = [
+      ...expiredWsTaskIds,
+      ...runningWithoutWs.map((t) => t.id),
+    ];
+
+    if (staleTaskIds.length > 0) {
+      log.info(
+        { projectId, staleTaskIds },
+        "clearing running status on tasks with expired/missing workspaces",
+      );
+      await db
+        .update(tasks)
+        .set({ status: "validating" })
+        .where(inArray(tasks.id, staleTaskIds));
+
+      for (const row of rows) {
+        if (staleTaskIds.includes(row.id)) {
+          row.status = "validating";
+        }
       }
     }
   }

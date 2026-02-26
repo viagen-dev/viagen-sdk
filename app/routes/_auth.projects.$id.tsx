@@ -735,8 +735,8 @@ export default function ProjectTasks({
         ? "claude"
         : null;
 
-  const readyTasks = tasks.filter((t) => t.status === "ready" || t.status === "running");
-  const inReviewTasks = tasks.filter((t) => t.status === "validating");
+  const readyTasks = tasks.filter((t) => t.status === "ready");
+  const inReviewTasks = tasks.filter((t) => t.status !== "ready" && t.status !== "completed");
   const completedTasks = tasks.filter((t) => t.status === "completed");
 
   const filterCounts: Record<FilterTab, number> = {
