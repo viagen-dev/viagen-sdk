@@ -126,7 +126,8 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
       return;
     }
     document.cookie = `viagen-org=${value}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-    window.location.reload();
+    // Redirect to projects index to avoid 404s on team-specific pages
+    window.location.href = "/";
   };
 
   const handleLogout = async () => {
