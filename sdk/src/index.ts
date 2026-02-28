@@ -1,33 +1,72 @@
-import { createAuthClient, type AuthClient } from './auth.js'
-import { createOrgsClient, type OrgsClient } from './orgs.js'
-import { createProjectsClient, type ProjectsClient } from './projects.js'
-import { createVercelClient, type VercelClient } from './vercel.js'
-import { createGitHubClient, type GitHubClient } from './github.js'
-import { createTasksClient, type TasksClient } from './tasks.js'
+import { createAuthClient, type AuthClient } from "./auth.js";
+import { createOrgsClient, type OrgsClient } from "./orgs.js";
+import { createProjectsClient, type ProjectsClient } from "./projects.js";
+import { createVercelClient, type VercelClient } from "./vercel.js";
+import { createGitHubClient, type GitHubClient } from "./github.js";
+import { createTasksClient, type TasksClient } from "./tasks.js";
 
-export type { ViagenUser, OrgInfo, AuthResult, AuthClient, ApiTokenInfo } from './auth.js'
-export type { OrgMembership, Org, OrgsClient } from './orgs.js'
-export type { Project, CreateProjectInput, UpdateProjectInput, SyncProjectInput, SyncResult, ProjectSecret, ProjectDatabase, ProvisionDatabaseInput, ProjectsClient } from './projects.js'
-export type { VercelProject, VercelListProjectsParams, IntegrationStatus, VercelClient } from './vercel.js'
-export type { GitHubRepo, GitHubListReposParams, GitHubClient } from './github.js'
-export type { Task, CreateTaskInput, UpdateTaskInput, MergeResult, TasksClient } from './tasks.js'
-export { loadCredentials, saveCredentials, clearCredentials, type StoredCredentials } from './credentials.js'
+export type {
+  ViagenUser,
+  OrgInfo,
+  AuthResult,
+  AuthClient,
+  ApiTokenInfo,
+} from "./auth.js";
+export type { OrgMembership, Org, OrgsClient } from "./orgs.js";
+export type {
+  Project,
+  CreateProjectInput,
+  UpdateProjectInput,
+  SyncProjectInput,
+  SyncResult,
+  ProjectSecret,
+  ProjectDatabase,
+  ProvisionDatabaseInput,
+  ProjectsClient,
+} from "./projects.js";
+export type {
+  VercelProject,
+  VercelListProjectsParams,
+  IntegrationStatus,
+  VercelClient,
+} from "./vercel.js";
+export type {
+  GitHubRepo,
+  GitHubListReposParams,
+  GitHubClient,
+} from "./github.js";
+export type {
+  Task,
+  TeamTask,
+  CreateTaskInput,
+  CreateTeamTaskInput,
+  UpdateTaskInput,
+  MergeResult,
+  CreateTeamTaskResult,
+  TasksClient,
+} from "./tasks.js";
+export {
+  loadCredentials,
+  saveCredentials,
+  clearCredentials,
+  type StoredCredentials,
+} from "./credentials.js";
 
 export interface ViagenConfig {
-  baseUrl: string
+  baseUrl: string;
   /** API token for CLI/server-side usage. When set, uses Bearer auth instead of cookies. */
-  token?: string
+  token?: string;
   /** Organization ID to scope requests to. Maps to the X-Organization header. */
-  orgId?: string
+  orgId?: string;
 }
 
 export interface ViagenClient {
-  auth: AuthClient
-  orgs: OrgsClient
-  projects: ProjectsClient
-  tasks: TasksClient
-  vercel: VercelClient
-  github: GitHubClient
+  auth: AuthClient;
+  orgs: OrgsClient;
+  projects: ProjectsClient;
+  tasks: TasksClient;
+  vercel: VercelClient;
+  github: GitHubClient;
 }
 
 export class ViagenApiError extends Error {
@@ -36,42 +75,46 @@ export class ViagenApiError extends Error {
     message: string,
     public detail?: string,
   ) {
-    super(message)
-    this.name = 'ViagenApiError'
+    super(message);
+    this.name = "ViagenApiError";
   }
 }
 
-export type RequestFn = <T>(path: string, options?: RequestInit) => Promise<T>
+export type RequestFn = <T>(path: string, options?: RequestInit) => Promise<T>;
 
 export function createViagen(config: ViagenConfig): ViagenClient {
-  const baseUrl = config.baseUrl.replace(/\/+$/, '')
+  const baseUrl = config.baseUrl.replace(/\/+$/, "");
 
   async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      "Content-Type": "application/json",
+      Accept: "application/json",
       ...(options?.headers as Record<string, string>),
-    }
+    };
 
     if (config.token) {
-      headers['Authorization'] = `Bearer ${config.token}`
+      headers["Authorization"] = `Bearer ${config.token}`;
     }
     if (config.orgId) {
-      headers['X-Organization'] = config.orgId
+      headers["X-Organization"] = config.orgId;
     }
 
     const res = await fetch(`${baseUrl}${path}`, {
       ...options,
-      ...(config.token ? {} : { credentials: 'include' as const }),
+      ...(config.token ? {} : { credentials: "include" as const }),
       headers,
-    })
+    });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new ViagenApiError(res.status, body.error ?? 'Request failed', body.message)
+      const body = await res.json().catch(() => ({}));
+      throw new ViagenApiError(
+        res.status,
+        body.error ?? "Request failed",
+        body.message,
+      );
     }
 
-    return res.json()
+    return res.json();
   }
 
   return {
@@ -81,7 +124,7 @@ export function createViagen(config: ViagenConfig): ViagenClient {
     tasks: createTasksClient(baseUrl, request),
     vercel: createVercelClient(baseUrl, request),
     github: createGitHubClient(baseUrl, request),
-  }
+  };
 }
 
 /**
@@ -91,13 +134,13 @@ export function createViagen(config: ViagenConfig): ViagenClient {
 export async function createViagenFromCredentials(
   overrides?: Partial<ViagenConfig>,
 ): Promise<ViagenClient | null> {
-  const { loadCredentials } = await import('./credentials.js')
-  const creds = await loadCredentials()
-  if (!creds) return null
+  const { loadCredentials } = await import("./credentials.js");
+  const creds = await loadCredentials();
+  if (!creds) return null;
 
   return createViagen({
     baseUrl: creds.baseUrl,
     token: creds.token,
     ...overrides,
-  })
+  });
 }

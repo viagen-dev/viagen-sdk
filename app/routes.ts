@@ -18,7 +18,10 @@ export default [
     route("projects/new", "routes/_auth.projects.new.tsx"),
     route("projects/:id", "routes/_auth.projects.$id.tsx"),
     route("projects/:id/settings", "routes/_auth.projects.$id_.settings.tsx"),
-    route("projects/:id/tasks/:taskId", "routes/_auth.projects.$id_.tasks.$taskId.tsx"),
+    route(
+      "projects/:id/tasks/:taskId",
+      "routes/_auth.projects.$id_.tasks.$taskId.tsx",
+    ),
     route("settings", "routes/_auth.settings.tsx"),
     route("billing", "routes/_auth.billing.tsx"),
   ]),
@@ -43,7 +46,10 @@ export default [
   ),
   route("api/projects/:id/sandbox", "routes/api.projects.$id.sandbox.ts"),
   route("api/sandbox/callback", "routes/api.sandbox.callback.ts"),
-  route("api/projects/:id/workspaces/:workspaceId/logs", "routes/api.projects.$id.workspaces.$workspaceId.logs.ts"),
+  route(
+    "api/projects/:id/workspaces/:workspaceId/logs",
+    "routes/api.projects.$id.workspaces.$workspaceId.logs.ts",
+  ),
   route("api/databases", "routes/api.databases.ts"),
   route("api/projects/:id/status", "routes/api.projects.$id.status.ts"),
   route("api/projects/:id/tasks", "routes/api.projects.$id.tasks.ts"),
@@ -55,6 +61,7 @@ export default [
     "api/projects/:id/tasks/:taskId/merge",
     "routes/api.projects.$id.tasks.$taskId.merge.ts",
   ),
+  route("api/tasks", "routes/api.tasks.ts"),
   route("api/vercel/projects", "routes/api.vercel.projects.ts"),
   route("api/github/repos", "routes/api.github.repos.ts"),
   route(

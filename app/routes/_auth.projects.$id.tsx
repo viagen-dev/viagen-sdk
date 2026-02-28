@@ -273,7 +273,7 @@ export default function ProjectTasks({
   // --- Tasks ---
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
-  const [displayMode, setDisplayMode] = useState<DisplayMode>("board");
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("list");
 
   const [launchingTasks, setLaunchingTasks] = useState<Map<string, number>>(
     new Map(),
@@ -1661,14 +1661,16 @@ function TaskLauncher({
               </SelectItem>
             </SelectContent>
           </Select>
-          <Input
-            type="text"
-            leadingIcon={<GitBranch className="size-3.5 overflow-visible" />}
-            value={branch}
-            onChange={(e) => setBranch(e.target.value)}
-            placeholder="feat-abc123"
-            className="h-7 w-40 text-xs"
-          />
+          <div className="relative">
+            <GitBranch className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              placeholder="feat-abc123"
+              className="h-7 w-40 pl-7 text-xs"
+            />
+          </div>
           <label className="flex items-center gap-1.5 cursor-pointer">
             <Switch
               checked={autoStart}
