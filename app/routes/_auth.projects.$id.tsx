@@ -1005,7 +1005,6 @@ export default function ProjectTasks({
           <WorkspaceList
             projectId={project.id}
             workspaces={activeWorkspaces}
-            tasks={tasks}
             onStopped={(id) =>
               setActiveWorkspaces((prev) => prev.filter((w) => w.id !== id))
             }

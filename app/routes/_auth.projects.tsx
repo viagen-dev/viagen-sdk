@@ -1060,7 +1060,6 @@ function TaskDetailPanel({
                 <WorkspaceList
                   projectId={projectId}
                   workspaces={workspaces}
-                  tasks={[{ id: task.id, prompt: task.prompt }]}
                   onStopped={(id) =>
                     setWorkspaces((prev) => prev.filter((w) => w.id !== id))
                   }
