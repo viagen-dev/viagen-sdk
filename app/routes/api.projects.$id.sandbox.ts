@@ -329,7 +329,23 @@ export async function action({
 
       if (prompt) {
         const callbackSnippet = taskId
-          ? ` Use the viagen_update_task tool to report your status when done.`
+          ? `
+
+After creating the PR, report your status back. If the viagen_update_task MCP tool is available, use it. Otherwise, fall back to a direct fetch call:
+
+fetch(process.env.VIAGEN_CALLBACK_URL, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + process.env.VIAGEN_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    taskId: process.env.VIAGEN_TASK_ID,
+    status: "validating",
+    prUrl: "<the PR URL you created>",
+    result: "<brief one-line summary of what you did>",
+  }),
+});`
           : "";
 
         envMap["VIAGEN_PROMPT"] = `${prompt}.
