@@ -722,50 +722,52 @@ function DashboardTaskLauncher({
       </CardContent>
       <CardFooter className="border-t justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <Popover open={projectOpen} onOpenChange={setProjectOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                role="combobox"
-                aria-expanded={projectOpen}
-                className="h-7 w-auto gap-1.5 text-xs"
-              >
-                {project ? project.name : "Select project"}
-                <ChevronDown className="size-3.5 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[240px] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Search projects..." />
-                <CommandList>
-                  <CommandEmpty>No projects found.</CommandEmpty>
-                  <CommandGroup>
-                    {projects.map((p) => (
-                      <CommandItem
-                        key={p.id}
-                        value={p.name}
-                        onSelect={() => {
-                          handleProjectSelect(p.id);
-                          setProjectOpen(false);
-                        }}
-                      >
-                        {p.name}
-                        <Check
-                          className={cn(
-                            "ml-auto size-3.5",
-                            selectedProjectId === p.id
-                              ? "opacity-100"
-                              : "opacity-0",
-                          )}
-                        />
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          {projects.length > 1 && (
+            <Popover open={projectOpen} onOpenChange={setProjectOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  role="combobox"
+                  aria-expanded={projectOpen}
+                  className="h-7 w-auto gap-1.5 text-xs"
+                >
+                  {project ? project.name : "Select project"}
+                  <ChevronDown className="size-3.5 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[240px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search projects..." />
+                  <CommandList>
+                    <CommandEmpty>No projects found.</CommandEmpty>
+                    <CommandGroup>
+                      {projects.map((p) => (
+                        <CommandItem
+                          key={p.id}
+                          value={p.name}
+                          onSelect={() => {
+                            handleProjectSelect(p.id);
+                            setProjectOpen(false);
+                          }}
+                        >
+                          {p.name}
+                          <Check
+                            className={cn(
+                              "ml-auto size-3.5",
+                              selectedProjectId === p.id
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
           <div className="relative">
             <GitBranch className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
