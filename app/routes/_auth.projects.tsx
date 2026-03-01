@@ -1641,72 +1641,74 @@ export default function Dashboard({
           </TabsList>
 
           <div className="ml-auto flex items-center gap-1">
-            <Popover
-              open={projectPickerOpen}
-              onOpenChange={setProjectPickerOpen}
-            >
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  role="combobox"
-                  aria-expanded={projectPickerOpen}
-                  className="h-8 w-auto gap-1.5 text-sm"
-                >
-                  {selectedProject ? selectedProject.name : "All Projects"}
-                  <ChevronDown className="size-3.5 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[240px] p-0" align="end">
-                <Command>
-                  <CommandInput placeholder="Search projects..." />
-                  <CommandList>
-                    <CommandEmpty>No projects found.</CommandEmpty>
-                    <CommandGroup>
-                      <CommandItem
-                        value="__all__"
-                        onSelect={() => {
-                          updateFilterProject(null);
-                          setProjectPickerOpen(false);
-                        }}
-                      >
-                        All Projects
-                        <Check
-                          className={cn(
-                            "ml-auto size-3.5",
-                            selectedProjectId === null
-                              ? "opacity-100"
-                              : "opacity-0",
-                          )}
-                        />
-                      </CommandItem>
-                      {loaderData.projects.map((project) => (
+            {loaderData.projects.length > 1 && (
+              <Popover
+                open={projectPickerOpen}
+                onOpenChange={setProjectPickerOpen}
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    role="combobox"
+                    aria-expanded={projectPickerOpen}
+                    className="h-8 w-auto gap-1.5 text-sm"
+                  >
+                    {selectedProject ? selectedProject.name : "All Projects"}
+                    <ChevronDown className="size-3.5 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[240px] p-0" align="end">
+                  <Command>
+                    <CommandInput placeholder="Search projects..." />
+                    <CommandList>
+                      <CommandEmpty>No projects found.</CommandEmpty>
+                      <CommandGroup>
                         <CommandItem
-                          key={project.id}
-                          value={project.name}
+                          value="__all__"
                           onSelect={() => {
-                            updateFilterProject(project.id);
+                            updateFilterProject(null);
                             setProjectPickerOpen(false);
                           }}
                         >
-                          {project.name}
+                          All Projects
                           <Check
                             className={cn(
                               "ml-auto size-3.5",
-                              selectedProjectId === project.id
+                              selectedProjectId === null
                                 ? "opacity-100"
                                 : "opacity-0",
                             )}
                           />
                         </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                        {loaderData.projects.map((project) => (
+                          <CommandItem
+                            key={project.id}
+                            value={project.name}
+                            onSelect={() => {
+                              updateFilterProject(project.id);
+                              setProjectPickerOpen(false);
+                            }}
+                          >
+                            {project.name}
+                            <Check
+                              className={cn(
+                                "ml-auto size-3.5",
+                                selectedProjectId === project.id
+                                  ? "opacity-100"
+                                  : "opacity-0",
+                              )}
+                            />
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            )}
 
-            {selectedProjectId ? (
+            {(selectedProjectId || loaderData.projects.length === 1) ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon-sm">
@@ -1715,7 +1717,7 @@ export default function Dashboard({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link to={`/projects/${selectedProjectId}/settings`}>
+                    <Link to={`/projects/${selectedProjectId ?? loaderData.projects[0]?.id}/settings`}>
                       Project Settings
                     </Link>
                   </DropdownMenuItem>
