@@ -79,7 +79,7 @@ export async function action({ params, request }: { params: { id: string; taskId
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const validStatuses = ['ready', 'running', 'validating', 'completed']
+  const validStatuses = ['ready', 'running', 'validating', 'completed', 'timed_out']
   if (body.status && !validStatuses.includes(body.status)) {
     return Response.json(
       { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
@@ -97,7 +97,7 @@ export async function action({ params, request }: { params: { id: string; taskId
     if (body.status === 'running' && !existing.startedAt) {
       updates.startedAt = new Date()
     }
-    if ((body.status === 'completed' || body.status === 'validating') && !existing.completedAt) {
+    if ((body.status === 'completed' || body.status === 'validating' || body.status === 'timed_out') && !existing.completedAt) {
       updates.completedAt = new Date()
     }
   }

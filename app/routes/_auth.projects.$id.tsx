@@ -47,8 +47,21 @@ import {
   LayoutGrid,
   List,
   ChevronDown,
+  AlertTriangle,
+  XCircle,
 } from "lucide-react";
+import { Label } from "~/components/ui/label";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 import { WorkspaceList } from "~/components/workspace-list";
 import {
   DropdownMenu,
@@ -119,7 +132,7 @@ interface ProjectStatus {
   claude: ClaudeStatus;
 }
 
-type TaskStatus = "ready" | "running" | "validating" | "completed";
+type TaskStatus = "ready" | "running" | "validating" | "completed" | "timed_out";
 
 type BoardColumn = "backlog" | "review" | "merged";
 type DisplayMode = "board" | "list";
@@ -130,7 +143,7 @@ const BOARD_COLUMNS: {
   statuses: TaskStatus[];
 }[] = [
   { key: "backlog", label: "Backlog", statuses: ["ready", "running"] },
-  { key: "review", label: "Review", statuses: ["validating"] },
+  { key: "review", label: "Review", statuses: ["validating", "timed_out"] },
   { key: "merged", label: "Merged", statuses: ["completed"] },
 ];
 
@@ -199,6 +212,13 @@ const STATUS_CONFIG: Record<
     className: "text-green-500",
     badgeClassName:
       "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300",
+  },
+  timed_out: {
+    label: "Timed Out",
+    icon: AlertTriangle,
+    className: "text-red-500",
+    badgeClassName:
+      "gap-1.5 font-normal border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300",
   },
 };
 
@@ -283,6 +303,12 @@ export default function ProjectTasks({
   );
   const [mergingTasks, setMergingTasks] = useState<Set<string>>(new Set());
 
+  // Cancel modal state
+  const [cancellingTask, setCancellingTask] = useState<Task | null>(null);
+  const [cancelClosePr, setCancelClosePr] = useState(false);
+  const [cancelNewBranch, setCancelNewBranch] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+
   // Track previously-seen task statuses for completion notifications
   const prevTaskStatusesRef = useRef<Map<string, TaskStatus>>(new Map());
   const tasksRef = useRef<Task[]>(tasks);
@@ -339,6 +365,10 @@ export default function ProjectTasks({
                   : task.prompt.length > 80
                     ? task.prompt.slice(0, 80) + "..."
                     : task.prompt,
+              });
+            } else if (task.status === "timed_out") {
+              toast.error(`Task timed out`, {
+                description: "Agent did not respond within 40 minutes",
               });
             }
           }
@@ -725,6 +755,51 @@ export default function ProjectTasks({
         next.delete(task.id);
         return next;
       });
+    }
+  };
+
+  /**
+   * Open the cancel confirmation modal for a task.
+   */
+  const openCancelModal = (task: Task) => {
+    setCancellingTask(task);
+    setCancelClosePr(false);
+    setCancelNewBranch(`feat-${Math.random().toString(36).slice(2, 8)}`);
+    setCancelling(false);
+  };
+
+  /**
+   * Confirm cancel: stop sandbox, optionally close PR, reset task.
+   */
+  const confirmCancel = async () => {
+    if (!cancellingTask) return;
+    setCancelling(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${project.id}/tasks/${cancellingTask.id}/cancel`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            closePr: cancelClosePr,
+            newBranch: cancelNewBranch.trim() || undefined,
+          }),
+        },
+      );
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Task cancelled");
+        fetchTasks();
+        refreshWorkspaces();
+        setCancellingTask(null);
+      } else {
+        toast.error(data.error ?? "Failed to cancel task");
+      }
+    } catch {
+      toast.error("Failed to cancel task");
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -1150,15 +1225,8 @@ export default function ProjectTasks({
                                     {task.prompt}
                                   </p>
 
-                                  {/* Branch badge */}
+                                  {/* Status badges */}
                                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                                    <Badge
-                                      variant="outline"
-                                      className="gap-1 text-xs font-normal"
-                                    >
-                                      <GitBranch className="size-3" />
-                                      {task.branch}
-                                    </Badge>
                                     {task.status === "running" && (
                                       <Badge
                                         variant="secondary"
@@ -1187,7 +1255,9 @@ export default function ProjectTasks({
 
                                   {/* Action buttons — stop propagation so they don't navigate */}
                                   {(task.status === "ready" ||
-                                    task.status === "validating") && (
+                                    task.status === "running" ||
+                                    task.status === "validating" ||
+                                    task.status === "timed_out") && (
                                     <div
                                       className="mt-3 flex items-center gap-2 border-t pt-3"
                                       onClick={(e) => e.preventDefault()}
@@ -1285,6 +1355,42 @@ export default function ProjectTasks({
                                           )}
                                         </>
                                       )}
+                                      {task.status === "timed_out" && (
+                                        <Button
+                                          variant="default"
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          disabled={isLaunching}
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            runTask(task);
+                                          }}
+                                        >
+                                          {isLaunching ? (
+                                            <>
+                                              <Loader2 className="size-3 animate-spin" />
+                                              Launching… {elapsed}s
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Play className="size-3" />
+                                              Retry
+                                            </>
+                                          )}
+                                        </Button>
+                                      )}
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          openCancelModal(task);
+                                        }}
+                                      >
+                                        <XCircle className="size-3" />
+                                        Cancel
+                                      </Button>
                                     </div>
                                   )}
                                   {task.status === "completed" &&
@@ -1388,10 +1494,6 @@ export default function ProjectTasks({
                                       </span>
                                     </div>
                                     <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                                      <span className="flex items-center gap-1">
-                                        <GitBranch className="size-3" />
-                                        {task.branch}
-                                      </span>
                                       <span className="flex items-center gap-1">
                                         <Clock className="size-3" />
                                         {timeAgo(
@@ -1510,6 +1612,46 @@ export default function ProjectTasks({
                                         )}
                                       </>
                                     )}
+                                    {task.status === "timed_out" && (
+                                      <Button
+                                        variant="default"
+                                        size="sm"
+                                        className="h-7 text-xs"
+                                        disabled={isLaunching}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          runTask(task);
+                                        }}
+                                      >
+                                        {isLaunching ? (
+                                          <>
+                                            <Loader2 className="size-3 animate-spin" />
+                                            Launching… {elapsed}s
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Play className="size-3" />
+                                            Retry
+                                          </>
+                                        )}
+                                      </Button>
+                                    )}
+                                    {(task.status === "running" ||
+                                      task.status === "validating" ||
+                                      task.status === "timed_out") && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          openCancelModal(task);
+                                        }}
+                                      >
+                                        <XCircle className="size-3" />
+                                        Cancel
+                                      </Button>
+                                    )}
                                     {task.status === "completed" &&
                                       task.prUrl && (
                                         <Button
@@ -1540,6 +1682,74 @@ export default function ProjectTasks({
           </>
         )}
       </div>
+
+      {/* Cancel task confirmation modal */}
+      <AlertDialog
+        open={cancellingTask !== null}
+        onOpenChange={(open) => !open && setCancellingTask(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will stop the sandbox and reset the task back to ready.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="grid gap-4 py-2">
+            {cancellingTask?.prUrl && (
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="cancel-close-pr" className="text-sm">
+                  Also close the open pull request
+                </Label>
+                <Switch
+                  id="cancel-close-pr"
+                  checked={cancelClosePr}
+                  onCheckedChange={setCancelClosePr}
+                />
+              </div>
+            )}
+
+            <div className="grid gap-2">
+              <Label htmlFor="cancel-new-branch" className="text-sm">
+                Restart on a new branch
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="cancel-new-branch"
+                  value={cancelNewBranch}
+                  onChange={(e) => setCancelNewBranch(e.target.value)}
+                  placeholder="Leave empty to keep current branch"
+                  className="h-8 text-xs"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Current: {cancellingTask?.branch}
+              </p>
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>
+              Keep Running
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmCancel}
+              disabled={cancelling}
+            >
+              {cancelling ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Cancelling…
+                </>
+              ) : (
+                "Cancel Task"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

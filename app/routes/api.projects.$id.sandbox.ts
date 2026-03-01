@@ -248,7 +248,7 @@ export async function action({
   // ── Build sandbox ───────────────────────────────────
   const token = randomUUID();
   const tokenHash = createHash("sha256").update(token).digest("hex");
-  const timeoutMinutes = 30;
+  const timeoutMinutes = 45;
   const timeoutMs = timeoutMinutes * 60 * 1000;
 
   try {

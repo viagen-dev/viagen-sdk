@@ -56,3 +56,25 @@ export async function mergePr(
 
   return { merged: data.merged ?? true, message: data.message ?? 'Pull request merged' }
 }
+
+/** Close an open PR. Throws on failure. */
+export async function closePr(
+  token: string,
+  owner: string,
+  repo: string,
+  prNumber: number,
+): Promise<void> {
+  const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pulls/${prNumber}`, {
+    method: 'PATCH',
+    headers: {
+      ...githubHeaders(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ state: 'closed' }),
+  })
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.message ?? `GitHub close PR failed (${res.status})`)
+  }
+}

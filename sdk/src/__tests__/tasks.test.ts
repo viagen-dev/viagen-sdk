@@ -93,6 +93,57 @@ describe.skipIf(!TOKEN)('tasks', () => {
     expect(task.outputTokens).toBe(3200)
   })
 
+  // ── timed_out status ─────────────────────────────────
+
+  it('update() accepts timed_out status with error', async () => {
+    const task = await authed.tasks.create(projectId, {
+      prompt: `timeout-test-${Date.now()}`,
+      branch: 'timeout-branch',
+    })
+    // Transition to running first
+    await authed.tasks.update(projectId, task.id, { status: 'running' })
+    // Then to timed_out
+    const updated = await authed.tasks.update(projectId, task.id, {
+      status: 'timed_out',
+      error: 'Task timed out after 40 minutes without agent response',
+    })
+    expect(updated.status).toBe('timed_out')
+    expect(updated.error).toBe('Task timed out after 40 minutes without agent response')
+    expect(updated.completedAt).toBeTruthy()
+  })
+
+  // ── cancel ──────────────────────────────────────────
+
+  it('cancel() resets a running task to ready', async () => {
+    const task = await authed.tasks.create(projectId, {
+      prompt: `cancel-test-${Date.now()}`,
+      branch: 'cancel-branch',
+    })
+    await authed.tasks.update(projectId, task.id, { status: 'running' })
+    const cancelled = await authed.tasks.cancel(projectId, task.id, {
+      newBranch: 'new-branch',
+    })
+    expect(cancelled.status).toBe('ready')
+    expect(cancelled.branch).toBe('new-branch')
+    expect(cancelled.startedAt).toBeNull()
+    expect(cancelled.completedAt).toBeNull()
+    expect(cancelled.error).toBeNull()
+  })
+
+  it('cancel() rejects cancelling a ready task', async () => {
+    const task = await authed.tasks.create(projectId, {
+      prompt: `cancel-ready-test-${Date.now()}`,
+      branch: 'cancel-ready-branch',
+    })
+    try {
+      await authed.tasks.cancel(projectId, task.id)
+      expect.fail('Expected error')
+    } catch (err) {
+      expect(err).toBeInstanceOf(ViagenApiError)
+      expect((err as ViagenApiError).status).toBe(400)
+    }
+  })
+
   // ── cross-org isolation ───────────────────────────────
 
   it('outsider cannot list tasks from another org', async () => {

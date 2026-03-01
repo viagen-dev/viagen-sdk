@@ -2,6 +2,7 @@ export interface Task {
   id: string
   projectId: string
   prompt: string
+  /** One of: "ready", "running", "validating", "completed", "timed_out" */
   status: string
   result: string | null
   error: string | null
@@ -41,6 +42,11 @@ export interface MergeResult {
   merge: { merged: boolean; message: string }
 }
 
+export interface CancelTaskInput {
+  closePr?: boolean
+  newBranch?: string
+}
+
 export interface TasksClient {
   /** List tasks for a project, optionally filtered by status. */
   list(projectId: string, status?: string): Promise<Task[]>
@@ -52,6 +58,8 @@ export interface TasksClient {
   update(projectId: string, taskId: string, input: UpdateTaskInput): Promise<Task>
   /** Merge the PR for a task and mark it completed. */
   merge(projectId: string, taskId: string): Promise<MergeResult>
+  /** Cancel a task: stop sandbox, optionally close PR, reset to ready. */
+  cancel(projectId: string, taskId: string, input?: CancelTaskInput): Promise<Task>
 }
 
 export type RequestFn = <T>(path: string, options?: RequestInit) => Promise<T>
@@ -89,6 +97,14 @@ export function createTasksClient(_baseUrl: string, request: RequestFn): TasksCl
       return request<MergeResult>(`/api/projects/${projectId}/tasks/${taskId}/merge`, {
         method: 'POST',
       })
+    },
+
+    async cancel(projectId, taskId, input = {}) {
+      const data = await request<{ task: Task }>(`/api/projects/${projectId}/tasks/${taskId}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      })
+      return data.task
     },
   }
 }

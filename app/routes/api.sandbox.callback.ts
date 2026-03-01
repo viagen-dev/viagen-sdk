@@ -79,8 +79,8 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Prevent double-completion (idempotent)
-  if (task.status === "completed") {
+  // Prevent double-completion (idempotent) — also reject if task already timed out
+  if (task.status === "completed" || task.status === "timed_out") {
     log.info(
       { taskId: body.taskId, currentStatus: task.status },
       "sandbox callback: task already finalized, ignoring",

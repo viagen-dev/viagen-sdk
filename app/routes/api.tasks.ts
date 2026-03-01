@@ -5,6 +5,7 @@ import { projects, tasks, orgMembers, users } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
 import { getSecret } from "~/lib/infisical.server";
 import { parsePrUrl, isPrMerged } from "~/lib/github.server";
+import { sendTaskTimeoutEmail } from "~/lib/email.server";
 
 // ── GET /api/tasks — List all tasks for the current org ───────────────────
 
@@ -64,35 +65,74 @@ export async function loader({ request }: { request: Request }) {
     vercelProjectName: r.vercelProjectName,
   }));
 
-  // Auto-complete tasks that have been running for 30+ minutes
-  const THIRTY_MINUTES_MS = 30 * 60 * 1000;
+  // Auto-timeout tasks that have been running for 40+ minutes without agent response
+  const TIMEOUT_MS = 40 * 60 * 1000;
   const now = Date.now();
-  const expiredTaskIds = rows
-    .filter((t) => {
-      if (t.status !== "running") return false;
-      const refTime = t.startedAt ?? t.createdAt;
-      if (!refTime) return false;
-      const age = now - new Date(refTime).getTime();
-      return age >= THIRTY_MINUTES_MS;
-    })
-    .map((t) => t.id);
+  const expiredRows = rows.filter((t) => {
+    if (t.status !== "running") return false;
+    const refTime = t.startedAt ?? t.createdAt;
+    if (!refTime) return false;
+    const age = now - new Date(refTime).getTime();
+    return age >= TIMEOUT_MS;
+  });
 
-  if (expiredTaskIds.length > 0) {
+  if (expiredRows.length > 0) {
+    const expiredTaskIds = expiredRows.map((t) => t.id);
     log.info(
       { orgId: org.id, expiredTaskIds },
-      "team tasks list: auto-completing tasks older than 30 minutes",
+      "team tasks list: auto-timing-out tasks older than 40 minutes",
     );
-    await db
-      .update(tasks)
-      .set({ status: "completed", completedAt: new Date() })
-      .where(inArray(tasks.id, expiredTaskIds));
 
-    for (const row of rows) {
-      if (expiredTaskIds.includes(row.id)) {
-        row.status = "completed";
-        row.completedAt = new Date();
-      }
+    for (const row of expiredRows) {
+      const refTime = row.startedAt ?? row.createdAt;
+      const durationMs = refTime ? now - new Date(refTime).getTime() : null;
+      await db
+        .update(tasks)
+        .set({
+          status: "timed_out",
+          completedAt: new Date(),
+          error: "Task timed out after 40 minutes without agent response",
+          callbackTokenHash: null,
+          durationMs,
+        })
+        .where(eq(tasks.id, row.id));
+
+      row.status = "timed_out";
+      row.completedAt = new Date();
+      row.error = "Task timed out after 40 minutes without agent response";
+      row.durationMs = durationMs;
     }
+
+    // Send timeout notification emails (fire-and-forget)
+    (async () => {
+      try {
+        const members = await db
+          .select({ email: users.email })
+          .from(orgMembers)
+          .innerJoin(users, eq(orgMembers.userId, users.id))
+          .where(eq(orgMembers.organizationId, org.id));
+
+        for (const row of expiredRows) {
+          for (const member of members) {
+            sendTaskTimeoutEmail({
+              to: member.email,
+              projectName: row.projectName,
+              projectId: row.projectId,
+              taskId: row.id,
+              taskPrompt: row.prompt,
+            }).catch((err: unknown) =>
+              log.error({ email: member.email, taskId: row.id, err }, "task timeout email failed"),
+            );
+          }
+        }
+        log.info(
+          { orgId: org.id, expiredTaskIds, recipientCount: members.length },
+          "task timeout emails dispatched",
+        );
+      } catch (err) {
+        log.error({ orgId: org.id, err }, "failed to send task timeout notifications");
+      }
+    })();
   }
 
   // Auto-complete tasks whose PR has been merged on GitHub

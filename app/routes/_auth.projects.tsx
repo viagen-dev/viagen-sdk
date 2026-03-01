@@ -23,6 +23,9 @@ import {
   Clock,
   Timer,
   Cpu,
+  Ellipsis,
+  AlertTriangle,
+  XCircle,
 } from "lucide-react";
 
 import { requireAuth } from "~/lib/session.server";
@@ -31,6 +34,18 @@ import { projects } from "~/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import { Switch } from "~/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 import { Textarea } from "~/components/ui/textarea";
 import { Muted, Large } from "~/components/ui/typography";
 import {
@@ -73,6 +88,12 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { cn } from "~/lib/utils";
 
 // ── Loader ────────────────────────────────────────────────────────────────
@@ -99,7 +120,7 @@ interface Project {
   updatedAt: string;
 }
 
-type TaskStatus = "ready" | "running" | "validating" | "completed";
+type TaskStatus = "ready" | "running" | "validating" | "completed" | "timed_out";
 
 interface FeedTask {
   id: string;
@@ -204,6 +225,13 @@ const STATUS_CONFIG: Record<
     className: "text-green-500",
     badgeClassName:
       "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300",
+  },
+  timed_out: {
+    label: "Timed Out",
+    icon: AlertTriangle,
+    className: "text-red-500",
+    badgeClassName:
+      "gap-1.5 font-normal border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300",
   },
 };
 
@@ -558,40 +586,56 @@ function VercelProjectSelector({
 function DashboardTaskLauncher({
   onTaskCreated,
   integrations,
+  projects,
 }: {
   onTaskCreated: (task: FeedTask) => void;
   integrations:
     | { github: boolean; vercel: boolean; claude: boolean }
     | undefined;
+  projects: Project[];
 }) {
   const [prompt, setPrompt] = useState("");
   const [branch, setBranch] = useState(
     () => `feat-${Math.random().toString(36).slice(2, 8)}`,
   );
   const [model, setModel] = useState("claude-sonnet-4-20250514");
-  const [selectedRepo, setSelectedRepo] = useState<GithubRepo | null>(null);
-  const [selectedVercel, setSelectedVercel] = useState<VercelProject | null>(
-    null,
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    () => {
+      if (typeof window === "undefined") return projects[0]?.id ?? null;
+      const saved = localStorage.getItem("viagen-launcher-project");
+      if (saved && projects.some((p) => p.id === saved)) return saved;
+      return projects[0]?.id ?? null;
+    },
   );
+  const [projectOpen, setProjectOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const allReady =
-    !!integrations?.github && !!integrations?.vercel && !!integrations?.claude;
+  const handleProjectSelect = useCallback(
+    (id: string) => {
+      setSelectedProjectId(id);
+      localStorage.setItem("viagen-launcher-project", id);
+    },
+    [],
+  );
 
+  const project = selectedProjectId
+    ? projects.find((p) => p.id === selectedProjectId) ?? null
+    : null;
+
+  const needsClaude = !integrations?.claude;
   const canSubmit =
-    allReady &&
+    project !== null &&
+    !needsClaude &&
     !creating &&
-    prompt.trim().length > 0 &&
-    selectedRepo !== null &&
-    selectedVercel !== null;
+    prompt.trim().length > 0;
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || !project) return;
     setCreating(true);
 
     try {
-      const res = await fetch("/api/tasks", {
+      const res = await fetch(`/api/projects/${project.id}/tasks`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -599,9 +643,6 @@ function DashboardTaskLauncher({
           prompt: prompt.trim(),
           branch: branch.trim(),
           model,
-          githubRepo: selectedRepo!.fullName,
-          vercelProjectId: selectedVercel!.id,
-          vercelProjectName: selectedVercel!.name,
         }),
       });
 
@@ -612,7 +653,17 @@ function DashboardTaskLauncher({
         return;
       }
 
-      onTaskCreated(data.task as FeedTask);
+      // Augment with project context for the feed
+      const task = data.task as FeedTask;
+      if (!task.projectName) {
+        task.projectId = project.id;
+        task.projectName = project.name;
+        task.githubRepo = project.githubRepo;
+        task.vercelProjectId = project.vercelProjectId;
+        task.vercelProjectName = project.vercelProjectName;
+      }
+
+      onTaskCreated(task);
       setPrompt("");
       setBranch(`feat-${Math.random().toString(36).slice(2, 8)}`);
       if (textareaRef.current) {
@@ -626,48 +677,34 @@ function DashboardTaskLauncher({
     }
   };
 
-  const missingSteps: string[] = [];
-  if (!integrations?.github) missingSteps.push("GitHub");
-  if (!integrations?.vercel) missingSteps.push("Vercel");
-  if (!integrations?.claude) missingSteps.push("Claude API key");
-
   return (
     <Card className="mb-8">
-      {missingSteps.length > 0 && (
+      {needsClaude && (
         <CardHeader className="pb-0">
           <CardDescription className="text-xs">
             Connect{" "}
-            {missingSteps.map((s, i) => (
-              <span key={s}>
-                {i > 0 && (i === missingSteps.length - 1 ? " and " : ", ")}
-                <Link
-                  to={
-                    s === "GitHub"
-                      ? "/api/integrations/github/start?return_to=/"
-                      : s === "Vercel"
-                        ? "/api/integrations/vercel/start?return_to=/"
-                        : "/settings?tab=settings"
-                  }
-                  className="underline font-medium"
-                >
-                  {s}
-                </Link>
-              </span>
-            ))}{" "}
+            <Link
+              to="/settings?tab=settings"
+              className="underline font-medium"
+            >
+              Claude API key
+            </Link>{" "}
             to get started.
           </CardDescription>
         </CardHeader>
       )}
-      <CardContent className={missingSteps.length > 0 ? "pt-3" : ""}>
+      <CardContent className={needsClaude ? "pt-3" : ""}>
         <Textarea
           ref={textareaRef}
           placeholder={
-            allReady
-              ? "Describe a task for Claude to work on..."
-              : "Connect your accounts above to start creating tasks..."
+            !project
+              ? "Select a project to start creating tasks..."
+              : needsClaude
+                ? "Connect your Claude API key to start creating tasks..."
+                : `Describe a task for ${project.name}...`
           }
           value={prompt}
-          disabled={!allReady}
+          disabled={!project || needsClaude}
           onChange={(e) => {
             setPrompt(e.target.value);
             e.target.style.height = "auto";
@@ -685,16 +722,50 @@ function DashboardTaskLauncher({
       </CardContent>
       <CardFooter className="border-t justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <GithubRepoSelector
-            selectedRepo={selectedRepo}
-            onSelect={setSelectedRepo}
-            disabled={!integrations?.github}
-          />
-          <VercelProjectSelector
-            selectedProject={selectedVercel}
-            onSelect={setSelectedVercel}
-            disabled={!integrations?.vercel}
-          />
+          <Popover open={projectOpen} onOpenChange={setProjectOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                role="combobox"
+                aria-expanded={projectOpen}
+                className="h-7 w-auto gap-1.5 text-xs"
+              >
+                {project ? project.name : "Select project"}
+                <ChevronDown className="size-3.5 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[240px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search projects..." />
+                <CommandList>
+                  <CommandEmpty>No projects found.</CommandEmpty>
+                  <CommandGroup>
+                    {projects.map((p) => (
+                      <CommandItem
+                        key={p.id}
+                        value={p.name}
+                        onSelect={() => {
+                          handleProjectSelect(p.id);
+                          setProjectOpen(false);
+                        }}
+                      >
+                        {p.name}
+                        <Check
+                          className={cn(
+                            "ml-auto size-3.5",
+                            selectedProjectId === p.id
+                              ? "opacity-100"
+                              : "opacity-0",
+                          )}
+                        />
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
           <div className="relative">
             <GitBranch className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -761,6 +832,12 @@ function TaskDetailPanel({
   const launchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [merging, setMerging] = useState(false);
+
+  // Cancel state
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelClosePr, setCancelClosePr] = useState(false);
+  const [cancelNewBranch, setCancelNewBranch] = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
   // Fetch task
   const refreshTask = useCallback(async () => {
@@ -881,6 +958,45 @@ function TaskDetailPanel({
     }
   };
 
+  const openCancelModal = (t: FeedTask) => {
+    setCancelOpen(true);
+    setCancelClosePr(false);
+    setCancelNewBranch(`feat-${Math.random().toString(36).slice(2, 8)}`);
+    setCancelling(false);
+  };
+
+  const confirmCancel = async () => {
+    if (!task) return;
+    setCancelling(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/tasks/${task.id}/cancel`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            closePr: cancelClosePr,
+            newBranch: cancelNewBranch.trim() || undefined,
+          }),
+        },
+      );
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Task cancelled");
+        refreshTask();
+        refreshWorkspaces();
+        setCancelOpen(false);
+      } else {
+        toast.error(data.error ?? "Failed to cancel task");
+      }
+    } catch {
+      toast.error("Failed to cancel task");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const statusConfig = task
     ? (STATUS_CONFIG[task.status] ?? STATUS_CONFIG.ready)
     : STATUS_CONFIG.ready;
@@ -956,7 +1072,8 @@ function TaskDetailPanel({
             <div className="flex items-center gap-3">
               {(task.status === "ready" ||
                 task.status === "validating" ||
-                task.status === "completed") &&
+                task.status === "completed" ||
+                task.status === "timed_out") &&
                 workspaces.length === 0 && (
                   <Button onClick={handleLaunch} disabled={launching} size="sm">
                     {launching ? (
@@ -995,6 +1112,19 @@ function TaskDetailPanel({
                       Merge
                     </>
                   )}
+                </Button>
+              )}
+              {(task.status === "running" ||
+                task.status === "validating" ||
+                task.status === "timed_out") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:bg-destructive/10"
+                  onClick={() => openCancelModal(task)}
+                >
+                  <XCircle className="size-3.5" />
+                  Cancel
                 </Button>
               )}
             </div>
@@ -1100,6 +1230,69 @@ function TaskDetailPanel({
           </>
         )}
       </SheetContent>
+
+      {/* Cancel task confirmation modal */}
+      <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will stop the sandbox and reset the task back to ready.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="grid gap-4 py-2">
+            {task?.prUrl && (
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="feed-cancel-close-pr" className="text-sm">
+                  Also close the open pull request
+                </Label>
+                <Switch
+                  id="feed-cancel-close-pr"
+                  checked={cancelClosePr}
+                  onCheckedChange={setCancelClosePr}
+                />
+              </div>
+            )}
+
+            <div className="grid gap-2">
+              <Label htmlFor="feed-cancel-new-branch" className="text-sm">
+                Restart on a new branch
+              </Label>
+              <Input
+                id="feed-cancel-new-branch"
+                value={cancelNewBranch}
+                onChange={(e) => setCancelNewBranch(e.target.value)}
+                placeholder="Leave empty to keep current branch"
+                className="h-8 text-xs"
+              />
+              <p className="text-xs text-muted-foreground">
+                Current: {task?.branch}
+              </p>
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>
+              Keep Running
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmCancel}
+              disabled={cancelling}
+            >
+              {cancelling ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Cancelling…
+                </>
+              ) : (
+                "Cancel Task"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }
@@ -1241,7 +1434,39 @@ export default function Dashboard({
   // Task feed state
   const [tasks, setTasks] = useState<FeedTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string | null>("planning");
+  const [statusFilter, setStatusFilter] = useState<string | null>(() => {
+    if (typeof window === "undefined") return "planning";
+    return localStorage.getItem("viagen-status-filter") ?? "planning";
+  });
+
+  const updateStatusFilter = useCallback((val: string) => {
+    setStatusFilter(val);
+    localStorage.setItem("viagen-status-filter", val);
+  }, []);
+
+  // Project filter state
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    () => {
+      if (typeof window === "undefined") return null;
+      const saved = localStorage.getItem("viagen-filter-project");
+      if (saved && loaderData.projects.some((p) => p.id === saved))
+        return saved;
+      return null;
+    },
+  );
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const selectedProject = selectedProjectId
+    ? loaderData.projects.find((p) => p.id === selectedProjectId) ?? null
+    : null;
+
+  const updateFilterProject = useCallback((id: string | null) => {
+    setSelectedProjectId(id);
+    if (id) {
+      localStorage.setItem("viagen-filter-project", id);
+    } else {
+      localStorage.removeItem("viagen-filter-project");
+    }
+  }, []);
 
   // Panel state driven by search params
   const panelTaskId = searchParams.get("task");
@@ -1346,15 +1571,28 @@ export default function Dashboard({
     setTasks((prev) => [task, ...prev]);
   }, []);
 
-  // Filter counts
+  // Project-scoped tasks
+  const projectTasks = useMemo(
+    () =>
+      selectedProjectId
+        ? tasks.filter((t) => t.projectId === selectedProjectId)
+        : tasks,
+    [tasks, selectedProjectId],
+  );
+
+  // Filter counts (respect project filter)
   const counts = useMemo(() => {
-    const planning = tasks.filter(
+    const planning = projectTasks.filter(
       (t) => t.status === "ready" || t.status === "running",
     ).length;
-    const review = tasks.filter((t) => t.status === "validating").length;
-    const merged = tasks.filter((t) => t.status === "completed").length;
+    const review = projectTasks.filter(
+      (t) => t.status === "validating" || t.status === "timed_out",
+    ).length;
+    const merged = projectTasks.filter(
+      (t) => t.status === "completed",
+    ).length;
     return { planning, review, merged };
-  }, [tasks]);
+  }, [projectTasks]);
 
   return (
     <div>
@@ -1363,12 +1601,13 @@ export default function Dashboard({
       <DashboardTaskLauncher
         onTaskCreated={handleTaskCreated}
         integrations={integrations}
+        projects={loaderData.projects}
       />
 
-      {/* Feed tabs */}
+      {/* Feed tabs + project filter */}
       <Tabs
         value={statusFilter ?? "planning"}
-        onValueChange={(val) => setStatusFilter(val)}
+        onValueChange={updateStatusFilter}
       >
         <div className="mb-4 flex items-center gap-4">
           <Large className="whitespace-nowrap">Task Feed</Large>
@@ -1401,6 +1640,99 @@ export default function Dashboard({
               </Badge>
             </TabsTrigger>
           </TabsList>
+
+          <div className="ml-auto flex items-center gap-1">
+            <Popover
+              open={projectPickerOpen}
+              onOpenChange={setProjectPickerOpen}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  role="combobox"
+                  aria-expanded={projectPickerOpen}
+                  className="h-8 w-auto gap-1.5 text-sm"
+                >
+                  {selectedProject ? selectedProject.name : "All Projects"}
+                  <ChevronDown className="size-3.5 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[240px] p-0" align="end">
+                <Command>
+                  <CommandInput placeholder="Search projects..." />
+                  <CommandList>
+                    <CommandEmpty>No projects found.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="__all__"
+                        onSelect={() => {
+                          updateFilterProject(null);
+                          setProjectPickerOpen(false);
+                        }}
+                      >
+                        All Projects
+                        <Check
+                          className={cn(
+                            "ml-auto size-3.5",
+                            selectedProjectId === null
+                              ? "opacity-100"
+                              : "opacity-0",
+                          )}
+                        />
+                      </CommandItem>
+                      {loaderData.projects.map((project) => (
+                        <CommandItem
+                          key={project.id}
+                          value={project.name}
+                          onSelect={() => {
+                            updateFilterProject(project.id);
+                            setProjectPickerOpen(false);
+                          }}
+                        >
+                          {project.name}
+                          <Check
+                            className={cn(
+                              "ml-auto size-3.5",
+                              selectedProjectId === project.id
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
+            {selectedProjectId ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon-sm">
+                    <Ellipsis className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link to={`/projects/${selectedProjectId}/settings`}>
+                      Project Settings
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                disabled
+                className="text-muted-foreground"
+              >
+                <Ellipsis className="size-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Task Feed */}
@@ -1408,15 +1740,16 @@ export default function Dashboard({
           <div className="flex items-center justify-center py-16">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </div>
-        ) : filteredTasks(tasks, statusFilter).length === 0 ? (
+        ) : filteredTasks(projectTasks, statusFilter).length === 0 ? (
           <Card className="border-dashed bg-muted/50">
             <CardContent className="flex flex-col items-center justify-center px-8 py-16">
-              {tasks.length === 0 ? (
+              {projectTasks.length === 0 ? (
                 <>
                   <Large className="mb-2">No tasks yet</Large>
                   <Muted className="text-center">
-                    Use the input above to describe what you&apos;d like Claude
-                    to build.
+                    {selectedProjectId
+                      ? "No tasks in this project yet."
+                      : "Use the input above to describe what you'd like Claude to build."}
                   </Muted>
                 </>
               ) : (
@@ -1428,7 +1761,7 @@ export default function Dashboard({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setStatusFilter("planning")}
+                    onClick={() => updateStatusFilter("planning")}
                   >
                     Show planning
                   </Button>
@@ -1438,7 +1771,7 @@ export default function Dashboard({
           </Card>
         ) : (
           <div className="flex flex-col gap-2">
-            {filteredTasks(tasks, statusFilter).map((task) => (
+            {filteredTasks(projectTasks, statusFilter).map((task) => (
               <TaskFeedItem key={task.id} task={task} onOpen={openTaskPanel} />
             ))}
           </div>
@@ -1469,7 +1802,7 @@ function filteredTasks(
     return tasks.filter((t) => t.status === "ready" || t.status === "running");
   }
   if (statusFilter === "review") {
-    return tasks.filter((t) => t.status === "validating");
+    return tasks.filter((t) => t.status === "validating" || t.status === "timed_out");
   }
   if (statusFilter === "merged") {
     return tasks.filter((t) => t.status === "completed");
