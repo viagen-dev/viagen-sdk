@@ -202,7 +202,7 @@ export async function action({
     return Response.json({ error: "Not authorized" }, { status: 403 });
   }
 
-  let body: { prompt?: string; branch?: string; model?: string };
+  let body: { prompt?: string; branch?: string; model?: string; type?: string };
   try {
     body = await request.json();
   } catch {
@@ -217,6 +217,15 @@ export async function action({
   const branch = body.branch?.trim() || "feat";
   const model = body.model?.trim() || "claude-sonnet-4-20250514";
 
+  const validTypes = ["task", "plan"];
+  const type = body.type?.trim() || "task";
+  if (!validTypes.includes(type)) {
+    return Response.json(
+      { error: `type must be one of: ${validTypes.join(", ")}` },
+      { status: 400 },
+    );
+  }
+
   const [task] = await db
     .insert(tasks)
     .values({
@@ -224,13 +233,14 @@ export async function action({
       prompt,
       branch,
       model,
+      type,
       status: "ready",
       createdBy: user.id,
     })
     .returning();
 
   log.info(
-    { userId: user.id, projectId, taskId: task.id, branch, model },
+    { userId: user.id, projectId, taskId: task.id, branch, model, type },
     "task created",
   );
   return Response.json({ task }, { status: 201 });

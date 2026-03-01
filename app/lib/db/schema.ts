@@ -147,6 +147,7 @@ export const tasks = pgTable("tasks", {
   model: varchar("model", { length: 100 })
     .notNull()
     .default("claude-sonnet-4-20250514"),
+  type: varchar("type", { length: 32 }).notNull().default("task"),
   status: varchar("status", { length: 32 }).notNull().default("ready"),
   result: text("result"),
   error: text("error"),

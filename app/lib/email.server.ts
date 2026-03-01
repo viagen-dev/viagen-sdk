@@ -57,3 +57,64 @@ export async function sendOrgInviteEmail({
     log.info({ to, orgName }, "org invite email sent");
   }
 }
+
+export async function sendTaskReadyEmail({
+  to,
+  projectName,
+  projectId,
+  taskId,
+  taskPrompt,
+  prUrl,
+}: {
+  to: string;
+  projectName: string;
+  projectId: string;
+  taskId: string;
+  taskPrompt: string;
+  prUrl?: string;
+}) {
+  if (!resend) {
+    log.warn("skipping task ready email: RESEND_API_KEY not configured");
+    return;
+  }
+
+  const prLink = prUrl
+    ? `<a href="${prUrl}" style="display: inline-block; background: #18181b; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Pull Request</a>`
+    : "";
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Task ready: ${projectName}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px; color: #1a1a1a;">
+  <h2 style="margin: 0 0 16px;">Task Complete</h2>
+  <p style="line-height: 1.6; margin: 0 0 12px;">
+    A task in <strong>${projectName}</strong> has finished:
+  </p>
+  <blockquote style="border-left: 3px solid #d4d4d8; margin: 0 0 24px; padding: 8px 16px; color: #52525b;">
+    ${taskPrompt}
+  </blockquote>
+  ${prLink}
+  <p style="margin-top: 24px;">
+    <a href="${APP_URL}/projects/${projectId}/tasks/${taskId}"
+       style="color: #18181b; text-decoration: underline; font-weight: 500;">
+      View task details
+    </a>
+  </p>
+  <p style="margin-top: 32px; font-size: 13px; color: #71717a;">
+    You're receiving this because you're a member of this project's organization.
+  </p>
+</body>
+</html>`.trim(),
+  });
+
+  if (error) {
+    log.error({ to, projectName, taskId, error }, "failed to send task ready email");
+  } else {
+    log.info({ to, projectName, taskId }, "task ready email sent");
+  }
+}

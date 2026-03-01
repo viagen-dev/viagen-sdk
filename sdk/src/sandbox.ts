@@ -36,7 +36,30 @@ async function report(body: Record<string, unknown>): Promise<void> {
   }
 }
 
-/** Report that the task is ready for review (PR created). */
+/**
+ * Report task status to the platform.
+ *
+ * Maps user-facing statuses to internal ones:
+ * - `'review'` → `'validating'` (PR created, ready for human review)
+ * - `'completed'` → `'completed'` (task fully done)
+ */
+export async function updateTask(opts: {
+  status: 'review' | 'completed'
+  prUrl?: string
+  result: string
+}): Promise<void> {
+  const internalStatus = opts.status === 'review' ? 'validating' : 'completed'
+  await report({
+    status: internalStatus,
+    ...(opts.prUrl && { prUrl: opts.prUrl }),
+    result: opts.result,
+  })
+}
+
+/**
+ * Report that the task is ready for review (PR created).
+ * @deprecated Use `updateTask({ status: 'review', ... })` instead.
+ */
 export async function reviewReady(opts: {
   prUrl: string
   result: string
@@ -52,7 +75,10 @@ export async function reviewReady(opts: {
   })
 }
 
-/** Report that the task completed successfully. */
+/**
+ * Report that the task completed successfully.
+ * @deprecated Use `updateTask({ status: 'completed', ... })` instead.
+ */
 export async function complete(opts: {
   prUrl?: string
   result: string

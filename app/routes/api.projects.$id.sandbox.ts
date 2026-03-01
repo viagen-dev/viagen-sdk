@@ -299,8 +299,8 @@ export async function action({
         ]);
       }
 
-      // 3. Install vercel CLI + viagen SDK (global so it's available anywhere)
-      await sandbox.runCommand("npm", ["install", "-g", "vercel", "viagen-sdk", "--silent"]);
+      // 3. Install vercel CLI (global so it's available anywhere)
+      await sandbox.runCommand("npm", ["install", "-g", "vercel", "--silent"]);
 
       // 4. Build .env — layer sandbox-specific vars on top of resolved secrets
       const envMap: Record<string, string> = { ...envVars };
@@ -316,23 +316,20 @@ export async function action({
       envMap["VIAGEN_CALLBACK_URL"] = `${redirectBase}/api/sandbox/callback`;
       if (taskId) {
         envMap["VIAGEN_TASK_ID"] = taskId;
+
+        // Look up task type so the plugin can enable plan mode
+        const [taskRow] = await db
+          .select({ type: tasks.type })
+          .from(tasks)
+          .where(eq(tasks.id, taskId));
+        if (taskRow?.type) {
+          envMap["VIAGEN_TASK_TYPE"] = taskRow.type;
+        }
       }
 
       if (prompt) {
         const callbackSnippet = taskId
-          ? `
-
-After creating the pull request, report back to the platform using the viagen SDK. Include your total token usage (check your usage stats or the Anthropic API response headers for input/output token counts):
-
-import { reviewReady } from "viagen-sdk/sandbox";
-await reviewReady({
-  prUrl: "<the full PR URL you just created>",
-  result: "<brief one-line summary of what you did>",
-  inputTokens: <total input tokens used>,
-  outputTokens: <total output tokens used>,
-});
-
-The viagen-sdk package is pre-installed globally. The VIAGEN_CALLBACK_URL, VIAGEN_AUTH_TOKEN, and VIAGEN_TASK_ID env vars are auto-configured — the SDK reads them automatically.`
+          ? ` Use the viagen_update_task tool to report your status when done.`
           : "";
 
         envMap["VIAGEN_PROMPT"] = `${prompt}.

@@ -64,6 +64,7 @@ try {
     [testProject.id, userA.id, callbackTokenHash],
   )
 
+
   const tokenA = createToken(userA.id)
   await client.query(
     `INSERT INTO api_tokens (id, user_id, name, token_prefix, expires_at)
