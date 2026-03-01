@@ -1,6 +1,6 @@
 {
   "name": "viagen-sdk",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -16,6 +16,11 @@
       "import": "./dist/sandbox.js",
       "require": "./dist/sandbox.cjs"
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/viagen-dev/viagen-sdk",
+    "directory": "sdk"
   },
   "files": [
     "dist"
