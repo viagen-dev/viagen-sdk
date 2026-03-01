@@ -22,6 +22,7 @@
   ],
   "scripts": {
     "build": "tsup",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "devDependencies": {
