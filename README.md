@@ -1,109 +1,160 @@
 # viagen-sdk
 
-API server and client SDK for viagen platform services.
-
-## Structure
-
-- `api/` — Hono API server (deploys to Vercel)
-- `sdk/` — Client SDK (publishes to npm as `viagen-sdk`)
-
-## Setup
+TypeScript API client for the [viagen](https://viagen.dev) platform. Works in Node.js, browsers, and edge runtimes.
 
 ```bash
-npm install
-cp api/.env.example api/.env  # fill in values
-npm run db:push -w api        # push schema to Neon
+npm install viagen-sdk
 ```
 
-## Development
-
-```bash
-npm run dev -w api     # Start API server locally
-npm run build -w sdk   # Build SDK
-npm test               # Run all tests
-```
-
-## Auth
-
-OAuth via [Arctic](https://arcticjs.dev/) with our own DB sessions. Providers: GitHub, Google, Microsoft.
-
-### API Routes
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/auth/login/:provider` | Redirect to OAuth provider (github, google, microsoft) |
-| GET | `/api/auth/callback/:provider` | Exchange code, upsert user, create session |
-| GET | `/api/auth/me` | Return current user + org memberships |
-| POST | `/api/auth/logout` | Delete session, clear cookie |
-| GET | `/api/orgs` | List user's organizations |
-| POST | `/api/orgs` | Create organization (user becomes admin) |
-| POST | `/api/orgs/members` | Add member by email (admin only) |
-| GET | `/api/projects` | List projects (org-scoped) |
-| POST | `/api/projects` | Create project (admin only) |
-| GET | `/api/projects/:id` | Get project (org-scoped) |
-| DELETE | `/api/projects/:id` | Delete project (admin only) |
-
-### SDK Usage
+## Quick start
 
 ```ts
 import { createViagen } from 'viagen-sdk'
 
-const viagen = createViagen({ baseUrl: 'https://api.viagen.dev/api' })
-
-viagen.auth.login('github')
-const user = await viagen.auth.me()
-await viagen.auth.logout()
-
-const orgs = await viagen.orgs.list()
-await viagen.orgs.create({ name: 'My Team' })
+const viagen = createViagen({
+  baseUrl: 'https://api.viagen.dev',
+  token: 'vgn_...',
+  orgId: 'org_...',
+})
 
 const projects = await viagen.projects.list()
-await viagen.projects.create({ name: 'My App' })
 ```
 
-### Environment Variables
+## Authentication
 
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | Neon Postgres connection string |
-| `GITHUB_CLIENT_ID` | GitHub OAuth app client ID |
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth app client secret |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `MICROSOFT_CLIENT_ID` | Microsoft Entra app client ID |
-| `MICROSOFT_CLIENT_SECRET` | Microsoft Entra app client secret |
-| `MICROSOFT_TENANT_ID` | Microsoft tenant ID (default: `common`) |
-| `AUTH_REDIRECT_BASE` | Callback base URL (default: `http://localhost:3000`) |
+The client supports two auth modes:
 
-## Front end
+- **Token auth** (CLI / server) — pass a `token` to use Bearer authentication
+- **Cookie auth** (browser) — omit `token` and the client sends credentials with requests
 
-`ui/` — Vite + React SPA using Vercel's [Geist](https://vercel.com/geist/introduction) design language.
+### CLI login
 
-```bash
-npm run dev          # starts api + ui concurrently
-npm run dev -w ui    # ui only (port 5173)
+```ts
+const { token } = await viagen.auth.loginCli()
+// Token is returned after browser-based OAuth flow
 ```
 
-### Design system
+### Stored credentials
 
-Geist's component library is internal to Vercel and not published to npm. We use the open pieces:
+For CLI tools, use the built-in credential helpers:
 
-- **Fonts** — `@fontsource-variable/geist` (sans) and `@fontsource-variable/geist-mono` (mono), imported in `main.tsx`. The official `geist` npm package is Next.js-only.
-- **Color tokens** — CSS custom properties following Geist's `--ds-` naming convention (`--ds-gray-100` through `--ds-gray-1000`, `--ds-background-100/200`, `--ds-blue-700/800`). Light and dark mode via `prefers-color-scheme`.
-- **Typography** — System scale: 0.75rem (xs), 0.8125rem (sm), 0.875rem (base), 1.5rem (heading). Weight 500 for headings, 400 for body.
-- **Components** — Built from scratch following Geist conventions: 6px border radius, `--ds-gray-1000` primary buttons with `--ds-background-100` text, subtle `--ds-gray-200` borders for secondary actions.
+```ts
+import { createViagenFromCredentials, saveCredentials, clearCredentials } from 'viagen-sdk'
 
-### Proxy
+// Load a client from ~/.config/viagen/credentials.json
+const viagen = await createViagenFromCredentials()
 
-Vite proxies `/api` → `http://localhost:3000` so the SPA and API share cookies on `localhost` during development. OAuth callbacks hit the API directly (port 3000), then `AFTER_LOGIN_URL` redirects back to the UI.
+// Save credentials after login
+await saveCredentials({ token, baseUrl: 'https://api.viagen.dev' })
 
-## TODO
+// Clear stored credentials
+await clearCredentials()
+```
 
-- [X] Set up OAuth providers:
-  - [X] **GitHub**: https://github.com/settings/developers → New OAuth App (callback: `{base}/api/auth/callback/github`)
-  - [ ] **Google**: https://console.cloud.google.com/apis/credentials → OAuth client ID (callback: `{base}/api/auth/callback/google`)
-  - [ ] **Microsoft**: https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade → New registration (callback: `{base}/api/auth/callback/microsoft`)
-- [X] Test full auth flow end-to-end
-- [ ] Add `app/` workspace — Vite SPA that dogfoods the SDK
-- [ ] Deploy API to Vercel (api.viagen.dev)
-- [ ] Publish SDK to npm
+## API reference
+
+### `viagen.auth`
+
+| Method | Description |
+|--------|-------------|
+| `login(provider?)` | Redirect to OAuth provider (`'github'`, `'google'`, `'microsoft'`). Browser only. |
+| `me()` | Get current user and org memberships. Returns `null` if unauthenticated. |
+| `logout()` | Log out. Reloads the page in browsers. |
+| `loginCli(options?)` | CLI login via browser OAuth flow. Node.js only. |
+| `listTokens()` | List the current user's API tokens. |
+| `revokeToken(tokenId)` | Revoke an API token. |
+
+### `viagen.orgs`
+
+| Method | Description |
+|--------|-------------|
+| `list()` | List the current user's organizations. |
+| `create({ name })` | Create a new organization. User becomes admin. |
+| `addMember({ email })` | Add a member by email. Admin only. |
+
+### `viagen.projects`
+
+| Method | Description |
+|--------|-------------|
+| `list()` | List all projects in the current org. |
+| `create(input)` | Create a project. Admin only. |
+| `get(id)` | Get a project by ID. |
+| `update(id, input)` | Update a project. Admin only. |
+| `delete(id)` | Delete a project. Admin only. |
+| `sync(input)` | Upsert a project with optional secrets. Admin only. |
+| `listSecrets(id)` | List project + inherited org secrets. |
+| `setSecret(id, key, value)` | Set a project secret. Admin only. |
+| `deleteSecret(id, key)` | Delete a project secret. Admin only. |
+| `getClaudeStatus(id)` | Check Claude API key status (project or org level). |
+| `setClaudeKey(id, apiKey)` | Set Anthropic API key. Admin only. |
+| `removeClaudeKey(id)` | Remove project-level API key. Admin only. |
+| `getDatabase(id)` | Get the project's database. |
+| `provisionDatabase(id, input?)` | Provision a database. Admin only. |
+| `deleteDatabase(id)` | Delete the project's database. Admin only. |
+
+### `viagen.tasks`
+
+| Method | Description |
+|--------|-------------|
+| `list(projectId, status?)` | List tasks, optionally filtered by status. |
+| `get(projectId, taskId)` | Get a single task. |
+| `create(projectId, input)` | Create a task. |
+| `update(projectId, taskId, input)` | Update task status, result, PR URL, etc. |
+| `merge(projectId, taskId)` | Merge the task's PR and mark completed. |
+
+### `viagen.deployments`
+
+| Method | Description |
+|--------|-------------|
+| `list(projectId)` | List recent Vercel deployments. |
+| `redeploy(projectId, target?)` | Trigger a redeploy (`'production'` or `'preview'`). Admin only. |
+
+### `viagen.vercel`
+
+| Method | Description |
+|--------|-------------|
+| `integrationStatus()` | Check Vercel/GitHub integration status for the org. |
+| `disconnect()` | Disconnect the Vercel integration. Admin only. |
+| `listProjects(params?)` | List Vercel projects. Supports `search` and `limit`. |
+
+### `viagen.github`
+
+| Method | Description |
+|--------|-------------|
+| `listRepos(params?)` | List GitHub repos. Supports `page` and `perPage`. |
+
+## Sandbox helpers
+
+A separate entrypoint for code running inside a viagen sandbox. Auto-configured from environment variables set by the platform (`VIAGEN_CALLBACK_URL`, `VIAGEN_AUTH_TOKEN`, `VIAGEN_TASK_ID`).
+
+```ts
+import { updateTask } from 'viagen-sdk/sandbox'
+
+// Report task ready for review
+await updateTask({ status: 'review', prUrl: 'https://...', result: 'Added feature X' })
+
+// Report task completed
+await updateTask({ status: 'completed', result: 'Done' })
+```
+
+## Error handling
+
+All methods throw `ViagenApiError` on non-2xx responses:
+
+```ts
+import { ViagenApiError } from 'viagen-sdk'
+
+try {
+  await viagen.projects.get('bad-id')
+} catch (err) {
+  if (err instanceof ViagenApiError) {
+    console.log(err.status)  // 404
+    console.log(err.message) // "Not found"
+    console.log(err.detail)  // optional detail string
+  }
+}
+```
+
+## License
+
+Proprietary
