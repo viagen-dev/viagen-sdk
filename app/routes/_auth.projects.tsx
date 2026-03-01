@@ -1640,7 +1640,7 @@ export default function Dashboard({
             </TabsTrigger>
           </TabsList>
 
-          <div className="ml-auto flex items-center gap-1">
+          <div className="flex items-center gap-1">
             {loaderData.projects.length > 1 && (
               <Popover
                 open={projectPickerOpen}
