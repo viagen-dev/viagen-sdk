@@ -65,6 +65,8 @@ export async function action({ params, request }: { params: { id: string; taskId
 
   let body: {
     status?: string
+    prompt?: string
+    projectId?: string
     result?: string | null
     error?: string | null
     prUrl?: string | null
@@ -87,8 +89,28 @@ export async function action({ params, request }: { params: { id: string; taskId
     )
   }
 
+  // Validate prompt if provided
+  if (body.prompt !== undefined && !body.prompt.trim()) {
+    return Response.json({ error: 'Prompt cannot be empty' }, { status: 400 })
+  }
+
+  // Validate projectId if provided — must belong to the same org
+  if (body.projectId !== undefined) {
+    const [newProject] = await db
+      .select()
+      .from(projects)
+      .where(and(eq(projects.id, body.projectId), eq(projects.organizationId, org.id)))
+    if (!newProject) {
+      log.warn({ userId: user.id, newProjectId: body.projectId }, 'task update: target project not found or not in org')
+      return Response.json({ error: 'Target project not found' }, { status: 404 })
+    }
+  }
+
   // Build the update payload — only include provided fields
   const updates: Record<string, unknown> = {}
+
+  if (body.prompt !== undefined) updates.prompt = body.prompt.trim()
+  if (body.projectId !== undefined) updates.projectId = body.projectId
 
   if (body.status !== undefined) {
     updates.status = body.status
@@ -126,6 +148,8 @@ export async function action({ params, request }: { params: { id: string; taskId
       taskId,
       oldStatus: existing.status,
       newStatus: body.status ?? existing.status,
+      promptChanged: body.prompt !== undefined,
+      projectChanged: body.projectId !== undefined ? body.projectId : undefined,
     },
     'task updated',
   )

@@ -28,6 +28,8 @@ export interface CreateTaskInput {
 
 export interface UpdateTaskInput {
   status?: string
+  prompt?: string
+  projectId?: string
   result?: string | null
   error?: string | null
   prUrl?: string | null

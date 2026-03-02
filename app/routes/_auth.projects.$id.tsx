@@ -63,6 +63,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
+import Markdown from "react-markdown";
 import { WorkspaceList } from "~/components/workspace-list";
 import {
   DropdownMenu,
@@ -1264,9 +1265,9 @@ export default function ProjectTasks({
                                   </div>
 
                                   {/* Description */}
-                                  <p className="mb-3 text-sm text-muted-foreground line-clamp-2">
-                                    {task.prompt}
-                                  </p>
+                                  <div className="mb-3 text-sm text-muted-foreground line-clamp-2 prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>*]:m-0">
+                                    <Markdown>{task.prompt}</Markdown>
+                                  </div>
 
                                   {/* Status badges */}
                                   <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -1544,8 +1545,8 @@ export default function ProjectTasks({
                                       <span className="text-xs font-semibold text-muted-foreground">
                                         {shortTaskId(task.id)}
                                       </span>
-                                      <span className="truncate text-sm font-medium">
-                                        {task.prompt}
+                                      <span className="truncate text-sm font-medium prose prose-sm dark:prose-invert max-w-none [&>*]:inline [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>*]:m-0">
+                                        <Markdown>{task.prompt}</Markdown>
                                       </span>
                                     </div>
                                     <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">

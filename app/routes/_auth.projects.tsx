@@ -27,7 +27,10 @@ import {
   AlertTriangle,
   XCircle,
   Trash2,
+  Pencil,
+  X,
 } from "lucide-react";
+import Markdown from "react-markdown";
 
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
@@ -822,12 +825,14 @@ function TaskDetailPanel({
   open,
   onClose,
   onTaskChanged,
+  projects,
 }: {
   projectId: string;
   taskId: string;
   open: boolean;
   onClose: () => void;
   onTaskChanged?: () => void;
+  projects: Project[];
 }) {
   const [task, setTask] = useState<FeedTask | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -847,6 +852,14 @@ function TaskDetailPanel({
   // Delete state
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Edit prompt state
+  const [editing, setEditing] = useState(false);
+  const [editPrompt, setEditPrompt] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Change project state
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
 
   // Fetch task
   const refreshTask = useCallback(async () => {
@@ -1036,6 +1049,60 @@ function TaskDetailPanel({
     }
   };
 
+  const savePrompt = async () => {
+    if (!task || !editPrompt.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/tasks/${task.id}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: editPrompt }),
+        },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setTask((prev) => (prev ? { ...prev, ...data.task } : prev));
+        setEditing(false);
+        onTaskChanged?.();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to save prompt");
+      }
+    } catch {
+      toast.error("Failed to save prompt");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changeProject = async (newProjectId: string) => {
+    if (!task || newProjectId === task.projectId) return;
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/tasks/${task.id}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId: newProjectId }),
+        },
+      );
+      if (res.ok) {
+        toast.success("Task moved to new project");
+        onTaskChanged?.();
+        onClose();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to move task");
+      }
+    } catch {
+      toast.error("Failed to move task");
+    }
+  };
+
   const statusConfig = task
     ? (STATUS_CONFIG[task.status] ?? STATUS_CONFIG.ready)
     : STATUS_CONFIG.ready;
@@ -1072,25 +1139,119 @@ function TaskDetailPanel({
                   {timeAgo(task.createdAt)}
                 </span>
               </div>
-              <SheetTitle className="text-base font-normal leading-relaxed">
-                {task.prompt}
-              </SheetTitle>
-              {(task.githubRepo || task.vercelProjectName) && (
-                <SheetDescription className="flex items-center gap-2">
-                  {task.githubRepo && (
-                    <span className="flex items-center gap-1">
-                      <GitHubIcon size={10} />
-                      {task.githubRepo}
-                    </span>
-                  )}
-                  {task.vercelProjectName && (
-                    <span className="flex items-center gap-1">
-                      <VercelIcon />
-                      {task.vercelProjectName}
-                    </span>
-                  )}
-                </SheetDescription>
+              {editing ? (
+                <div className="flex flex-col gap-2">
+                  <Textarea
+                    value={editPrompt}
+                    onChange={(e) => setEditPrompt(e.target.value)}
+                    className="min-h-[80px] text-sm"
+                    autoFocus
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={savePrompt}
+                      disabled={saving || !editPrompt.trim()}
+                    >
+                      {saving ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        "Save"
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditing(false)}
+                      disabled={saving}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="group/prompt flex items-start gap-2">
+                  <SheetTitle className="text-base font-normal leading-relaxed flex-1">
+                    <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                      <Markdown>{task.prompt}</Markdown>
+                    </div>
+                  </SheetTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0 opacity-0 group-hover/prompt:opacity-100 transition-opacity mt-0.5"
+                    onClick={() => {
+                      setEditPrompt(task.prompt);
+                      setEditing(true);
+                    }}
+                  >
+                    <Pencil className="size-3.5" />
+                  </Button>
+                </div>
               )}
+              <SheetDescription className="flex items-center gap-2 flex-wrap">
+                {projects.length > 1 ? (
+                  <Popover
+                    open={projectPickerOpen}
+                    onOpenChange={setProjectPickerOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 gap-1 px-1.5 text-xs text-muted-foreground hover:text-foreground -ml-1.5"
+                      >
+                        {task.projectName}
+                        <ChevronDown className="size-3 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[220px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Move to project..." />
+                        <CommandList>
+                          <CommandEmpty>No projects found.</CommandEmpty>
+                          <CommandGroup>
+                            {projects.map((p) => (
+                              <CommandItem
+                                key={p.id}
+                                value={p.name}
+                                onSelect={() => {
+                                  setProjectPickerOpen(false);
+                                  changeProject(p.id);
+                                }}
+                              >
+                                {p.name}
+                                <Check
+                                  className={cn(
+                                    "ml-auto size-3.5",
+                                    task.projectId === p.id
+                                      ? "opacity-100"
+                                      : "opacity-0",
+                                  )}
+                                />
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <span className="text-xs">{task.projectName}</span>
+                )}
+                {task.githubRepo && (
+                  <span className="flex items-center gap-1">
+                    <GitHubIcon size={10} />
+                    {task.githubRepo}
+                  </span>
+                )}
+                {task.vercelProjectName && (
+                  <span className="flex items-center gap-1">
+                    <VercelIcon />
+                    {task.vercelProjectName}
+                  </span>
+                )}
+              </SheetDescription>
             </SheetHeader>
 
             {/* Active workspaces */}
@@ -1185,9 +1346,9 @@ function TaskDetailPanel({
                   <CardTitle className="text-sm">Result</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                    {task.result}
-                  </p>
+                  <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                    <Markdown>{task.result}</Markdown>
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -1433,9 +1594,9 @@ function TaskFeedItem({
         </div>
 
         {/* Prompt */}
-        <p className="text-sm leading-relaxed mb-2 line-clamp-3">
-          {task.prompt}
-        </p>
+        <div className="text-sm leading-relaxed mb-2 line-clamp-3 prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>*]:m-0">
+          <Markdown>{task.prompt}</Markdown>
+        </div>
 
         {/* Meta badges */}
         <div className="flex items-center gap-2 flex-wrap">
@@ -1869,6 +2030,7 @@ export default function Dashboard({
           open={panelOpen}
           onClose={closeTaskPanel}
           onTaskChanged={fetchTasks}
+          projects={loaderData.projects}
         />
       )}
     </div>
