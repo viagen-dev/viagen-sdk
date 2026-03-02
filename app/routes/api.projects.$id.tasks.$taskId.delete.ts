@@ -1,93 +1,88 @@
-import type { ActionFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { and, eq } from "drizzle-orm";
-
-import { db } from "~/lib/db";
-import { isAdminRole, requireAuth } from "~/lib/auth";
+import { Sandbox } from "@vercel/sandbox";
+import { eq, and } from "drizzle-orm";
+import { requireAuth } from "~/lib/session.server";
+import { db } from "~/lib/db/index.server";
 import { projects, tasks, workspaces } from "~/lib/db/schema";
-import { log } from "~/lib/log";
+import { log } from "~/lib/logger.server";
 
-export async function action({ params, request }: ActionFunctionArgs) {
-  const { projectId, taskId } = params;
-  if (!projectId || !taskId) {
-    throw new Response("Project ID and Task ID are required", { status: 400 });
+export async function action({
+  params,
+  request,
+}: {
+  params: { id: string; taskId: string };
+  request: Request;
+}) {
+  if (request.method !== "POST") {
+    return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  const { user, session } = await requireAuth(request);
+  const { user, org } = await requireAuth(request);
+  const { id: projectId, taskId } = params;
 
-  try {
-    // Get the project and check permissions
-    const project = await db.query.projects.findFirst({
-      where: eq(projects.id, projectId),
-    });
+  // Verify project belongs to user's org
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.organizationId, org.id)));
 
-    if (!project) {
-      throw new Response("Project not found", { status: 404 });
-    }
-
-    if (project.orgId !== user.orgId) {
-      throw new Response("Forbidden", { status: 403 });
-    }
-
-    if (project.createdBy !== user.id && !isAdminRole(user.role)) {
-      throw new Response("Forbidden", { status: 403 });
-    }
-
-    // Get the task to ensure it exists and belongs to the project
-    const task = await db.query.tasks.findFirst({
-      where: and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)),
-      with: {
-        workspace: true,
-      },
-    });
-
-    if (!task) {
-      throw new Response("Task not found", { status: 404 });
-    }
-
-    // Clean up workspace if it exists
-    if (task.workspace) {
-      try {
-        // Delete the workspace record
-        await db.delete(workspaces).where(eq(workspaces.id, task.workspace.id));
-      } catch (error) {
-        log.error("Failed to clean up workspace during task deletion", {
-          taskId: task.id,
-          workspaceId: task.workspace.id,
-          error,
-          userId: user.id,
-          projectId,
-        });
-        // Continue with task deletion even if workspace cleanup fails
-      }
-    }
-
-    // Delete the task
-    await db.delete(tasks).where(eq(tasks.id, taskId));
-
-    log.info("Task deleted successfully", {
-      taskId: task.id,
-      projectId,
-      userId: user.id,
-      sessionId: session.id,
-    });
-
-    return json({ success: true });
-  } catch (error) {
-    log.error("Failed to delete task", {
-      taskId,
-      projectId,
-      userId: user.id,
-      error,
-    });
-
-    if (error instanceof Response) {
-      throw error;
-    }
-
-    return json(
-      { error: "Failed to delete task" },
-      { status: 500 }
+  if (!project) {
+    log.warn(
+      { userId: user.id, projectId },
+      "delete: project not found or not in org",
     );
+    return Response.json({ error: "Project not found" }, { status: 404 });
   }
+
+  // Fetch the task
+  const [task] = await db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
+
+  if (!task) {
+    log.warn({ userId: user.id, projectId, taskId }, "delete: task not found");
+    return Response.json({ error: "Task not found" }, { status: 404 });
+  }
+
+  // Stop sandbox if workspace is linked
+  if (task.workspaceId) {
+    const [workspace] = await db
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.id, task.workspaceId));
+
+    if (workspace) {
+      try {
+        const sandbox = await Sandbox.get({
+          sandboxId: workspace.sandboxId,
+        });
+        await sandbox.stop();
+        log.info(
+          { taskId, workspaceId: workspace.id, sandboxId: workspace.sandboxId },
+          "delete: sandbox stopped",
+        );
+      } catch (err) {
+        log.warn(
+          { taskId, workspaceId: workspace.id, err },
+          "delete: sandbox stop failed (may already be stopped)",
+        );
+      }
+
+      await db.delete(workspaces).where(eq(workspaces.id, workspace.id));
+      log.info(
+        { taskId, workspaceId: workspace.id },
+        "delete: workspace deleted",
+      );
+    }
+  }
+
+  // Delete the task
+  await db.delete(tasks).where(eq(tasks.id, taskId));
+
+  log.info(
+    { userId: user.id, projectId, taskId },
+    "task deleted permanently",
+  );
+
+  return Response.json({ success: true });
 }

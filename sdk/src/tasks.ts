@@ -42,6 +42,34 @@ export interface MergeResult {
   merge: { merged: boolean; message: string }
 }
 
+export interface TeamTask extends Task {
+  projectName: string
+  githubRepo: string | null
+  vercelProjectId: string | null
+  vercelProjectName: string | null
+  creatorName: string | null
+  creatorAvatarUrl: string | null
+}
+
+export interface CreateTeamTaskInput {
+  prompt: string
+  githubRepo: string
+  vercelProjectId: string
+  vercelProjectName?: string
+  branch?: string
+  model?: string
+}
+
+export interface CreateTeamTaskResult {
+  task: TeamTask
+  projectId: string
+}
+
+export interface ListTeamOptions {
+  status?: string
+  limit?: number
+}
+
 export interface CancelTaskInput {
   closePr?: boolean
   newBranch?: string
@@ -60,6 +88,10 @@ export interface TasksClient {
   merge(projectId: string, taskId: string): Promise<MergeResult>
   /** Cancel a task: stop sandbox, optionally close PR, reset to ready. */
   cancel(projectId: string, taskId: string, input?: CancelTaskInput): Promise<Task>
+  /** List tasks across all projects in the org. */
+  listTeam(options?: ListTeamOptions): Promise<TeamTask[]>
+  /** Create a task with auto project creation (find-or-create by repo + Vercel project). */
+  createTeam(input: CreateTeamTaskInput): Promise<CreateTeamTaskResult>
 }
 
 export type RequestFn = <T>(path: string, options?: RequestInit) => Promise<T>
@@ -105,6 +137,22 @@ export function createTasksClient(_baseUrl: string, request: RequestFn): TasksCl
         body: JSON.stringify(input),
       })
       return data.task
+    },
+
+    async listTeam(options) {
+      const params = new URLSearchParams()
+      if (options?.status) params.set('status', options.status)
+      if (options?.limit) params.set('limit', String(options.limit))
+      const qs = params.toString() ? `?${params.toString()}` : ''
+      const data = await request<{ tasks: TeamTask[] }>(`/api/tasks${qs}`)
+      return data.tasks
+    },
+
+    async createTeam(input) {
+      return request<CreateTeamTaskResult>(`/api/tasks`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      })
     },
   }
 }

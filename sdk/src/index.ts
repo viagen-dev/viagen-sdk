@@ -35,7 +35,18 @@ export type {
   GitHubListReposParams,
   GitHubClient,
 } from "./github.js";
-export type { Task, CreateTaskInput, UpdateTaskInput, MergeResult, TasksClient } from './tasks.js'
+export type {
+  Task,
+  TeamTask,
+  CreateTaskInput,
+  UpdateTaskInput,
+  CreateTeamTaskInput,
+  CreateTeamTaskResult,
+  ListTeamOptions,
+  MergeResult,
+  CancelTaskInput,
+  TasksClient,
+} from './tasks.js'
 export {
   loadCredentials,
   saveCredentials,
