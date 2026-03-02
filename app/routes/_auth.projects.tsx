@@ -821,11 +821,13 @@ function TaskDetailPanel({
   taskId,
   open,
   onClose,
+  onTaskChanged,
 }: {
   projectId: string;
   taskId: string;
   open: boolean;
   onClose: () => void;
+  onTaskChanged?: () => void;
 }) {
   const [task, setTask] = useState<FeedTask | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -955,6 +957,7 @@ function TaskDetailPanel({
         toast.success("Pull request merged");
         if (data.task)
           setTask((prev) => (prev ? { ...prev, ...data.task } : prev));
+        onTaskChanged?.();
       } else {
         toast.error(data.error ?? "Failed to merge PR");
       }
@@ -994,6 +997,7 @@ function TaskDetailPanel({
         refreshTask();
         refreshWorkspaces();
         setCancelOpen(false);
+        onTaskChanged?.();
       } else {
         toast.error(data.error ?? "Failed to cancel task");
       }
@@ -1020,6 +1024,7 @@ function TaskDetailPanel({
       if (res.ok) {
         toast.success("Task deleted");
         setDeleteOpen(false);
+        onTaskChanged?.();
         onClose();
       } else {
         toast.error(data.error ?? "Failed to delete task");
@@ -1863,6 +1868,7 @@ export default function Dashboard({
           taskId={panelTaskId}
           open={panelOpen}
           onClose={closeTaskPanel}
+          onTaskChanged={fetchTasks}
         />
       )}
     </div>
