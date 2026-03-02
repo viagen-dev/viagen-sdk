@@ -1,9 +1,10 @@
 import { redirect } from "react-router";
 import { validateSession, validateApiToken } from "./auth.server";
 import { db } from "./db/index.server";
-import { orgMembers, organizations } from "./db/schema";
+import { orgMembers, organizations, users } from "./db/schema";
 import { eq } from "drizzle-orm";
 import type { User } from "./db/schema";
+import { log } from "./logger.server";
 
 const SESSION_COOKIE = "viagen-session";
 const ORG_COOKIE = "viagen-org";
@@ -93,13 +94,31 @@ export async function getSessionUser(
   const cookieHeader = request.headers.get("Cookie");
   const sessionToken = parseCookie(cookieHeader, SESSION_COOKIE);
 
-  if (!sessionToken) return null;
+  if (sessionToken) {
+    const result = await validateSession(sessionToken);
+    if (result) {
+      const memberships = await fetchMemberships(result.user.id);
+      return { user: result.user, memberships };
+    }
+  }
 
-  const result = await validateSession(sessionToken);
-  if (!result) return null;
+  // 3. Sandbox env bypass — auto-auth when running inside a Vercel sandbox
+  const sandboxEmail = process.env.VIAGEN_AUTH_EMAIL;
+  if (sandboxEmail) {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, sandboxEmail))
+      .limit(1);
+    if (user) {
+      log.info({ email: sandboxEmail }, "sandbox auth bypass: auto-authenticated via VIAGEN_AUTH_EMAIL");
+      const memberships = await fetchMemberships(user.id);
+      return { user, memberships };
+    }
+    log.warn({ email: sandboxEmail }, "sandbox auth bypass: VIAGEN_AUTH_EMAIL set but user not found");
+  }
 
-  const memberships = await fetchMemberships(result.user.id);
-  return { user: result.user, memberships };
+  return null;
 }
 
 /** Require an authenticated user. Throws redirect to /login (web) or 401 JSON (API). */
