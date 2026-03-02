@@ -65,6 +65,10 @@ export default [
     "api/projects/:id/tasks/:taskId/cancel",
     "routes/api.projects.$id.tasks.$taskId.cancel.ts",
   ),
+  route(
+    "api/projects/:id/tasks/:taskId/delete",
+    "routes/api.projects.$id.tasks.$taskId.delete.ts",
+  ),
   route("api/tasks", "routes/api.tasks.ts"),
   route("api/vercel/projects", "routes/api.vercel.projects.ts"),
   route("api/github/repos", "routes/api.github.repos.ts"),

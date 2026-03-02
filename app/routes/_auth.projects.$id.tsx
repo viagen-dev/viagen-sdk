@@ -49,6 +49,7 @@ import {
   ChevronDown,
   AlertTriangle,
   XCircle,
+  Trash2,
 } from "lucide-react";
 import { Label } from "~/components/ui/label";
 import { toast } from "sonner";
@@ -308,6 +309,10 @@ export default function ProjectTasks({
   const [cancelClosePr, setCancelClosePr] = useState(false);
   const [cancelNewBranch, setCancelNewBranch] = useState("");
   const [cancelling, setCancelling] = useState(false);
+
+  // Delete modal state
+  const [deletingTask, setDeletingTask] = useState<Task | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Track previously-seen task statuses for completion notifications
   const prevTaskStatusesRef = useRef<Map<string, TaskStatus>>(new Map());
@@ -800,6 +805,45 @@ export default function ProjectTasks({
       toast.error("Failed to cancel task");
     } finally {
       setCancelling(false);
+    }
+  };
+
+  /**
+   * Open the delete confirmation modal for a task.
+   */
+  const openDeleteModal = (task: Task) => {
+    setDeletingTask(task);
+    setDeleting(false);
+  };
+
+  /**
+   * Confirm delete: permanently delete the task and any associated workspace.
+   */
+  const confirmDelete = async () => {
+    if (!deletingTask) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${project.id}/tasks/${deletingTask.id}/delete`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Task deleted");
+        fetchTasks();
+        refreshWorkspaces();
+        setDeletingTask(null);
+      } else {
+        toast.error(data.error ?? "Failed to delete task");
+      }
+    } catch {
+      toast.error("Failed to delete task");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -1390,6 +1434,18 @@ export default function ProjectTasks({
                                         <XCircle className="size-3" />
                                         Cancel
                                       </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          openDeleteModal(task);
+                                        }}
+                                      >
+                                        <Trash2 className="size-3" />
+                                        Delete
+                                      </Button>
                                     </div>
                                   )}
                                   {task.status === "completed" &&
@@ -1651,6 +1707,18 @@ export default function ProjectTasks({
                                         Cancel
                                       </Button>
                                     )}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        openDeleteModal(task);
+                                      }}
+                                    >
+                                      <Trash2 className="size-3" />
+                                      Delete
+                                    </Button>
                                     {task.status === "completed" &&
                                       task.prUrl && (
                                         <Button
@@ -1744,6 +1812,42 @@ export default function ProjectTasks({
                 </>
               ) : (
                 "Cancel Task"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete task confirmation modal */}
+      <AlertDialog
+        open={deletingTask !== null}
+        onOpenChange={(open) => !open && setDeletingTask(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the task and any associated workspace.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                "Delete Task"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
