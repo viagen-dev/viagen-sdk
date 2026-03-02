@@ -26,6 +26,7 @@ import {
   Ellipsis,
   AlertTriangle,
   XCircle,
+  Trash2,
 } from "lucide-react";
 
 import { requireAuth } from "~/lib/session.server";
@@ -841,6 +842,10 @@ function TaskDetailPanel({
   const [cancelNewBranch, setCancelNewBranch] = useState("");
   const [cancelling, setCancelling] = useState(false);
 
+  // Delete state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   // Fetch task
   const refreshTask = useCallback(async () => {
     try {
@@ -999,6 +1004,33 @@ function TaskDetailPanel({
     }
   };
 
+  const confirmDelete = async () => {
+    if (!task) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/tasks/${task.id}/delete`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Task deleted");
+        setDeleteOpen(false);
+        onClose();
+      } else {
+        toast.error(data.error ?? "Failed to delete task");
+      }
+    } catch {
+      toast.error("Failed to delete task");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const statusConfig = task
     ? (STATUS_CONFIG[task.status] ?? STATUS_CONFIG.ready)
     : STATUS_CONFIG.ready;
@@ -1128,6 +1160,15 @@ function TaskDetailPanel({
                   Cancel
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="size-3.5" />
+                Delete
+              </Button>
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -1289,6 +1330,40 @@ function TaskDetailPanel({
                 </>
               ) : (
                 "Cancel Task"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete task confirmation modal */}
+      <AlertDialog
+        open={deleteOpen}
+        onOpenChange={(open) => !open && setDeleteOpen(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the task and any associated workspace.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                "Delete Task"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
