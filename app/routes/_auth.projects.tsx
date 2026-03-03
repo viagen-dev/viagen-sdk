@@ -9,7 +9,6 @@ import {
 import { toast } from "sonner";
 import {
   ChevronDown,
-  ChevronRight,
   ArrowUp,
   Loader2,
   GitBranch,
@@ -29,6 +28,7 @@ import {
   Trash2,
   Pencil,
   X,
+  PanelRightClose,
 } from "lucide-react";
 import Markdown from "react-markdown";
 
@@ -51,7 +51,8 @@ import {
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
 import { Textarea } from "~/components/ui/textarea";
-import { Muted, Large } from "~/components/ui/typography";
+import { Muted, Large, Small } from "~/components/ui/typography";
+import { Alert, AlertDescription } from "~/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -62,13 +63,8 @@ import {
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "~/components/ui/sheet";
+
+import { Separator } from "~/components/ui/separator";
 import { WorkspaceList } from "~/components/workspace-list";
 
 import {
@@ -96,6 +92,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { cn } from "~/lib/utils";
@@ -124,7 +121,12 @@ interface Project {
   updatedAt: string;
 }
 
-type TaskStatus = "ready" | "running" | "validating" | "completed" | "timed_out";
+type TaskStatus =
+  | "ready"
+  | "running"
+  | "validating"
+  | "completed"
+  | "timed_out";
 
 interface FeedTask {
   id: string;
@@ -204,13 +206,13 @@ const STATUS_CONFIG: Record<
   }
 > = {
   ready: {
-    label: "Planning",
+    label: "Ready",
     icon: CircleDot,
     className: "text-muted-foreground",
     badgeClassName: "gap-1.5 font-normal",
   },
   running: {
-    label: "Planning",
+    label: "Backlog",
     icon: Loader2,
     className: "text-blue-500",
     badgeClassName:
@@ -224,7 +226,7 @@ const STATUS_CONFIG: Record<
       "gap-1.5 font-normal border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300",
   },
   completed: {
-    label: "Merged",
+    label: "Completed",
     icon: GitMerge,
     className: "text-green-500",
     badgeClassName:
@@ -615,24 +617,18 @@ function DashboardTaskLauncher({
   const [creating, setCreating] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleProjectSelect = useCallback(
-    (id: string) => {
-      setSelectedProjectId(id);
-      localStorage.setItem("viagen-launcher-project", id);
-    },
-    [],
-  );
+  const handleProjectSelect = useCallback((id: string) => {
+    setSelectedProjectId(id);
+    localStorage.setItem("viagen-launcher-project", id);
+  }, []);
 
   const project = selectedProjectId
-    ? projects.find((p) => p.id === selectedProjectId) ?? null
+    ? (projects.find((p) => p.id === selectedProjectId) ?? null)
     : null;
 
   const needsClaude = !integrations?.claude;
   const canSubmit =
-    project !== null &&
-    !needsClaude &&
-    !creating &&
-    prompt.trim().length > 0;
+    project !== null && !needsClaude && !creating && prompt.trim().length > 0;
 
   const handleSubmit = async () => {
     if (!canSubmit || !project) return;
@@ -687,10 +683,7 @@ function DashboardTaskLauncher({
         <CardHeader className="pb-0">
           <CardDescription className="text-xs">
             Connect{" "}
-            <Link
-              to="/settings?tab=settings"
-              className="underline font-medium"
-            >
+            <Link to="/settings?tab=settings" className="underline font-medium">
               Claude API key
             </Link>{" "}
             to get started.
@@ -858,8 +851,26 @@ function TaskDetailPanel({
   const [editPrompt, setEditPrompt] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Edit branch state
+  const [editingBranch, setEditingBranch] = useState(false);
+  const [editBranch, setEditBranch] = useState("");
+  const [savingBranch, setSavingBranch] = useState(false);
+
   // Change project state
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+
+  // Assignee state
+  interface TeamMember {
+    id: string;
+    email: string;
+    name: string | null;
+    avatarUrl: string | null;
+    role: string;
+  }
+  const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamMembersLoading, setTeamMembersLoading] = useState(false);
+  const [teamMembersFetched, setTeamMembersFetched] = useState(false);
 
   // Fetch task
   const refreshTask = useCallback(async () => {
@@ -896,6 +907,26 @@ function TaskDetailPanel({
     } catch {
       // silently fail
     }
+  }, [projectId, taskId]);
+
+  // Reset state when switching tasks
+  useEffect(() => {
+    setTask(null);
+    setWorkspaces([]);
+    setLoading(true);
+    setError(null);
+    setEditing(false);
+    setEditPrompt("");
+    setEditingBranch(false);
+    setEditBranch("");
+    setAssigneePickerOpen(false);
+    setProjectPickerOpen(false);
+    setCancelOpen(false);
+    setDeleteOpen(false);
+    setLaunching(false);
+    setLaunchElapsed(0);
+    refreshTask();
+    refreshWorkspaces();
   }, [projectId, taskId]);
 
   // Initial load
@@ -1053,15 +1084,12 @@ function TaskDetailPanel({
     if (!task || !editPrompt.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch(
-        `/api/projects/${projectId}/tasks/${task.id}`,
-        {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: editPrompt }),
-        },
-      );
+      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: editPrompt }),
+      });
       if (res.ok) {
         const data = await res.json();
         setTask((prev) => (prev ? { ...prev, ...data.task } : prev));
@@ -1078,18 +1106,101 @@ function TaskDetailPanel({
     }
   };
 
+  const saveBranch = async () => {
+    if (!task || !editBranch.trim() || editBranch.trim() === task.branch) {
+      setEditingBranch(false);
+      setEditBranch("");
+      return;
+    }
+    setSavingBranch(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branch: editBranch.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTask((prev) => (prev ? { ...prev, ...data.task } : prev));
+        setEditingBranch(false);
+        setEditBranch("");
+        onTaskChanged?.();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to save branch");
+      }
+    } catch {
+      toast.error("Failed to save branch");
+    } finally {
+      setSavingBranch(false);
+    }
+  };
+
+  // Fetch team members (lazy — only when assignee picker opens)
+  const fetchTeamMembers = useCallback(async () => {
+    if (teamMembersFetched) return;
+    setTeamMembersLoading(true);
+    try {
+      const res = await fetch("/api/orgs/members", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setTeamMembers(data.members ?? []);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setTeamMembersLoading(false);
+      setTeamMembersFetched(true);
+    }
+  }, [teamMembersFetched]);
+
+  const changeAssignee = async (userId: string) => {
+    if (!task || userId === task.createdBy) {
+      setAssigneePickerOpen(false);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ createdBy: userId }),
+      });
+      if (res.ok) {
+        const member = teamMembers.find((m) => m.id === userId);
+        setTask((prev) =>
+          prev
+            ? {
+                ...prev,
+                createdBy: userId,
+                creatorName: member?.name ?? prev.creatorName,
+                creatorAvatarUrl: member?.avatarUrl ?? prev.creatorAvatarUrl,
+              }
+            : prev,
+        );
+        onTaskChanged?.();
+        toast.success("Assignee updated");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to change assignee");
+      }
+    } catch {
+      toast.error("Failed to change assignee");
+    } finally {
+      setAssigneePickerOpen(false);
+    }
+  };
+
   const changeProject = async (newProjectId: string) => {
     if (!task || newProjectId === task.projectId) return;
     try {
-      const res = await fetch(
-        `/api/projects/${projectId}/tasks/${task.id}`,
-        {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId: newProjectId }),
-        },
-      );
+      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: newProjectId }),
+      });
       if (res.ok) {
         toast.success("Task moved to new project");
         onTaskChanged?.();
@@ -1107,90 +1218,181 @@ function TaskDetailPanel({
     ? (STATUS_CONFIG[task.status] ?? STATUS_CONFIG.ready)
     : STATUS_CONFIG.ready;
   const StatusIcon = statusConfig.icon;
+  const isBacklog = task?.status === "ready" || task?.status === "running";
 
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="sm:max-w-lg w-full">
-        {loading || !task ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <>
-            <SheetHeader>
-              <div className="flex items-center gap-3 mb-1">
+    <>
+      <div className="flex h-full flex-col overflow-y-auto">
+        <div className="flex flex-col gap-4 p-6">
+          {loading || !task ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : isBacklog ? (
+            <>
+              {/* ── Backlog layout ─────────────────────────────────── */}
+
+              {/* Toolbar */}
+              <div className="flex items-center justify-between">
+                <Button
+                  onClick={handleLaunch}
+                  disabled={launching || workspaces.length > 0}
+                  size="sm"
+                >
+                  {launching ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" />
+                      Launching… {launchElapsed}s
+                    </>
+                  ) : (
+                    <>
+                      <Play className="size-3.5" />
+                      Run
+                    </>
+                  )}
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon-sm">
+                        <Ellipsis className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => setDeleteOpen(true)}
+                      >
+                        <Trash2 className="size-3.5" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <Button variant="ghost" size="icon-sm" onClick={onClose}>
+                    <PanelRightClose className="size-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Task ID + Status badge */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Large>{shortTaskId(task.id)}</Large>
+                  <Muted>{timeAgo(task.createdAt)}</Muted>
+                </div>
                 <Badge
                   variant="outline"
                   className={statusConfig.badgeClassName}
                 >
                   <StatusIcon
                     className={cn(
-                      "size-3.5",
+                      "size-3",
                       statusConfig.className,
                       task.status === "running" ? "animate-spin" : "",
                     )}
                   />
                   {statusConfig.label}
                 </Badge>
-                <span className="text-xs text-muted-foreground font-mono">
-                  {shortTaskId(task.id)}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {timeAgo(task.createdAt)}
-                </span>
               </div>
-              {editing ? (
-                <div className="flex flex-col gap-2">
-                  <Textarea
-                    value={editPrompt}
-                    onChange={(e) => setEditPrompt(e.target.value)}
-                    className="min-h-[80px] text-sm"
-                    autoFocus
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={savePrompt}
-                      disabled={saving || !editPrompt.trim()}
-                    >
-                      {saving ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : (
-                        "Save"
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setEditing(false)}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="group/prompt flex items-start gap-2">
-                  <SheetTitle className="text-base font-normal leading-relaxed flex-1">
-                    <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                      <Markdown>{task.prompt}</Markdown>
-                    </div>
-                  </SheetTitle>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="shrink-0 opacity-0 group-hover/prompt:opacity-100 transition-opacity mt-0.5"
-                    onClick={() => {
-                      setEditPrompt(task.prompt);
-                      setEditing(true);
+
+              {/* Metadata table */}
+              <div className="flex flex-col gap-1">
+                {/* Assignee */}
+                <div className="flex items-center">
+                  <Small className="w-28 shrink-0">Assignee</Small>
+                  <Popover
+                    open={assigneePickerOpen}
+                    onOpenChange={(open) => {
+                      setAssigneePickerOpen(open);
+                      if (open) fetchTeamMembers();
                     }}
                   >
-                    <Pencil className="size-3.5" />
-                  </Button>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                      >
+                        <Avatar size="sm">
+                          {task.creatorAvatarUrl ? (
+                            <AvatarImage
+                              src={task.creatorAvatarUrl}
+                              alt={task.creatorName ?? ""}
+                            />
+                          ) : null}
+                          <AvatarFallback className="text-[0.5rem]">
+                            {task.creatorName
+                              ? task.creatorName
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase()
+                                  .slice(0, 2)
+                              : "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                        {task.creatorName ?? "Unknown"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[220px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Assign to..." />
+                        <CommandList>
+                          <CommandEmpty>
+                            {teamMembersLoading
+                              ? "Loading..."
+                              : "No members found."}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {teamMembers.map((member) => (
+                              <CommandItem
+                                key={member.id}
+                                value={member.name ?? member.email}
+                                onSelect={() => changeAssignee(member.id)}
+                              >
+                                <Avatar size="sm">
+                                  {member.avatarUrl ? (
+                                    <AvatarImage
+                                      src={member.avatarUrl}
+                                      alt={member.name ?? ""}
+                                    />
+                                  ) : null}
+                                  <AvatarFallback className="text-[0.5rem]">
+                                    {member.name
+                                      ? member.name
+                                          .split(" ")
+                                          .map((n) => n[0])
+                                          .join("")
+                                          .toUpperCase()
+                                          .slice(0, 2)
+                                      : member.email.slice(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                {member.name ?? member.email}
+                                <Check
+                                  className={cn(
+                                    "ml-auto size-3.5",
+                                    task.createdBy === member.id
+                                      ? "opacity-100"
+                                      : "opacity-0",
+                                  )}
+                                />
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
-              )}
-              <SheetDescription className="flex items-center gap-2 flex-wrap">
-                {projects.length > 1 ? (
+
+                {/* Project */}
+                <div className="flex items-center">
+                  <Small className="w-28 shrink-0">Project</Small>
                   <Popover
                     open={projectPickerOpen}
                     onOpenChange={setProjectPickerOpen}
@@ -1199,10 +1401,10 @@ function TaskDetailPanel({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 gap-1 px-1.5 text-xs text-muted-foreground hover:text-foreground -ml-1.5"
+                        className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
                       >
+                        <VercelIcon />
                         {task.projectName}
-                        <ChevronDown className="size-3 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[220px] p-0" align="start">
@@ -1236,208 +1438,448 @@ function TaskDetailPanel({
                       </Command>
                     </PopoverContent>
                   </Popover>
-                ) : (
-                  <span className="text-xs">{task.projectName}</span>
-                )}
-                {task.githubRepo && (
-                  <span className="flex items-center gap-1">
-                    <GitHubIcon size={10} />
-                    {task.githubRepo}
-                  </span>
-                )}
-                {task.vercelProjectName && (
-                  <span className="flex items-center gap-1">
-                    <VercelIcon />
-                    {task.vercelProjectName}
-                  </span>
-                )}
-              </SheetDescription>
-            </SheetHeader>
+                </div>
 
-            {/* Active workspaces */}
-            {workspaces.length > 0 && (
+                {/* Branch */}
+                <div className="flex items-center">
+                  <Small className="w-28 shrink-0">Branch</Small>
+                  {editingBranch ? (
+                    <div className="flex items-center gap-1">
+                      <GitBranch className="size-3.5 text-muted-foreground shrink-0" />
+                      <Input
+                        value={editBranch}
+                        onChange={(e) => setEditBranch(e.target.value)}
+                        onBlur={saveBranch}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            (e.target as HTMLInputElement).blur();
+                          }
+                          if (e.key === "Escape") {
+                            setEditBranch("");
+                            setEditingBranch(false);
+                          }
+                        }}
+                        disabled={savingBranch}
+                        autoFocus
+                        className="h-auto px-2 py-1 text-sm"
+                      />
+                      {savingBranch && (
+                        <Loader2 className="size-3 animate-spin text-muted-foreground shrink-0" />
+                      )}
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setEditBranch(task.branch);
+                        setEditingBranch(true);
+                      }}
+                    >
+                      <GitBranch className="size-3.5" />
+                      {task.branch}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Task description — inline editable */}
               <div>
-                <WorkspaceList
-                  projectId={projectId}
-                  workspaces={workspaces}
-                  onStopped={(id) =>
-                    setWorkspaces((prev) => prev.filter((w) => w.id !== id))
-                  }
+                <div className="flex items-center justify-between mb-2">
+                  <Small>Task</Small>
+                  {saving && (
+                    <Muted className="flex items-center gap-1">
+                      <Loader2 className="size-3 animate-spin" />
+                      Saving…
+                    </Muted>
+                  )}
+                </div>
+                <Textarea
+                  value={editPrompt || task.prompt}
+                  onChange={(e) => setEditPrompt(e.target.value)}
+                  onFocus={() => {
+                    if (!editPrompt) setEditPrompt(task.prompt);
+                  }}
+                  onBlur={() => {
+                    if (editPrompt && editPrompt.trim() !== task.prompt) {
+                      savePrompt();
+                    } else {
+                      setEditPrompt("");
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      (e.target as HTMLTextAreaElement).blur();
+                    }
+                    if (e.key === "Escape") {
+                      setEditPrompt("");
+                      (e.target as HTMLTextAreaElement).blur();
+                    }
+                  }}
+                  disabled={saving}
+                  className="min-h-[60px] resize-none border-0 bg-transparent px-0 shadow-none text-sm text-muted-foreground leading-relaxed focus-visible:ring-0 focus-visible:text-foreground hover:text-foreground/80 transition-colors"
                 />
               </div>
-            )}
 
-            {/* Actions */}
-            <div className="flex items-center gap-3">
-              {(task.status === "ready" ||
-                task.status === "validating" ||
-                task.status === "completed" ||
-                task.status === "timed_out") &&
-                workspaces.length === 0 && (
-                  <Button onClick={handleLaunch} disabled={launching} size="sm">
-                    {launching ? (
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Active workspaces (if any spawned) */}
+              {workspaces.length > 0 && (
+                <div>
+                  <WorkspaceList
+                    projectId={projectId}
+                    workspaces={workspaces}
+                    onStopped={(id) =>
+                      setWorkspaces((prev) => prev.filter((w) => w.id !== id))
+                    }
+                  />
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* ── Review / Completed / Other layout ── */}
+              {/* Toolbar */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Badge
+                    variant="outline"
+                    className={statusConfig.badgeClassName}
+                  >
+                    <StatusIcon
+                      className={cn(
+                        "size-3.5",
+                        statusConfig.className,
+                        task.status === "running" ? "animate-spin" : "",
+                      )}
+                    />
+                    {statusConfig.label}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {shortTaskId(task.id)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {timeAgo(task.createdAt)}
+                  </span>
+                </div>
+                <Button variant="ghost" size="icon-sm" onClick={onClose}>
+                  <PanelRightClose className="size-4" />
+                </Button>
+              </div>
+              <div>
+                {editing ? (
+                  <div className="flex flex-col gap-2">
+                    <Textarea
+                      value={editPrompt}
+                      onChange={(e) => setEditPrompt(e.target.value)}
+                      className="min-h-[80px] text-sm"
+                      autoFocus
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={savePrompt}
+                        disabled={saving || !editPrompt.trim()}
+                      >
+                        {saving ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          "Save"
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditing(false)}
+                        disabled={saving}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="group/prompt flex items-start gap-2">
+                    <p className="text-base font-normal leading-relaxed flex-1">
+                      <span className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                        <Markdown>{task.prompt}</Markdown>
+                      </span>
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="shrink-0 opacity-0 group-hover/prompt:opacity-100 transition-opacity mt-0.5"
+                      onClick={() => {
+                        setEditPrompt(task.prompt);
+                        setEditing(true);
+                      }}
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 flex-wrap text-sm text-muted-foreground">
+                  {projects.length > 1 ? (
+                    <Popover
+                      open={projectPickerOpen}
+                      onOpenChange={setProjectPickerOpen}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 gap-1 px-1.5 text-xs text-muted-foreground hover:text-foreground -ml-1.5"
+                        >
+                          {task.projectName}
+                          <ChevronDown className="size-3 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[220px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Move to project..." />
+                          <CommandList>
+                            <CommandEmpty>No projects found.</CommandEmpty>
+                            <CommandGroup>
+                              {projects.map((p) => (
+                                <CommandItem
+                                  key={p.id}
+                                  value={p.name}
+                                  onSelect={() => {
+                                    setProjectPickerOpen(false);
+                                    changeProject(p.id);
+                                  }}
+                                >
+                                  {p.name}
+                                  <Check
+                                    className={cn(
+                                      "ml-auto size-3.5",
+                                      task.projectId === p.id
+                                        ? "opacity-100"
+                                        : "opacity-0",
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <span className="text-xs">{task.projectName}</span>
+                  )}
+                  {task.githubRepo && (
+                    <span className="flex items-center gap-1">
+                      <GitHubIcon size={10} />
+                      {task.githubRepo}
+                    </span>
+                  )}
+                  {task.vercelProjectName && (
+                    <span className="flex items-center gap-1">
+                      <VercelIcon />
+                      {task.vercelProjectName}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Active workspaces */}
+              {workspaces.length > 0 && (
+                <div>
+                  <WorkspaceList
+                    projectId={projectId}
+                    workspaces={workspaces}
+                    onStopped={(id) =>
+                      setWorkspaces((prev) => prev.filter((w) => w.id !== id))
+                    }
+                  />
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center gap-3">
+                {(task.status === "validating" ||
+                  task.status === "completed" ||
+                  task.status === "timed_out") &&
+                  workspaces.length === 0 && (
+                    <Button
+                      onClick={handleLaunch}
+                      disabled={launching}
+                      size="sm"
+                    >
+                      {launching ? (
+                        <>
+                          <Loader2 className="size-3.5 animate-spin" />
+                          Launching… {launchElapsed}s
+                        </>
+                      ) : (
+                        <>
+                          <Play className="size-3.5" />
+                          Preview
+                        </>
+                      )}
+                    </Button>
+                  )}
+                {task.prUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(task.prUrl!, "_blank")}
+                  >
+                    <GitPullRequest className="size-3.5" />
+                    {task.status === "validating" ? "Review PR" : "View PR"}
+                  </Button>
+                )}
+                {task.status === "validating" && task.prUrl && (
+                  <Button size="sm" disabled={merging} onClick={handleMerge}>
+                    {merging ? (
                       <>
                         <Loader2 className="size-3.5 animate-spin" />
-                        Launching… {launchElapsed}s
+                        Merging…
                       </>
                     ) : (
                       <>
-                        <Play className="size-3.5" />
-                        {task.status === "ready" ? "Run" : "Preview"}
+                        <GitMerge className="size-3.5" />
+                        Merge
                       </>
                     )}
                   </Button>
                 )}
-              {task.prUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(task.prUrl!, "_blank")}
-                >
-                  <GitPullRequest className="size-3.5" />
-                  {task.status === "validating" ? "Review PR" : "View PR"}
-                </Button>
-              )}
-              {task.status === "validating" && task.prUrl && (
-                <Button size="sm" disabled={merging} onClick={handleMerge}>
-                  {merging ? (
-                    <>
-                      <Loader2 className="size-3.5 animate-spin" />
-                      Merging…
-                    </>
-                  ) : (
-                    <>
-                      <GitMerge className="size-3.5" />
-                      Merge
-                    </>
-                  )}
-                </Button>
-              )}
-              {(task.status === "running" ||
-                task.status === "validating" ||
-                task.status === "timed_out") && (
+                {(task.status === "running" ||
+                  task.status === "validating" ||
+                  task.status === "timed_out") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10"
+                    onClick={() => openCancelModal(task)}
+                  >
+                    <XCircle className="size-3.5" />
+                    Cancel
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
                   className="text-destructive hover:bg-destructive/10"
-                  onClick={() => openCancelModal(task)}
+                  onClick={() => setDeleteOpen(true)}
                 >
-                  <XCircle className="size-3.5" />
-                  Cancel
+                  <Trash2 className="size-3.5" />
+                  Delete
                 </Button>
+              </div>
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+
+              {/* Result */}
+              {task.result && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Result</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                      <Markdown>{task.result}</Markdown>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive hover:bg-destructive/10"
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 className="size-3.5" />
-                Delete
-              </Button>
-            </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
-
-            {/* Result */}
-            {task.result && (
+              {/* Details */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm">Result</CardTitle>
+                  <CardTitle className="text-sm">Details</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                    <Markdown>{task.result}</Markdown>
-                  </div>
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                    <div>
+                      <dt className="text-muted-foreground flex items-center gap-1.5">
+                        <GitBranch className="size-3.5" />
+                        Branch
+                      </dt>
+                      <dd className="font-mono mt-0.5">{task.branch}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground flex items-center gap-1.5">
+                        <Sparkles className="size-3.5" />
+                        Model
+                      </dt>
+                      <dd className="mt-0.5">{task.model}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground flex items-center gap-1.5">
+                        <Clock className="size-3.5" />
+                        Created
+                      </dt>
+                      <dd className="mt-0.5">
+                        {formatTimestamp(task.createdAt)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground flex items-center gap-1.5">
+                        <Clock className="size-3.5" />
+                        Started
+                      </dt>
+                      <dd className="mt-0.5">
+                        {formatTimestamp(task.startedAt)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground flex items-center gap-1.5">
+                        <Clock className="size-3.5" />
+                        Completed
+                      </dt>
+                      <dd className="mt-0.5">
+                        {formatTimestamp(task.completedAt)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground flex items-center gap-1.5">
+                        <Timer className="size-3.5" />
+                        Duration
+                      </dt>
+                      <dd className="mt-0.5">
+                        {formatDuration(task.durationMs)}
+                      </dd>
+                    </div>
+                    {(task.inputTokens != null ||
+                      task.outputTokens != null) && (
+                      <>
+                        <div>
+                          <dt className="text-muted-foreground flex items-center gap-1.5">
+                            <Cpu className="size-3.5" />
+                            Input Tokens
+                          </dt>
+                          <dd className="mt-0.5">
+                            {formatTokens(task.inputTokens)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground flex items-center gap-1.5">
+                            <Cpu className="size-3.5" />
+                            Output Tokens
+                          </dt>
+                          <dd className="mt-0.5">
+                            {formatTokens(task.outputTokens)}
+                          </dd>
+                        </div>
+                      </>
+                    )}
+                  </dl>
                 </CardContent>
               </Card>
-            )}
-
-            {/* Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                  <div>
-                    <dt className="text-muted-foreground flex items-center gap-1.5">
-                      <GitBranch className="size-3.5" />
-                      Branch
-                    </dt>
-                    <dd className="font-mono mt-0.5">{task.branch}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground flex items-center gap-1.5">
-                      <Sparkles className="size-3.5" />
-                      Model
-                    </dt>
-                    <dd className="mt-0.5">{task.model}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground flex items-center gap-1.5">
-                      <Clock className="size-3.5" />
-                      Created
-                    </dt>
-                    <dd className="mt-0.5">
-                      {formatTimestamp(task.createdAt)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground flex items-center gap-1.5">
-                      <Clock className="size-3.5" />
-                      Started
-                    </dt>
-                    <dd className="mt-0.5">
-                      {formatTimestamp(task.startedAt)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground flex items-center gap-1.5">
-                      <Clock className="size-3.5" />
-                      Completed
-                    </dt>
-                    <dd className="mt-0.5">
-                      {formatTimestamp(task.completedAt)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground flex items-center gap-1.5">
-                      <Timer className="size-3.5" />
-                      Duration
-                    </dt>
-                    <dd className="mt-0.5">
-                      {formatDuration(task.durationMs)}
-                    </dd>
-                  </div>
-                  {(task.inputTokens != null || task.outputTokens != null) && (
-                    <>
-                      <div>
-                        <dt className="text-muted-foreground flex items-center gap-1.5">
-                          <Cpu className="size-3.5" />
-                          Input Tokens
-                        </dt>
-                        <dd className="mt-0.5">
-                          {formatTokens(task.inputTokens)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground flex items-center gap-1.5">
-                          <Cpu className="size-3.5" />
-                          Output Tokens
-                        </dt>
-                        <dd className="mt-0.5">
-                          {formatTokens(task.outputTokens)}
-                        </dd>
-                      </div>
-                    </>
-                  )}
-                </dl>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </SheetContent>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Cancel task confirmation modal */}
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
@@ -1511,8 +1953,8 @@ function TaskDetailPanel({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete task?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the task and any associated workspace.
-              This action cannot be undone.
+              This will permanently delete the task and any associated
+              workspace. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -1535,7 +1977,7 @@ function TaskDetailPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Sheet>
+    </>
   );
 }
 
@@ -1544,16 +1986,21 @@ function TaskDetailPanel({
 function TaskFeedItem({
   task,
   onOpen,
+  isSelected,
 }: {
   task: FeedTask;
   onOpen: (task: FeedTask) => void;
+  isSelected?: boolean;
 }) {
   const config = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.ready;
   const StatusIcon = config.icon;
 
   return (
     <div
-      className="group flex gap-3 rounded-lg border border-border bg-background p-4 transition-colors hover:border-foreground/20 cursor-pointer"
+      className={cn(
+        "group flex gap-3 rounded-lg border border-border p-4 transition-all hover:border-foreground/20 cursor-pointer",
+        isSelected ? "bg-muted -ml-2 pl-6 shadow-sm" : "bg-background",
+      )}
       onClick={() => onOpen(task)}
     >
       {/* Avatar */}
@@ -1580,7 +2027,7 @@ function TaskFeedItem({
 
       {/* Content */}
       <div className="min-w-0 flex-1">
-        {/* Top row: user, task ID, time */}
+        {/* Top row: user, task ID, time + badges right-aligned */}
         <div className="flex items-center gap-2 mb-1">
           <span className="text-sm font-medium truncate">
             {task.creatorName ?? "Unknown"}
@@ -1591,69 +2038,61 @@ function TaskFeedItem({
           <span className="text-xs text-muted-foreground">
             {timeAgo(task.createdAt)}
           </span>
+
+          {/* Meta badges — right-aligned */}
+          <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
+            <Badge variant="outline" className={config.badgeClassName}>
+              <StatusIcon
+                className={cn(
+                  "size-3",
+                  config.className,
+                  task.status === "running" ? "animate-spin" : "",
+                )}
+              />
+              {config.label}
+            </Badge>
+
+            {task.githubRepo && (
+              <Badge variant="outline" className="gap-1 text-xs font-normal">
+                <GitHubIcon size={10} />
+                {task.githubRepo}
+              </Badge>
+            )}
+
+            {(task.vercelProjectName || task.vercelProjectId) && (
+              <Badge variant="outline" className="gap-1 text-xs font-normal">
+                <VercelIcon />
+                {task.vercelProjectName ?? task.vercelProjectId}
+              </Badge>
+            )}
+
+            {task.branch && (
+              <Badge variant="outline" className="gap-1 text-xs font-normal">
+                <GitBranch className="size-3" />
+                {task.branch}
+              </Badge>
+            )}
+
+            {task.prUrl && (
+              <Badge
+                variant="outline"
+                className="gap-1 text-xs font-normal cursor-pointer hover:bg-secondary/80"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(task.prUrl!, "_blank");
+                }}
+              >
+                <GitPullRequest className="size-3" />
+                PR
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Prompt */}
-        <div className="text-sm leading-relaxed mb-2 line-clamp-3 prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>*]:m-0">
-          <Markdown>{task.prompt}</Markdown>
-        </div>
-
-        {/* Meta badges */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="outline" className={config.badgeClassName}>
-            <StatusIcon
-              className={cn(
-                "size-3",
-                config.className,
-                task.status === "running" ? "animate-spin" : "",
-              )}
-            />
-            {config.label}
-          </Badge>
-
-          {task.githubRepo && (
-            <Badge variant="secondary" className="gap-1 text-xs font-normal">
-              <GitHubIcon size={10} />
-              {task.githubRepo}
-            </Badge>
-          )}
-
-          {(task.vercelProjectName || task.vercelProjectId) && (
-            <Badge variant="secondary" className="gap-1 text-xs font-normal">
-              <VercelIcon />
-              {task.vercelProjectName ?? task.vercelProjectId}
-            </Badge>
-          )}
-
-          {task.branch && (
-            <Badge
-              variant="secondary"
-              className="gap-1 text-xs font-normal font-mono"
-            >
-              <GitBranch className="size-3" />
-              {task.branch}
-            </Badge>
-          )}
-
-          {task.prUrl && (
-            <Badge
-              variant="secondary"
-              className="gap-1 text-xs font-normal cursor-pointer hover:bg-secondary/80"
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(task.prUrl!, "_blank");
-              }}
-            >
-              <GitPullRequest className="size-3" />
-              PR
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      {/* Right side: action hint */}
-      <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-        <ChevronRight className="size-4 text-muted-foreground" />
+        <p className="text-sm leading-relaxed line-clamp-2 text-foreground">
+          {task.prompt}
+        </p>
       </div>
     </div>
   );
@@ -1677,8 +2116,11 @@ export default function Dashboard({
   const [tasks, setTasks] = useState<FeedTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string | null>(() => {
-    if (typeof window === "undefined") return "planning";
-    return localStorage.getItem("viagen-status-filter") ?? "planning";
+    if (typeof window === "undefined") return "backlog";
+    const saved = localStorage.getItem("viagen-status-filter");
+    if (saved === "planning") return "backlog";
+    if (saved === "merged") return "completed";
+    return saved ?? "backlog";
   });
 
   const updateStatusFilter = useCallback((val: string) => {
@@ -1698,7 +2140,7 @@ export default function Dashboard({
   );
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const selectedProject = selectedProjectId
-    ? loaderData.projects.find((p) => p.id === selectedProjectId) ?? null
+    ? (loaderData.projects.find((p) => p.id === selectedProjectId) ?? null)
     : null;
 
   const updateFilterProject = useCallback((id: string | null) => {
@@ -1824,214 +2266,234 @@ export default function Dashboard({
 
   // Filter counts (respect project filter)
   const counts = useMemo(() => {
-    const planning = projectTasks.filter(
+    const backlog = projectTasks.filter(
       (t) => t.status === "ready" || t.status === "running",
     ).length;
     const review = projectTasks.filter(
       (t) => t.status === "validating" || t.status === "timed_out",
     ).length;
-    const merged = projectTasks.filter(
+    const completed = projectTasks.filter(
       (t) => t.status === "completed",
     ).length;
-    return { planning, review, merged };
+    return { backlog, review, completed };
   }, [projectTasks]);
 
   return (
-    <div>
-      {/* Task Launcher */}
-      <Large className="mb-4">Create Task</Large>
-      <DashboardTaskLauncher
-        onTaskCreated={handleTaskCreated}
-        integrations={integrations}
-        projects={loaderData.projects}
-      />
-
-      {/* Feed tabs + project filter */}
-      <Tabs
-        value={statusFilter ?? "planning"}
-        onValueChange={updateStatusFilter}
+    <div className="flex gap-0">
+      {/* Main content */}
+      <div
+        className={cn(
+          "min-w-0 flex-1 transition-all duration-300 ease-in-out",
+          panelOpen ? "max-w-none" : "mx-auto max-w-[1200px]",
+        )}
       >
-        <div className="mb-4 flex items-center gap-4">
-          <Large className="whitespace-nowrap">Task Feed</Large>
-          <TabsList>
-            <TabsTrigger value="planning">
-              Planning
-              <Badge
-                variant="secondary"
-                className="ml-1 h-4 min-w-4 px-1 text-[10px]"
-              >
-                {counts.planning}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="review">
-              Review
-              <Badge
-                variant="secondary"
-                className="ml-1 h-4 min-w-4 px-1 text-[10px]"
-              >
-                {counts.review}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="merged">
-              Merged
-              <Badge
-                variant="secondary"
-                className="ml-1 h-4 min-w-4 px-1 text-[10px]"
-              >
-                {counts.merged}
-              </Badge>
-            </TabsTrigger>
-          </TabsList>
+        {/* Task Launcher */}
+        <Large className="mb-4">Create Task</Large>
+        <DashboardTaskLauncher
+          onTaskCreated={handleTaskCreated}
+          integrations={integrations}
+          projects={loaderData.projects}
+        />
 
-          <div className="flex items-center gap-1">
-            {loaderData.projects.length > 1 && (
-              <Popover
-                open={projectPickerOpen}
-                onOpenChange={setProjectPickerOpen}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    role="combobox"
-                    aria-expanded={projectPickerOpen}
-                    className="h-8 w-auto gap-1.5 text-sm"
-                  >
-                    {selectedProject ? selectedProject.name : "All Projects"}
-                    <ChevronDown className="size-3.5 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[240px] p-0" align="end">
-                  <Command>
-                    <CommandInput placeholder="Search projects..." />
-                    <CommandList>
-                      <CommandEmpty>No projects found.</CommandEmpty>
-                      <CommandGroup>
-                        <CommandItem
-                          value="__all__"
-                          onSelect={() => {
-                            updateFilterProject(null);
-                            setProjectPickerOpen(false);
-                          }}
-                        >
-                          All Projects
-                          <Check
-                            className={cn(
-                              "ml-auto size-3.5",
-                              selectedProjectId === null
-                                ? "opacity-100"
-                                : "opacity-0",
-                            )}
-                          />
-                        </CommandItem>
-                        {loaderData.projects.map((project) => (
+        {/* Feed tabs + project filter */}
+        <Tabs
+          value={statusFilter ?? "backlog"}
+          onValueChange={updateStatusFilter}
+        >
+          <div className="mb-4 flex items-center gap-4">
+            <Large className="whitespace-nowrap">Task Feed</Large>
+
+            <div className="flex items-center gap-1">
+              {loaderData.projects.length > 1 && (
+                <Popover
+                  open={projectPickerOpen}
+                  onOpenChange={setProjectPickerOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      role="combobox"
+                      aria-expanded={projectPickerOpen}
+                      className="h-8 w-auto gap-1.5 text-sm"
+                    >
+                      {selectedProject ? selectedProject.name : "All Projects"}
+                      <ChevronDown className="size-3.5 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[240px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search projects..." />
+                      <CommandList>
+                        <CommandEmpty>No projects found.</CommandEmpty>
+                        <CommandGroup>
                           <CommandItem
-                            key={project.id}
-                            value={project.name}
+                            value="__all__"
                             onSelect={() => {
-                              updateFilterProject(project.id);
+                              updateFilterProject(null);
                               setProjectPickerOpen(false);
                             }}
                           >
-                            {project.name}
+                            All Projects
                             <Check
                               className={cn(
                                 "ml-auto size-3.5",
-                                selectedProjectId === project.id
+                                selectedProjectId === null
                                   ? "opacity-100"
                                   : "opacity-0",
                               )}
                             />
                           </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            )}
+                          {loaderData.projects.map((project) => (
+                            <CommandItem
+                              key={project.id}
+                              value={project.name}
+                              onSelect={() => {
+                                updateFilterProject(project.id);
+                                setProjectPickerOpen(false);
+                              }}
+                            >
+                              {project.name}
+                              <Check
+                                className={cn(
+                                  "ml-auto size-3.5",
+                                  selectedProjectId === project.id
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
 
-            {(selectedProjectId || loaderData.projects.length === 1) ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-sm">
-                    <Ellipsis className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link to={`/projects/${selectedProjectId ?? loaderData.projects[0]?.id}/settings`}>
-                      Project Settings
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                disabled
-                className="text-muted-foreground"
-              >
-                <Ellipsis className="size-4" />
-              </Button>
-            )}
+              {selectedProjectId || loaderData.projects.length === 1 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-sm">
+                      <Ellipsis className="size-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to={`/projects/${selectedProjectId ?? loaderData.projects[0]?.id}/settings`}
+                      >
+                        Project Settings
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled
+                  className="text-muted-foreground"
+                >
+                  <Ellipsis className="size-4" />
+                </Button>
+              )}
+            </div>
+
+            <TabsList>
+              <TabsTrigger value="backlog">
+                Backlog
+                <Badge
+                  variant="secondary"
+                  className="ml-1 h-4 min-w-4 px-1 text-[10px]"
+                >
+                  {counts.backlog}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="review">
+                Review
+                <Badge
+                  variant="secondary"
+                  className="ml-1 h-4 min-w-4 px-1 text-[10px]"
+                >
+                  {counts.review}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="completed">
+                Completed
+                <Badge
+                  variant="secondary"
+                  className="ml-1 h-4 min-w-4 px-1 text-[10px]"
+                >
+                  {counts.completed}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Task Feed */}
+          {tasksLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredTasks(projectTasks, statusFilter).length === 0 ? (
+            <Card className="border-dashed bg-muted/50">
+              <CardContent className="flex flex-col items-center justify-center px-8 py-16">
+                {projectTasks.length === 0 ? (
+                  <>
+                    <Large className="mb-2">No tasks yet</Large>
+                    <Muted className="text-center">
+                      {selectedProjectId
+                        ? "No tasks in this project yet."
+                        : "Use the input above to describe what you'd like Claude to build."}
+                    </Muted>
+                  </>
+                ) : (
+                  <>
+                    <Large className="mb-2">No matching tasks</Large>
+                    <Muted className="text-center mb-3">
+                      No tasks match the current filter.
+                    </Muted>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateStatusFilter("backlog")}
+                    >
+                      Show backlog
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {filteredTasks(projectTasks, statusFilter).map((task) => (
+                <TaskFeedItem
+                  key={task.id}
+                  task={task}
+                  onOpen={openTaskPanel}
+                  isSelected={panelOpen && panelTaskId === task.id}
+                />
+              ))}
+            </div>
+          )}
+        </Tabs>
+      </div>
+
+      {/* Task Detail Panel — inline sidebar */}
+      {panelOpen && panelTaskId && panelProjectId && (
+        <div className="w-[480px] shrink-0">
+          <div className="fixed top-[60px] right-0 w-[480px] border-l border-border bg-background animate-in slide-in-from-right duration-300 h-[calc(100svh-60px)]">
+            <TaskDetailPanel
+              projectId={panelProjectId}
+              taskId={panelTaskId}
+              open={panelOpen}
+              onClose={closeTaskPanel}
+              onTaskChanged={fetchTasks}
+              projects={loaderData.projects}
+            />
           </div>
         </div>
-
-        {/* Task Feed */}
-        {tasksLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : filteredTasks(projectTasks, statusFilter).length === 0 ? (
-          <Card className="border-dashed bg-muted/50">
-            <CardContent className="flex flex-col items-center justify-center px-8 py-16">
-              {projectTasks.length === 0 ? (
-                <>
-                  <Large className="mb-2">No tasks yet</Large>
-                  <Muted className="text-center">
-                    {selectedProjectId
-                      ? "No tasks in this project yet."
-                      : "Use the input above to describe what you'd like Claude to build."}
-                  </Muted>
-                </>
-              ) : (
-                <>
-                  <Large className="mb-2">No matching tasks</Large>
-                  <Muted className="text-center mb-3">
-                    No tasks match the current filter.
-                  </Muted>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => updateStatusFilter("planning")}
-                  >
-                    Show planning
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {filteredTasks(projectTasks, statusFilter).map((task) => (
-              <TaskFeedItem key={task.id} task={task} onOpen={openTaskPanel} />
-            ))}
-          </div>
-        )}
-      </Tabs>
-
-      {/* Task Detail Panel */}
-      {panelTaskId && panelProjectId && (
-        <TaskDetailPanel
-          projectId={panelProjectId}
-          taskId={panelTaskId}
-          open={panelOpen}
-          onClose={closeTaskPanel}
-          onTaskChanged={fetchTasks}
-          projects={loaderData.projects}
-        />
       )}
     </div>
   );
@@ -2044,13 +2506,15 @@ function filteredTasks(
   statusFilter: string | null,
 ): FeedTask[] {
   if (!statusFilter) return tasks;
-  if (statusFilter === "planning") {
+  if (statusFilter === "backlog") {
     return tasks.filter((t) => t.status === "ready" || t.status === "running");
   }
   if (statusFilter === "review") {
-    return tasks.filter((t) => t.status === "validating" || t.status === "timed_out");
+    return tasks.filter(
+      (t) => t.status === "validating" || t.status === "timed_out",
+    );
   }
-  if (statusFilter === "merged") {
+  if (statusFilter === "completed") {
     return tasks.filter((t) => t.status === "completed");
   }
   return tasks.filter((t) => t.status === statusFilter);

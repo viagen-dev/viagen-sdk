@@ -44,7 +44,10 @@ export async function loader({ request }: { request: Request }) {
     orgKeys = new Set(secrets.map((s) => s.key));
   } catch (err) {
     log.error(
-      { orgId: auth.org.id, err: err instanceof Error ? err.message : String(err) },
+      {
+        orgId: auth.org.id,
+        err: err instanceof Error ? err.message : String(err),
+      },
       "integration check failed — listing org secrets threw",
     );
     orgKeys = new Set();
@@ -114,8 +117,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
       // Strip the ?org param and reload
       params.delete("org");
       const clean = params.toString();
-      window.location.href =
-        location.pathname + (clean ? `?${clean}` : "");
+      window.location.href = location.pathname + (clean ? `?${clean}` : "");
     }
   }, []);
 
@@ -254,6 +256,10 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
       <main className="mt-[60px] flex-1 bg-muted/30">
         {location.pathname === "/settings" ? (
           <Outlet />
+        ) : location.pathname === "/" ? (
+          <div className="w-full px-6 py-8">
+            <Outlet />
+          </div>
         ) : (
           <div className="mx-auto w-full max-w-[1200px] px-6 py-8">
             <Outlet />

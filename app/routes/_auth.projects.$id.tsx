@@ -134,9 +134,14 @@ interface ProjectStatus {
   claude: ClaudeStatus;
 }
 
-type TaskStatus = "ready" | "running" | "validating" | "completed" | "timed_out";
+type TaskStatus =
+  | "ready"
+  | "running"
+  | "validating"
+  | "completed"
+  | "timed_out";
 
-type BoardColumn = "backlog" | "review" | "merged";
+type BoardColumn = "backlog" | "review" | "completed";
 type DisplayMode = "board" | "list";
 
 const BOARD_COLUMNS: {
@@ -146,7 +151,7 @@ const BOARD_COLUMNS: {
 }[] = [
   { key: "backlog", label: "Backlog", statuses: ["ready", "running"] },
   { key: "review", label: "Review", statuses: ["validating", "timed_out"] },
-  { key: "merged", label: "Merged", statuses: ["completed"] },
+  { key: "completed", label: "Completed", statuses: ["completed"] },
 ];
 
 interface Task {
@@ -871,8 +876,10 @@ export default function ProjectTasks({
     backlog: tasks.filter(
       (t) => t.status === "ready" || t.status === "running",
     ),
-    review: tasks.filter((t) => t.status === "validating"),
-    merged: tasks.filter((t) => t.status === "completed"),
+    review: tasks.filter(
+      (t) => t.status === "validating" || t.status === "timed_out",
+    ),
+    completed: tasks.filter((t) => t.status === "completed"),
   };
 
   // -----------------------------------------------------------------------
@@ -1828,15 +1835,13 @@ export default function ProjectTasks({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete task?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the task and any associated workspace.
-              This action cannot be undone.
+              This will permanently delete the task and any associated
+              workspace. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={confirmDelete}

@@ -48,12 +48,14 @@ type SheetContentProps = React.ComponentProps<
   typeof DialogPrimitive.Content
 > & {
   side?: "top" | "right" | "bottom" | "left";
+  hideClose?: boolean;
 };
 
 function SheetContent({
   className,
   children,
   side = "right",
+  hideClose = false,
   ...props
 }: SheetContentProps) {
   return (
@@ -62,7 +64,7 @@ function SheetContent({
       <DialogPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "bg-background fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "bg-background fixed z-50 flex flex-col gap-4 shadow-lg outline-none transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out",
           side === "right" &&
             "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-lg data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
           side === "left" &&
@@ -78,13 +80,15 @@ function SheetContent({
         <div className="flex flex-col gap-4 overflow-y-auto p-6">
           {children}
         </div>
-        <DialogPrimitive.Close
-          data-slot="sheet-close"
-          className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-        >
-          <XIcon />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
+        {!hideClose && (
+          <DialogPrimitive.Close
+            data-slot="sheet-close"
+            className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+          >
+            <XIcon />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        )}
       </DialogPrimitive.Content>
     </SheetPortal>
   );

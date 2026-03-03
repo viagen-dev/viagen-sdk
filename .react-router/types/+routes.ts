@@ -141,6 +141,18 @@ type Pages = {
       "taskId": string;
     };
   };
+  "/api/projects/:id/tasks/:taskId/cancel": {
+    params: {
+      "id": string;
+      "taskId": string;
+    };
+  };
+  "/api/projects/:id/tasks/:taskId/delete": {
+    params: {
+      "id": string;
+      "taskId": string;
+    };
+  };
   "/api/tasks": {
     params: {};
   };
@@ -176,7 +188,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/onboarding" | "/cli/authorize" | "/projects/new" | "/projects/:id" | "/projects/:id/settings" | "/projects/:id/tasks/:taskId" | "/settings" | "/billing" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/profile" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/sync" | "/api/projects/:id" | "/api/projects/:id/claude" | "/api/projects/:id/secrets" | "/api/projects/:id/vercel-sync" | "/api/projects/:id/sandbox" | "/api/sandbox/callback" | "/api/projects/:id/workspaces/:workspaceId/logs" | "/api/databases" | "/api/projects/:id/status" | "/api/projects/:id/tasks" | "/api/projects/:id/tasks/:taskId" | "/api/projects/:id/tasks/:taskId/merge" | "/api/tasks" | "/api/vercel/projects" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
+    page: "/" | "/login" | "/onboarding" | "/cli/authorize" | "/projects/new" | "/projects/:id" | "/projects/:id/settings" | "/projects/:id/tasks/:taskId" | "/settings" | "/billing" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/profile" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/sync" | "/api/projects/:id" | "/api/projects/:id/claude" | "/api/projects/:id/secrets" | "/api/projects/:id/vercel-sync" | "/api/projects/:id/sandbox" | "/api/sandbox/callback" | "/api/projects/:id/workspaces/:workspaceId/logs" | "/api/databases" | "/api/projects/:id/status" | "/api/projects/:id/tasks" | "/api/projects/:id/tasks/:taskId" | "/api/projects/:id/tasks/:taskId/merge" | "/api/projects/:id/tasks/:taskId/cancel" | "/api/projects/:id/tasks/:taskId/delete" | "/api/tasks" | "/api/vercel/projects" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
   };
   "routes/login.tsx": {
     id: "routes/login";
@@ -310,6 +322,14 @@ type RouteFiles = {
     id: "routes/api.projects.$id.tasks.$taskId.merge";
     page: "/api/projects/:id/tasks/:taskId/merge";
   };
+  "routes/api.projects.$id.tasks.$taskId.cancel.ts": {
+    id: "routes/api.projects.$id.tasks.$taskId.cancel";
+    page: "/api/projects/:id/tasks/:taskId/cancel";
+  };
+  "routes/api.projects.$id.tasks.$taskId.delete.ts": {
+    id: "routes/api.projects.$id.tasks.$taskId.delete";
+    page: "/api/projects/:id/tasks/:taskId/delete";
+  };
   "routes/api.tasks.ts": {
     id: "routes/api.tasks";
     page: "/api/tasks";
@@ -387,6 +407,8 @@ type RouteModules = {
   "routes/api.projects.$id.tasks": typeof import("./app/routes/api.projects.$id.tasks.ts");
   "routes/api.projects.$id.tasks.$taskId": typeof import("./app/routes/api.projects.$id.tasks.$taskId.ts");
   "routes/api.projects.$id.tasks.$taskId.merge": typeof import("./app/routes/api.projects.$id.tasks.$taskId.merge.ts");
+  "routes/api.projects.$id.tasks.$taskId.cancel": typeof import("./app/routes/api.projects.$id.tasks.$taskId.cancel.ts");
+  "routes/api.projects.$id.tasks.$taskId.delete": typeof import("./app/routes/api.projects.$id.tasks.$taskId.delete.ts");
   "routes/api.tasks": typeof import("./app/routes/api.tasks.ts");
   "routes/api.vercel.projects": typeof import("./app/routes/api.vercel.projects.ts");
   "routes/api.github.repos": typeof import("./app/routes/api.github.repos.ts");
