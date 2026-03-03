@@ -116,6 +116,26 @@ export async function action({
       "workspace stopped",
     );
 
+    // If this workspace was linked to a task that's currently running,
+    // revert the task status back to "validating" (PR Ready).
+    if (workspace.taskId) {
+      const [linkedTask] = await db
+        .select({ id: tasks.id, status: tasks.status })
+        .from(tasks)
+        .where(eq(tasks.id, workspace.taskId));
+
+      if (linkedTask && linkedTask.status === "running") {
+        await db
+          .update(tasks)
+          .set({ status: "validating", workspaceId: null })
+          .where(eq(tasks.id, linkedTask.id));
+        log.info(
+          { taskId: linkedTask.id, projectId: id },
+          "task reverted to validating after workspace stopped",
+        );
+      }
+    }
+
     return Response.json({ success: true });
   }
 

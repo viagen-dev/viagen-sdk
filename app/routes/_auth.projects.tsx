@@ -29,6 +29,13 @@ import {
   Pencil,
   X,
   PanelRightClose,
+  ExternalLink,
+  Columns2,
+  Code,
+  Copy,
+  Square,
+  ChevronsUpDown,
+  Settings,
 } from "lucide-react";
 import Markdown from "react-markdown";
 
@@ -61,6 +68,12 @@ import {
   CardDescription,
   CardFooter,
 } from "~/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "~/components/ui/tooltip";
 import { Badge } from "~/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 
@@ -593,26 +606,29 @@ function DashboardTaskLauncher({
   onTaskCreated,
   integrations,
   projects,
+  filterProjectId,
 }: {
   onTaskCreated: (task: FeedTask) => void;
   integrations:
     | { github: boolean; vercel: boolean; claude: boolean }
     | undefined;
   projects: Project[];
+  filterProjectId?: string | null;
 }) {
   const [prompt, setPrompt] = useState("");
   const [branch, setBranch] = useState(
     () => `feat-${Math.random().toString(36).slice(2, 8)}`,
   );
   const [model, setModel] = useState("claude-sonnet-4-20250514");
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    () => {
-      if (typeof window === "undefined") return projects[0]?.id ?? null;
-      const saved = localStorage.getItem("viagen-launcher-project");
-      if (saved && projects.some((p) => p.id === saved)) return saved;
-      return projects[0]?.id ?? null;
-    },
-  );
+  const [ownProjectId, setOwnProjectId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return projects[0]?.id ?? null;
+    const saved = localStorage.getItem("viagen-launcher-project");
+    if (saved && projects.some((p) => p.id === saved)) return saved;
+    return projects[0]?.id ?? null;
+  });
+  // When a project is selected in the header, use that; otherwise fall back to the launcher's own pick
+  const selectedProjectId = filterProjectId ?? ownProjectId;
+  const setSelectedProjectId = (id: string | null) => setOwnProjectId(id);
   const [projectOpen, setProjectOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -719,52 +735,58 @@ function DashboardTaskLauncher({
       </CardContent>
       <CardFooter className="border-t justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
-          {projects.length > 1 && (
-            <Popover open={projectOpen} onOpenChange={setProjectOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  role="combobox"
-                  aria-expanded={projectOpen}
-                  className="h-7 w-auto gap-1.5 text-xs"
-                >
-                  {project ? project.name : "Select project"}
-                  <ChevronDown className="size-3.5 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[240px] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search projects..." />
-                  <CommandList>
-                    <CommandEmpty>No projects found.</CommandEmpty>
-                    <CommandGroup>
-                      {projects.map((p) => (
-                        <CommandItem
-                          key={p.id}
-                          value={p.name}
-                          onSelect={() => {
-                            handleProjectSelect(p.id);
-                            setProjectOpen(false);
-                          }}
-                        >
-                          {p.name}
-                          <Check
-                            className={cn(
-                              "ml-auto size-3.5",
-                              selectedProjectId === p.id
-                                ? "opacity-100"
-                                : "opacity-0",
-                            )}
-                          />
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          )}
+          {filterProjectId
+            ? project && (
+                <span className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs text-muted-foreground">
+                  {project.name}
+                </span>
+              )
+            : projects.length > 1 && (
+                <Popover open={projectOpen} onOpenChange={setProjectOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      role="combobox"
+                      aria-expanded={projectOpen}
+                      className="h-7 w-auto gap-1.5 text-xs"
+                    >
+                      {project ? project.name : "Select project"}
+                      <ChevronDown className="size-3.5 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[240px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search projects..." />
+                      <CommandList>
+                        <CommandEmpty>No projects found.</CommandEmpty>
+                        <CommandGroup>
+                          {projects.map((p) => (
+                            <CommandItem
+                              key={p.id}
+                              value={p.name}
+                              onSelect={() => {
+                                handleProjectSelect(p.id);
+                                setProjectOpen(false);
+                              }}
+                            >
+                              {p.name}
+                              <Check
+                                className={cn(
+                                  "ml-auto size-3.5",
+                                  selectedProjectId === p.id
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
           <div className="relative">
             <GitBranch className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -837,6 +859,10 @@ function TaskDetailPanel({
   const launchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [merging, setMerging] = useState(false);
+
+  // Inline workspace action state (for Result card footer)
+  const [stoppingWs, setStoppingWs] = useState<string | null>(null);
+  const [copiedWs, setCopiedWs] = useState<string | null>(null);
 
   // Cancel state
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -1225,11 +1251,45 @@ function TaskDetailPanel({
     }
   };
 
+  const handleStopWorkspace = async (workspaceId: string) => {
+    setStoppingWs(workspaceId);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/sandbox`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId }),
+      });
+      if (res.ok) {
+        setWorkspaces((prev) => prev.filter((w) => w.id !== workspaceId));
+        // Refresh task so the status reverts (e.g. running → validating)
+        refreshTask();
+        onTaskChanged?.();
+      }
+    } catch {
+      // ignore
+    } finally {
+      setStoppingWs(null);
+    }
+  };
+
+  /** Extract sandbox domain and auth token from any workspace URL variant. */
+  const parseWsUrl = (url: string) => {
+    const match = url.match(/^(https?:\/\/[^/]+).*\/t\/([^/]+)$/);
+    if (!match) return { domain: url, token: "" };
+    return { domain: match[1], token: match[2] };
+  };
+
   const statusConfig = task
     ? (STATUS_CONFIG[task.status] ?? STATUS_CONFIG.ready)
     : STATUS_CONFIG.ready;
   const StatusIcon = statusConfig.icon;
-  const isBacklog = task?.status === "ready" || task?.status === "running";
+  // A task is "backlog" only when it's ready, or running without any review
+  // artifacts. A running task that already has a PR or result is a preview
+  // sandbox launched from the Review state — keep the Review layout.
+  const isBacklog =
+    task?.status === "ready" ||
+    (task?.status === "running" && !task.prUrl && !task.result);
 
   return (
     <>
@@ -1287,358 +1347,124 @@ function TaskDetailPanel({
                 </div>
               </div>
 
-              <Separator />
-
-              {/* Task ID + Status badge */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Large>{shortTaskId(task.id)}</Large>
-                  <Muted>{timeAgo(task.createdAt)}</Muted>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={statusConfig.badgeClassName}
-                >
-                  <StatusIcon
-                    className={cn(
-                      "size-3",
-                      statusConfig.className,
-                      task.status === "running" ? "animate-spin" : "",
-                    )}
-                  />
-                  {statusConfig.label}
-                </Badge>
-              </div>
-
-              {/* Metadata table */}
-              <div className="flex flex-col gap-1">
-                {/* Assignee */}
-                <div className="flex items-center">
-                  <Small className="w-28 shrink-0">Assignee</Small>
-                  <Popover
-                    open={assigneePickerOpen}
-                    onOpenChange={(open) => {
-                      setAssigneePickerOpen(open);
-                      if (open) fetchTeamMembers();
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
-                      >
-                        <Avatar size="sm">
-                          {task.creatorAvatarUrl ? (
-                            <AvatarImage
-                              src={task.creatorAvatarUrl}
-                              alt={task.creatorName ?? ""}
-                            />
-                          ) : null}
-                          <AvatarFallback className="text-[0.5rem]">
-                            {task.creatorName
-                              ? task.creatorName
-                                  .split(" ")
-                                  .map((n) => n[0])
-                                  .join("")
-                                  .toUpperCase()
-                                  .slice(0, 2)
-                              : "?"}
-                          </AvatarFallback>
-                        </Avatar>
-                        {task.creatorName ?? "Unknown"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[220px] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Assign to..." />
-                        <CommandList>
-                          <CommandEmpty>
-                            {teamMembersLoading
-                              ? "Loading..."
-                              : "No members found."}
-                          </CommandEmpty>
-                          <CommandGroup>
-                            {teamMembers.map((member) => (
-                              <CommandItem
-                                key={member.id}
-                                value={member.name ?? member.email}
-                                onSelect={() => changeAssignee(member.id)}
-                              >
-                                <Avatar size="sm">
-                                  {member.avatarUrl ? (
-                                    <AvatarImage
-                                      src={member.avatarUrl}
-                                      alt={member.name ?? ""}
-                                    />
-                                  ) : null}
-                                  <AvatarFallback className="text-[0.5rem]">
-                                    {member.name
-                                      ? member.name
-                                          .split(" ")
-                                          .map((n) => n[0])
-                                          .join("")
-                                          .toUpperCase()
-                                          .slice(0, 2)
-                                      : member.email.slice(0, 2).toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                                {member.name ?? member.email}
-                                <Check
-                                  className={cn(
-                                    "ml-auto size-3.5",
-                                    task.createdBy === member.id
-                                      ? "opacity-100"
-                                      : "opacity-0",
-                                  )}
-                                />
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Project */}
-                <div className="flex items-center">
-                  <Small className="w-28 shrink-0">Project</Small>
-                  <Popover
-                    open={projectPickerOpen}
-                    onOpenChange={setProjectPickerOpen}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
-                      >
-                        <VercelIcon />
-                        {task.projectName}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[220px] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Move to project..." />
-                        <CommandList>
-                          <CommandEmpty>No projects found.</CommandEmpty>
-                          <CommandGroup>
-                            {projects.map((p) => (
-                              <CommandItem
-                                key={p.id}
-                                value={p.name}
-                                onSelect={() => {
-                                  setProjectPickerOpen(false);
-                                  changeProject(p.id);
-                                }}
-                              >
-                                {p.name}
-                                <Check
-                                  className={cn(
-                                    "ml-auto size-3.5",
-                                    task.projectId === p.id
-                                      ? "opacity-100"
-                                      : "opacity-0",
-                                  )}
-                                />
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Branch */}
-                <div className="flex items-center">
-                  <Small className="w-28 shrink-0">Branch</Small>
-                  {editingBranch ? (
-                    <div className="flex items-center gap-1">
-                      <GitBranch className="size-3.5 text-muted-foreground shrink-0" />
-                      <Input
-                        value={editBranch}
-                        onChange={(e) => setEditBranch(e.target.value)}
-                        onBlur={saveBranch}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            (e.target as HTMLInputElement).blur();
-                          }
-                          if (e.key === "Escape") {
-                            setEditBranch("");
-                            setEditingBranch(false);
-                          }
-                        }}
-                        disabled={savingBranch}
-                        autoFocus
-                        className="h-auto px-2 py-1 text-sm"
-                      />
-                      {savingBranch && (
-                        <Loader2 className="size-3 animate-spin text-muted-foreground shrink-0" />
-                      )}
-                    </div>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
-                      onClick={() => {
-                        setEditBranch(task.branch);
-                        setEditingBranch(true);
-                      }}
-                    >
-                      <GitBranch className="size-3.5" />
-                      {task.branch}
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Task description — inline editable */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Small>Task</Small>
-                  {saving && (
-                    <Muted className="flex items-center gap-1">
-                      <Loader2 className="size-3 animate-spin" />
-                      Saving…
-                    </Muted>
-                  )}
-                </div>
-                <Textarea
-                  value={editPrompt || task.prompt}
-                  onChange={(e) => setEditPrompt(e.target.value)}
-                  onFocus={() => {
-                    if (!editPrompt) setEditPrompt(task.prompt);
-                  }}
-                  onBlur={() => {
-                    if (editPrompt && editPrompt.trim() !== task.prompt) {
-                      savePrompt();
-                    } else {
-                      setEditPrompt("");
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      (e.target as HTMLTextAreaElement).blur();
-                    }
-                    if (e.key === "Escape") {
-                      setEditPrompt("");
-                      (e.target as HTMLTextAreaElement).blur();
-                    }
-                  }}
-                  disabled={saving}
-                  className="min-h-[60px] resize-none border-0 bg-transparent px-0 shadow-none text-sm text-muted-foreground leading-relaxed focus-visible:ring-0 focus-visible:text-foreground hover:text-foreground/80 transition-colors"
-                />
-              </div>
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              {/* Active workspaces (if any spawned) */}
-              {workspaces.length > 0 && (
-                <div>
-                  <WorkspaceList
-                    projectId={projectId}
-                    workspaces={workspaces}
-                    onStopped={(id) =>
-                      setWorkspaces((prev) => prev.filter((w) => w.id !== id))
-                    }
-                  />
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              {/* ── Review / Completed / Other layout ── */}
-              {/* Toolbar */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              {/* Task ID + Status badge + Metadata */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base">
+                      {shortTaskId(task.id)}
+                    </CardTitle>
+                    <Muted>{timeAgo(task.createdAt)}</Muted>
+                  </div>
                   <Badge
                     variant="outline"
                     className={statusConfig.badgeClassName}
                   >
                     <StatusIcon
                       className={cn(
-                        "size-3.5",
+                        "size-3",
                         statusConfig.className,
                         task.status === "running" ? "animate-spin" : "",
                       )}
                     />
                     {statusConfig.label}
                   </Badge>
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {shortTaskId(task.id)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {timeAgo(task.createdAt)}
-                  </span>
-                </div>
-                <Button variant="ghost" size="icon-sm" onClick={onClose}>
-                  <PanelRightClose className="size-4" />
-                </Button>
-              </div>
-              <div>
-                {editing ? (
-                  <div className="flex flex-col gap-2">
-                    <Textarea
-                      value={editPrompt}
-                      onChange={(e) => setEditPrompt(e.target.value)}
-                      className="min-h-[80px] text-sm"
-                      autoFocus
-                    />
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        onClick={savePrompt}
-                        disabled={saving || !editPrompt.trim()}
-                      >
-                        {saving ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          "Save"
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditing(false)}
-                        disabled={saving}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="group/prompt flex items-start gap-2">
-                    <p className="text-base font-normal leading-relaxed flex-1">
-                      <span className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                        <Markdown>{task.prompt}</Markdown>
-                      </span>
-                    </p>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="shrink-0 opacity-0 group-hover/prompt:opacity-100 transition-opacity mt-0.5"
-                      onClick={() => {
-                        setEditPrompt(task.prompt);
-                        setEditing(true);
+                </CardHeader>
+                <CardContent className="flex flex-col gap-1">
+                  {/* Assignee */}
+                  <div className="flex items-center">
+                    <Small className="w-28 shrink-0">Assignee</Small>
+                    <Popover
+                      open={assigneePickerOpen}
+                      onOpenChange={(open) => {
+                        setAssigneePickerOpen(open);
+                        if (open) fetchTeamMembers();
                       }}
                     >
-                      <Pencil className="size-3.5" />
-                    </Button>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                        >
+                          <Avatar size="sm">
+                            {task.creatorAvatarUrl ? (
+                              <AvatarImage
+                                src={task.creatorAvatarUrl}
+                                alt={task.creatorName ?? ""}
+                              />
+                            ) : null}
+                            <AvatarFallback className="text-[0.5rem]">
+                              {task.creatorName
+                                ? task.creatorName
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .toUpperCase()
+                                    .slice(0, 2)
+                                : "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                          {task.creatorName ?? "Unknown"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[220px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Assign to..." />
+                          <CommandList>
+                            <CommandEmpty>
+                              {teamMembersLoading
+                                ? "Loading..."
+                                : "No members found."}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {teamMembers.map((member) => (
+                                <CommandItem
+                                  key={member.id}
+                                  value={member.name ?? member.email}
+                                  onSelect={() => changeAssignee(member.id)}
+                                >
+                                  <Avatar size="sm">
+                                    {member.avatarUrl ? (
+                                      <AvatarImage
+                                        src={member.avatarUrl}
+                                        alt={member.name ?? ""}
+                                      />
+                                    ) : null}
+                                    <AvatarFallback className="text-[0.5rem]">
+                                      {member.name
+                                        ? member.name
+                                            .split(" ")
+                                            .map((n) => n[0])
+                                            .join("")
+                                            .toUpperCase()
+                                            .slice(0, 2)
+                                        : member.email
+                                            .slice(0, 2)
+                                            .toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  {member.name ?? member.email}
+                                  <Check
+                                    className={cn(
+                                      "ml-auto size-3.5",
+                                      task.createdBy === member.id
+                                        ? "opacity-100"
+                                        : "opacity-0",
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
-                )}
-                <div className="flex items-center gap-2 flex-wrap text-sm text-muted-foreground">
-                  {projects.length > 1 ? (
+
+                  {/* Project */}
+                  <div className="flex items-center">
+                    <Small className="w-28 shrink-0">Project</Small>
                     <Popover
                       open={projectPickerOpen}
                       onOpenChange={setProjectPickerOpen}
@@ -1647,10 +1473,10 @@ function TaskDetailPanel({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 gap-1 px-1.5 text-xs text-muted-foreground hover:text-foreground -ml-1.5"
+                          className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
                         >
+                          <VercelIcon />
                           {task.projectName}
-                          <ChevronDown className="size-3 opacity-50" />
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-[220px] p-0" align="start">
@@ -1684,25 +1510,102 @@ function TaskDetailPanel({
                         </Command>
                       </PopoverContent>
                     </Popover>
-                  ) : (
-                    <span className="text-xs">{task.projectName}</span>
-                  )}
-                  {task.githubRepo && (
-                    <span className="flex items-center gap-1">
-                      <GitHubIcon size={10} />
-                      {task.githubRepo}
-                    </span>
-                  )}
-                  {task.vercelProjectName && (
-                    <span className="flex items-center gap-1">
-                      <VercelIcon />
-                      {task.vercelProjectName}
-                    </span>
-                  )}
-                </div>
-              </div>
+                  </div>
 
-              {/* Active workspaces */}
+                  {/* Branch */}
+                  <div className="flex items-center">
+                    <Small className="w-28 shrink-0">Branch</Small>
+                    {editingBranch ? (
+                      <div className="flex items-center gap-1">
+                        <GitBranch className="size-3.5 text-muted-foreground shrink-0" />
+                        <Input
+                          value={editBranch}
+                          onChange={(e) => setEditBranch(e.target.value)}
+                          onBlur={saveBranch}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              (e.target as HTMLInputElement).blur();
+                            }
+                            if (e.key === "Escape") {
+                              setEditBranch("");
+                              setEditingBranch(false);
+                            }
+                          }}
+                          disabled={savingBranch}
+                          autoFocus
+                          className="h-auto px-2 py-1 text-sm"
+                        />
+                        {savingBranch && (
+                          <Loader2 className="size-3 animate-spin text-muted-foreground shrink-0" />
+                        )}
+                      </div>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          setEditBranch(task.branch);
+                          setEditingBranch(true);
+                        }}
+                      >
+                        <GitBranch className="size-3.5" />
+                        {task.branch}
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Task description — inline editable */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <CardTitle className="text-sm">Task</CardTitle>
+                  {saving && (
+                    <Muted className="flex items-center gap-1">
+                      <Loader2 className="size-3 animate-spin" />
+                      Saving…
+                    </Muted>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    value={editPrompt || task.prompt}
+                    onChange={(e) => setEditPrompt(e.target.value)}
+                    onFocus={() => {
+                      if (!editPrompt) setEditPrompt(task.prompt);
+                    }}
+                    onBlur={() => {
+                      if (editPrompt && editPrompt.trim() !== task.prompt) {
+                        savePrompt();
+                      } else {
+                        setEditPrompt("");
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        (e.target as HTMLTextAreaElement).blur();
+                      }
+                      if (e.key === "Escape") {
+                        setEditPrompt("");
+                        (e.target as HTMLTextAreaElement).blur();
+                      }
+                    }}
+                    disabled={saving}
+                    className="min-h-[60px] resize-none border-0 bg-transparent px-0 shadow-none text-sm text-muted-foreground leading-relaxed focus-visible:ring-0 focus-visible:text-foreground hover:text-foreground/80 transition-colors"
+                  />
+                </CardContent>
+              </Card>
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Active workspaces (if any spawned) */}
               {workspaces.length > 0 && (
                 <div>
                   <WorkspaceList
@@ -1714,179 +1617,439 @@ function TaskDetailPanel({
                   />
                 </div>
               )}
+            </>
+          ) : (
+            <>
+              {/* ── Review / Completed / Other layout ── */}
 
-              {/* Actions */}
-              <div className="flex items-center gap-3">
-                {(task.status === "validating" ||
-                  task.status === "completed" ||
-                  task.status === "timed_out") &&
-                  workspaces.length === 0 && (
-                    <Button
-                      onClick={handleLaunch}
-                      disabled={launching}
-                      size="sm"
-                    >
-                      {launching ? (
-                        <>
-                          <Loader2 className="size-3.5 animate-spin" />
-                          Launching… {launchElapsed}s
-                        </>
-                      ) : (
-                        <>
-                          <Play className="size-3.5" />
-                          Preview
-                        </>
-                      )}
-                    </Button>
+              {/* Toolbar */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {task.prUrl && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            onClick={() => window.open(task.prUrl!, "_blank")}
+                          >
+                            <GitPullRequest className="size-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {task.status === "validating"
+                            ? "Review PR"
+                            : "View PR"}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
-                {task.prUrl && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(task.prUrl!, "_blank")}
-                  >
-                    <GitPullRequest className="size-3.5" />
-                    {task.status === "validating" ? "Review PR" : "View PR"}
-                  </Button>
-                )}
-                {task.status === "validating" && task.prUrl && (
-                  <Button size="sm" disabled={merging} onClick={handleMerge}>
-                    {merging ? (
-                      <>
-                        <Loader2 className="size-3.5 animate-spin" />
-                        Merging…
-                      </>
-                    ) : (
-                      <>
-                        <GitMerge className="size-3.5" />
-                        Merge
-                      </>
+                  {(task.status === "validating" ||
+                    task.status === "running" ||
+                    task.status === "timed_out") &&
+                    task.prUrl && (
+                      <Button
+                        size="sm"
+                        disabled={merging || task.status === "running"}
+                        onClick={handleMerge}
+                      >
+                        {merging ? (
+                          <>
+                            <Loader2 className="size-3.5 animate-spin" />
+                            Merging…
+                          </>
+                        ) : (
+                          <>
+                            <GitMerge className="size-3.5" />
+                            Merge
+                          </>
+                        )}
+                      </Button>
                     )}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon-sm">
+                        <Ellipsis className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {(task.status === "running" ||
+                        task.status === "validating" ||
+                        task.status === "timed_out") && (
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => openCancelModal(task)}
+                        >
+                          <XCircle className="size-3.5" />
+                          Cancel Task
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => setDeleteOpen(true)}
+                      >
+                        <Trash2 className="size-3.5" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <Button variant="ghost" size="icon-sm" onClick={onClose}>
+                    <PanelRightClose className="size-4" />
                   </Button>
-                )}
-                {(task.status === "running" ||
-                  task.status === "validating" ||
-                  task.status === "timed_out") && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive/10"
-                    onClick={() => openCancelModal(task)}
-                  >
-                    <XCircle className="size-3.5" />
-                    Cancel
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive hover:bg-destructive/10"
-                  onClick={() => setDeleteOpen(true)}
-                >
-                  <Trash2 className="size-3.5" />
-                  Delete
-                </Button>
+                </div>
               </div>
 
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {/* Task ID + Status badge + Metadata */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base">
+                      {shortTaskId(task.id)}
+                    </CardTitle>
+                    <Muted>{timeAgo(task.createdAt)}</Muted>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={statusConfig.badgeClassName}
+                  >
+                    <StatusIcon
+                      className={cn(
+                        "size-3",
+                        statusConfig.className,
+                        task.status === "running" ? "animate-spin" : "",
+                      )}
+                    />
+                    {statusConfig.label}
+                  </Badge>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-1">
+                  {/* Assignee */}
+                  <div className="flex items-center">
+                    <Small className="w-28 shrink-0">Assignee</Small>
+                    <Popover
+                      open={assigneePickerOpen}
+                      onOpenChange={(open) => {
+                        setAssigneePickerOpen(open);
+                        if (open) fetchTeamMembers();
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                        >
+                          <Avatar size="sm">
+                            {task.creatorAvatarUrl ? (
+                              <AvatarImage
+                                src={task.creatorAvatarUrl}
+                                alt={task.creatorName ?? ""}
+                              />
+                            ) : null}
+                            <AvatarFallback className="text-[0.5rem]">
+                              {task.creatorName
+                                ? task.creatorName
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .toUpperCase()
+                                    .slice(0, 2)
+                                : "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                          {task.creatorName ?? "Unknown"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[220px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Assign to..." />
+                          <CommandList>
+                            <CommandEmpty>
+                              {teamMembersLoading
+                                ? "Loading..."
+                                : "No members found."}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {teamMembers.map((member) => (
+                                <CommandItem
+                                  key={member.id}
+                                  value={member.name ?? member.email}
+                                  onSelect={() => changeAssignee(member.id)}
+                                >
+                                  <Avatar size="sm">
+                                    {member.avatarUrl ? (
+                                      <AvatarImage
+                                        src={member.avatarUrl}
+                                        alt={member.name ?? ""}
+                                      />
+                                    ) : null}
+                                    <AvatarFallback className="text-[0.5rem]">
+                                      {member.name
+                                        ? member.name
+                                            .split(" ")
+                                            .map((n) => n[0])
+                                            .join("")
+                                            .toUpperCase()
+                                            .slice(0, 2)
+                                        : member.email
+                                            .slice(0, 2)
+                                            .toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  {member.name ?? member.email}
+                                  <Check
+                                    className={cn(
+                                      "ml-auto size-3.5",
+                                      task.createdBy === member.id
+                                        ? "opacity-100"
+                                        : "opacity-0",
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
 
-              {/* Result */}
+                  {/* Project */}
+                  <div className="flex items-center">
+                    <Small className="w-28 shrink-0">Project</Small>
+                    <Popover
+                      open={projectPickerOpen}
+                      onOpenChange={setProjectPickerOpen}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                        >
+                          <VercelIcon />
+                          {task.projectName}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[220px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Move to project..." />
+                          <CommandList>
+                            <CommandEmpty>No projects found.</CommandEmpty>
+                            <CommandGroup>
+                              {projects.map((p) => (
+                                <CommandItem
+                                  key={p.id}
+                                  value={p.name}
+                                  onSelect={() => {
+                                    setProjectPickerOpen(false);
+                                    changeProject(p.id);
+                                  }}
+                                >
+                                  {p.name}
+                                  <Check
+                                    className={cn(
+                                      "ml-auto size-3.5",
+                                      task.projectId === p.id
+                                        ? "opacity-100"
+                                        : "opacity-0",
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Branch */}
+                  <div className="flex items-center">
+                    <Small className="w-28 shrink-0">Branch</Small>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setEditBranch(task.branch);
+                        setEditingBranch(true);
+                      }}
+                    >
+                      <GitBranch className="size-3.5" />
+                      {task.branch}
+                    </Button>
+                  </div>
+
+                  {/* Duration */}
+                  <div className="flex items-center">
+                    <Small className="w-28 shrink-0">Duration</Small>
+                    <span className="flex items-center gap-2 px-2 py-1 text-sm text-muted-foreground">
+                      <Timer className="size-3.5" />
+                      {formatDuration(task.durationMs)}
+                    </span>
+                  </div>
+
+                  {/* Tokens */}
+                  <div className="flex items-center">
+                    <Small className="w-28 shrink-0">Tokens</Small>
+                    <span className="flex items-center gap-2 px-2 py-1 text-sm text-muted-foreground">
+                      <Cpu className="size-3.5" />
+                      {formatTokens(task.inputTokens ?? 0)} in /{" "}
+                      {formatTokens(task.outputTokens ?? 0)} out
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Task description — read only */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Task</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm leading-relaxed text-muted-foreground prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                    <Markdown>{task.prompt}</Markdown>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Preview card — only for review states, not completed */}
+              {task.status !== "completed" && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Preview</CardTitle>
+                    <CardDescription className="text-sm">
+                      {workspaces.length > 0
+                        ? "Your sandbox is running. Open the split view to inspect changes live."
+                        : "Launch a sandbox to preview your changes in a live environment."}
+                    </CardDescription>
+                  </CardHeader>
+                  {workspaces.length > 0 ? (
+                    workspaces.map((ws) => {
+                      const { domain, token } = parseWsUrl(ws.url);
+                      const splitUrl = `${domain}/via/iframe/t/${token}`;
+                      return (
+                        <CardFooter key={ws.id} className="justify-between">
+                          <Muted className="text-xs">
+                            {timeAgo(ws.createdAt)}
+                          </Muted>
+                          <TooltipProvider>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon-sm"
+                                    variant="outline"
+                                    className="size-7"
+                                    asChild
+                                  >
+                                    <a
+                                      href={splitUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <Columns2 className="size-3.5" />
+                                    </a>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Split view</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon-sm"
+                                    variant="outline"
+                                    className="size-7"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(ws.url);
+                                      setCopiedWs(ws.id);
+                                      setTimeout(() => setCopiedWs(null), 2000);
+                                    }}
+                                  >
+                                    {copiedWs === ws.id ? (
+                                      <Check className="size-3.5" />
+                                    ) : (
+                                      <Copy className="size-3.5" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Copy URL</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon-sm"
+                                    variant="outline"
+                                    className="size-7 text-destructive hover:bg-destructive/10"
+                                    disabled={stoppingWs === ws.id}
+                                    onClick={() => handleStopWorkspace(ws.id)}
+                                  >
+                                    {stoppingWs === ws.id ? (
+                                      <Loader2 className="size-3.5 animate-spin" />
+                                    ) : (
+                                      <Square className="size-3.5" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Stop workspace</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TooltipProvider>
+                        </CardFooter>
+                      );
+                    })
+                  ) : (
+                    <CardFooter className="justify-between">
+                      <Muted className="text-xs">
+                        Launch a sandbox to preview changes.
+                      </Muted>
+                      <Button
+                        onClick={handleLaunch}
+                        disabled={launching}
+                        size="sm"
+                      >
+                        {launching ? (
+                          <>
+                            <Loader2 className="size-3.5 animate-spin" />
+                            Launching… {launchElapsed}s
+                          </>
+                        ) : (
+                          <>
+                            <Play className="size-3.5" />
+                            Preview
+                          </>
+                        )}
+                      </Button>
+                    </CardFooter>
+                  )}
+                </Card>
+              )}
+
+              {/* Results card */}
               {task.result && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm">Result</CardTitle>
+                    <CardTitle className="text-sm">Results</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                    <div className="text-sm leading-relaxed text-muted-foreground prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                       <Markdown>{task.result}</Markdown>
                     </div>
                   </CardContent>
                 </Card>
               )}
-
-              {/* Details */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Details</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                    <div>
-                      <dt className="text-muted-foreground flex items-center gap-1.5">
-                        <GitBranch className="size-3.5" />
-                        Branch
-                      </dt>
-                      <dd className="font-mono mt-0.5">{task.branch}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground flex items-center gap-1.5">
-                        <Sparkles className="size-3.5" />
-                        Model
-                      </dt>
-                      <dd className="mt-0.5">{task.model}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground flex items-center gap-1.5">
-                        <Clock className="size-3.5" />
-                        Created
-                      </dt>
-                      <dd className="mt-0.5">
-                        {formatTimestamp(task.createdAt)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground flex items-center gap-1.5">
-                        <Clock className="size-3.5" />
-                        Started
-                      </dt>
-                      <dd className="mt-0.5">
-                        {formatTimestamp(task.startedAt)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground flex items-center gap-1.5">
-                        <Clock className="size-3.5" />
-                        Completed
-                      </dt>
-                      <dd className="mt-0.5">
-                        {formatTimestamp(task.completedAt)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground flex items-center gap-1.5">
-                        <Timer className="size-3.5" />
-                        Duration
-                      </dt>
-                      <dd className="mt-0.5">
-                        {formatDuration(task.durationMs)}
-                      </dd>
-                    </div>
-                    {(task.inputTokens != null ||
-                      task.outputTokens != null) && (
-                      <>
-                        <div>
-                          <dt className="text-muted-foreground flex items-center gap-1.5">
-                            <Cpu className="size-3.5" />
-                            Input Tokens
-                          </dt>
-                          <dd className="mt-0.5">
-                            {formatTokens(task.inputTokens)}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground flex items-center gap-1.5">
-                            <Cpu className="size-3.5" />
-                            Output Tokens
-                          </dt>
-                          <dd className="mt-0.5">
-                            {formatTokens(task.outputTokens)}
-                          </dd>
-                        </div>
-                      </>
-                    )}
-                  </dl>
-                </CardContent>
-              </Card>
             </>
           )}
         </div>
@@ -2156,25 +2319,51 @@ export default function Dashboard({
   // Task feed state
   const [tasks, setTasks] = useState<FeedTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string | null>(() => {
-    if (typeof window === "undefined") return "backlog";
-    const saved = localStorage.getItem("viagen-status-filter");
-    if (saved === "planning") return "backlog";
-    if (saved === "merged") return "completed";
-    return saved ?? "backlog";
-  });
+  const [statusFilter, setStatusFilter] = useState<string | null>("backlog");
 
-  const updateStatusFilter = useCallback(
-    (val: string) => {
-      setStatusFilter(val);
-      localStorage.setItem("viagen-status-filter", val);
+  // Flag to skip closing panel when tab change is programmatic (e.g. after launching a task)
+  const skipPanelCloseRef = useRef(false);
+
+  // Track previous statusFilter to detect changes
+  const statusFilterRef = useRef(statusFilter);
+
+  // Sync statusFilter from localStorage after hydration
+  const hasHydrated = useRef(false);
+  useEffect(() => {
+    if (hasHydrated.current) return;
+    hasHydrated.current = true;
+    const saved = localStorage.getItem("viagen-status-filter");
+    let resolved = "backlog";
+    if (saved === "planning") resolved = "backlog";
+    else if (saved === "merged") resolved = "completed";
+    else if (saved) resolved = saved;
+    if (resolved !== "backlog") {
+      skipPanelCloseRef.current = true;
+      statusFilterRef.current = resolved;
+      setStatusFilter(resolved);
+    }
+  }, []);
+
+  const updateStatusFilter = useCallback((val: string) => {
+    setStatusFilter(val);
+    localStorage.setItem("viagen-status-filter", val);
+  }, []);
+
+  useEffect(() => {
+    if (statusFilterRef.current === statusFilter) return;
+    statusFilterRef.current = statusFilter;
+    if (skipPanelCloseRef.current) {
+      skipPanelCloseRef.current = false;
+      return;
+    }
+    if (panelOpen) {
       closeTaskPanel();
-    },
-    [closeTaskPanel],
-  );
+    }
+  }, [statusFilter, panelOpen, closeTaskPanel]);
 
   // Switch tab without closing the panel (used when a task changes status from the panel)
   const switchStatusFilter = useCallback((val: string) => {
+    skipPanelCloseRef.current = true;
     setStatusFilter(val);
     localStorage.setItem("viagen-status-filter", val);
   }, []);
@@ -2315,6 +2504,7 @@ export default function Dashboard({
           onTaskCreated={handleTaskCreated}
           integrations={integrations}
           projects={loaderData.projects}
+          filterProjectId={selectedProjectId}
         />
 
         {/* Feed tabs + project filter */}
@@ -2392,32 +2582,11 @@ export default function Dashboard({
                   </PopoverContent>
                 </Popover>
               )}
-
-              {selectedProjectId || loaderData.projects.length === 1 ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon-sm">
-                      <Ellipsis className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to={`/projects/${selectedProjectId ?? loaderData.projects[0]?.id}/settings`}
-                      >
-                        Project Settings
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled
-                  className="text-muted-foreground"
-                >
-                  <Ellipsis className="size-4" />
+              {selectedProjectId && (
+                <Button variant="ghost" size="icon-sm" asChild>
+                  <Link to={`/projects/${selectedProjectId}/settings`}>
+                    <Settings className="size-3.5" />
+                  </Link>
                 </Button>
               )}
             </div>
