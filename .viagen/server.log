@@ -1,43 +1,3 @@
-[2026-03-03T00:08:44.959Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:08:44.959Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:08:44.960Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T00:08:44.960Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T00:14:40.817Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:14:40.818Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:14:40.818Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T00:14:40.819Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T00:15:08.810Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T00:15:08.811Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T00:15:08.811Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-03-03T00:15:08.812Z] [INFO] page reload app/routes/_auth.tsx
-[2026-03-03T00:15:33.060Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:15:33.060Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:15:33.061Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T00:15:33.061Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T00:15:55.301Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:15:55.302Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:15:55.302Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T00:15:55.303Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T00:52:08.371Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:52:08.372Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:52:08.372Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T00:52:08.372Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T00:53:59.955Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:53:59.956Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:53:59.956Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T00:53:59.957Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T00:54:50.826Z] [INFO] hmr update /app/components/ui/sheet.tsx
-[2026-03-03T00:54:50.827Z] [INFO] hmr update /app/components/ui/sheet.tsx
-[2026-03-03T00:54:50.828Z] [INFO] hmr update /app/app.css, /app/components/ui/sheet.tsx
-[2026-03-03T00:54:50.829Z] [INFO] page reload app/components/ui/sheet.tsx
-[2026-03-03T00:54:50.845Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T00:54:50.846Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T00:54:50.846Z] [INFO] page reload app/routes/api.projects.$id.tasks.$taskId.ts
-[2026-03-03T00:54:50.847Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-03-03T00:54:50.847Z] [INFO] page reload app/routes/_auth.tsx
-[2026-03-03T00:54:50.850Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
-[2026-03-03T00:54:50.857Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T00:54:50.857Z] [INFO] hmr update /app/routes/_auth.projects.tsx
 [2026-03-03T00:54:50.858Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
 [2026-03-03T00:54:50.859Z] [INFO] page reload app/routes/_auth.projects.tsx
 [2026-03-03T00:55:37.609Z] [INFO] hmr update /app/routes/_auth.projects.tsx
@@ -98,3 +58,43 @@
 [2026-03-03T01:09:32.705Z] [INFO] hmr update /app/routes/_auth.projects.tsx
 [2026-03-03T01:09:32.705Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
 [2026-03-03T01:09:32.705Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-03-03T01:14:47.398Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:14:47.399Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:14:47.400Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-03-03T01:14:47.400Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-03-03T01:15:11.676Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:15:11.676Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:15:11.677Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-03-03T01:15:11.677Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-03-03T01:22:16.281Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:22:16.282Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:22:16.283Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-03-03T01:22:16.283Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-03-03T01:22:38.508Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:22:38.508Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:22:38.509Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-03-03T01:22:38.510Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-03-03T01:23:01.073Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:23:01.073Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:23:01.074Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-03-03T01:23:01.074Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-03-03T01:23:22.507Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:23:22.508Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:23:22.508Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-03-03T01:23:22.509Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-03-03T01:25:54.763Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:25:54.763Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:25:54.764Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-03-03T01:25:54.764Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-03-03T01:29:44.376Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:29:44.377Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:29:44.377Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-03-03T01:29:44.378Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-03-03T01:30:42.593Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:30:42.594Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:30:42.594Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-03-03T01:30:42.595Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-03-03T01:31:21.825Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:31:21.825Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-03T01:31:21.826Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-03-03T01:31:21.826Z] [INFO] page reload app/routes/_auth.projects.tsx

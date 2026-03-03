@@ -212,21 +212,21 @@ const STATUS_CONFIG: Record<
     badgeClassName: "gap-1.5 font-normal",
   },
   running: {
-    label: "Backlog",
+    label: "Running",
     icon: Loader2,
     className: "text-blue-500",
     badgeClassName:
       "gap-1.5 font-normal border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300",
   },
   validating: {
-    label: "Review",
+    label: "PR Ready",
     icon: GitPullRequest,
     className: "text-yellow-500",
     badgeClassName:
       "gap-1.5 font-normal border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300",
   },
   completed: {
-    label: "Completed",
+    label: "Merged",
     icon: GitMerge,
     className: "text-green-500",
     badgeClassName:
@@ -818,6 +818,7 @@ function TaskDetailPanel({
   open,
   onClose,
   onTaskChanged,
+  onStatusFilterChange,
   projects,
 }: {
   projectId: string;
@@ -825,6 +826,7 @@ function TaskDetailPanel({
   open: boolean;
   onClose: () => void;
   onTaskChanged?: () => void;
+  onStatusFilterChange?: (filter: string) => void;
   projects: Project[];
 }) {
   const [task, setTask] = useState<FeedTask | null>(null);
@@ -973,8 +975,17 @@ function TaskDetailPanel({
       const data = await res.json();
 
       if (res.ok && data.workspace) {
+        // Optimistically update status to running so the UI reacts immediately
+        if (isRun) {
+          setTask((prev) => (prev ? { ...prev, status: "running" } : prev));
+        }
         refreshWorkspaces();
         refreshTask();
+        onTaskChanged?.();
+        // Switch to Review tab so user sees the now-running task
+        if (isRun) {
+          onStatusFilterChange?.("review");
+        }
       } else {
         setError(data.error ?? "Failed to launch workspace");
       }
@@ -2112,46 +2123,6 @@ export default function Dashboard({
     | undefined;
   const integrations = parentData?.integrations;
 
-  // Task feed state
-  const [tasks, setTasks] = useState<FeedTask[]>([]);
-  const [tasksLoading, setTasksLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string | null>(() => {
-    if (typeof window === "undefined") return "backlog";
-    const saved = localStorage.getItem("viagen-status-filter");
-    if (saved === "planning") return "backlog";
-    if (saved === "merged") return "completed";
-    return saved ?? "backlog";
-  });
-
-  const updateStatusFilter = useCallback((val: string) => {
-    setStatusFilter(val);
-    localStorage.setItem("viagen-status-filter", val);
-  }, []);
-
-  // Project filter state
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    () => {
-      if (typeof window === "undefined") return null;
-      const saved = localStorage.getItem("viagen-filter-project");
-      if (saved && loaderData.projects.some((p) => p.id === saved))
-        return saved;
-      return null;
-    },
-  );
-  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
-  const selectedProject = selectedProjectId
-    ? (loaderData.projects.find((p) => p.id === selectedProjectId) ?? null)
-    : null;
-
-  const updateFilterProject = useCallback((id: string | null) => {
-    setSelectedProjectId(id);
-    if (id) {
-      localStorage.setItem("viagen-filter-project", id);
-    } else {
-      localStorage.removeItem("viagen-filter-project");
-    }
-  }, []);
-
   // Panel state driven by search params
   const panelTaskId = searchParams.get("task");
   const panelProjectId = searchParams.get("project");
@@ -2181,6 +2152,56 @@ export default function Dashboard({
       { replace: false },
     );
   }, [setSearchParams]);
+
+  // Task feed state
+  const [tasks, setTasks] = useState<FeedTask[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string | null>(() => {
+    if (typeof window === "undefined") return "backlog";
+    const saved = localStorage.getItem("viagen-status-filter");
+    if (saved === "planning") return "backlog";
+    if (saved === "merged") return "completed";
+    return saved ?? "backlog";
+  });
+
+  const updateStatusFilter = useCallback(
+    (val: string) => {
+      setStatusFilter(val);
+      localStorage.setItem("viagen-status-filter", val);
+      closeTaskPanel();
+    },
+    [closeTaskPanel],
+  );
+
+  // Switch tab without closing the panel (used when a task changes status from the panel)
+  const switchStatusFilter = useCallback((val: string) => {
+    setStatusFilter(val);
+    localStorage.setItem("viagen-status-filter", val);
+  }, []);
+
+  // Project filter state
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    () => {
+      if (typeof window === "undefined") return null;
+      const saved = localStorage.getItem("viagen-filter-project");
+      if (saved && loaderData.projects.some((p) => p.id === saved))
+        return saved;
+      return null;
+    },
+  );
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const selectedProject = selectedProjectId
+    ? (loaderData.projects.find((p) => p.id === selectedProjectId) ?? null)
+    : null;
+
+  const updateFilterProject = useCallback((id: string | null) => {
+    setSelectedProjectId(id);
+    if (id) {
+      localStorage.setItem("viagen-filter-project", id);
+    } else {
+      localStorage.removeItem("viagen-filter-project");
+    }
+  }, []);
 
   // Handle ?connected= and ?error= query params from OAuth redirects
   useEffect(() => {
@@ -2266,11 +2287,12 @@ export default function Dashboard({
 
   // Filter counts (respect project filter)
   const counts = useMemo(() => {
-    const backlog = projectTasks.filter(
-      (t) => t.status === "ready" || t.status === "running",
-    ).length;
+    const backlog = projectTasks.filter((t) => t.status === "ready").length;
     const review = projectTasks.filter(
-      (t) => t.status === "validating" || t.status === "timed_out",
+      (t) =>
+        t.status === "running" ||
+        t.status === "validating" ||
+        t.status === "timed_out",
     ).length;
     const completed = projectTasks.filter(
       (t) => t.status === "completed",
@@ -2490,6 +2512,7 @@ export default function Dashboard({
               open={panelOpen}
               onClose={closeTaskPanel}
               onTaskChanged={fetchTasks}
+              onStatusFilterChange={switchStatusFilter}
               projects={loaderData.projects}
             />
           </div>
@@ -2507,11 +2530,14 @@ function filteredTasks(
 ): FeedTask[] {
   if (!statusFilter) return tasks;
   if (statusFilter === "backlog") {
-    return tasks.filter((t) => t.status === "ready" || t.status === "running");
+    return tasks.filter((t) => t.status === "ready");
   }
   if (statusFilter === "review") {
     return tasks.filter(
-      (t) => t.status === "validating" || t.status === "timed_out",
+      (t) =>
+        t.status === "running" ||
+        t.status === "validating" ||
+        t.status === "timed_out",
     );
   }
   if (statusFilter === "completed") {
