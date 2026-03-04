@@ -29,6 +29,9 @@ export async function loader({ request }: { request: Request }) {
     'read:org',
   ])
 
+  // Force GitHub to re-show the consent screen so users can grant/update org access
+  authUrl.searchParams.set('prompt', 'consent')
+
   log.info({ orgId: org.id }, 'github integration: starting OAuth flow')
   return redirect(authUrl.toString(), { headers })
 }
