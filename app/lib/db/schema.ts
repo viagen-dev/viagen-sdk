@@ -68,6 +68,7 @@ export const projects = pgTable("projects", {
   vercelOrgId: varchar("vercel_org_id", { length: 255 }),
   githubRepo: varchar("github_repo", { length: 255 }),
   templateId: varchar("template_id", { length: 64 }),
+  taskPrefix: varchar("task_prefix", { length: 10 }),
   vercelEnvSync: jsonb("vercel_env_sync").$type<Record<string, boolean>>(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
@@ -154,6 +155,7 @@ export const tasks = pgTable("tasks", {
   workspaceId: uuid("workspace_id").references(() => workspaces.id, {
     onDelete: "set null",
   }),
+  taskNumber: integer("task_number"),
   branch: varchar("branch", { length: 255 }).notNull().default("feat"),
   createdBy: uuid("created_by")
     .notNull()

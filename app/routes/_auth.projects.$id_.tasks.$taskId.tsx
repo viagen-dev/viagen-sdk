@@ -1,9 +1,20 @@
-import { redirect } from "react-router";
+import { useNavigate, useParams, useRouteLoaderData } from "react-router";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, tasks } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { log } from "~/lib/logger.server";
+import { getSecret } from "~/lib/infisical.server";
+import { parsePrUrl, isPrMerged } from "~/lib/github.server";
+import { TaskDetailPanel } from "~/components/task-detail-panel";
+import type { Project } from "~/components/task-detail-panel";
+
+interface ParentData {
+  user: { id: string; email: string; name: string | null; avatarUrl: string | null };
+  currentOrg: { id: string; name: string };
+  organizations: { id: string; name: string; role: string }[];
+  integrations: { github: boolean; vercel: boolean; claude: boolean };
+}
 
 export async function loader({
   request,
@@ -25,13 +36,13 @@ export async function loader({
   if (!project) {
     log.warn(
       { projectId: params.id, orgId: org.id },
-      "task detail redirect: project not found or not in org",
+      "task detail page: project not found or not in org",
     );
     throw Response.json({ error: "Not found" }, { status: 404 });
   }
 
   // Verify task exists in this project
-  const [task] = await db
+  let [task] = await db
     .select()
     .from(tasks)
     .where(and(eq(tasks.id, params.taskId), eq(tasks.projectId, project.id)));
@@ -39,21 +50,76 @@ export async function loader({
   if (!task) {
     log.warn(
       { projectId: project.id, taskId: params.taskId },
-      "task detail redirect: task not found",
+      "task detail page: task not found",
     );
     throw Response.json({ error: "Not found" }, { status: 404 });
   }
 
+  // Auto-complete if PR has been merged
+  if ((task.status === "validating" || task.status === "timed_out") && task.prUrl) {
+    try {
+      const githubToken = await getSecret(org.id, "GITHUB_TOKEN");
+      const parsed = parsePrUrl(task.prUrl);
+      if (githubToken && parsed) {
+        const merged = await isPrMerged(githubToken, parsed.owner, parsed.repo, parsed.number);
+        if (merged) {
+          log.info(
+            { projectId: project.id, taskId: task.id, prUrl: task.prUrl },
+            "task detail page: PR merged, auto-completing task",
+          );
+          const [updated] = await db
+            .update(tasks)
+            .set({ status: "completed", completedAt: new Date() })
+            .where(eq(tasks.id, task.id))
+            .returning();
+          if (updated) {
+            task = updated;
+          }
+        }
+      }
+    } catch (err) {
+      log.warn(
+        { projectId: project.id, taskId: task.id, error: err instanceof Error ? err.message : "unknown" },
+        "task detail page: failed to check PR merge status (non-fatal)",
+      );
+    }
+  }
+
+  // Load all org projects for the project picker
+  const allProjects = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.organizationId, org.id));
+
   log.debug(
     { projectId: project.id, taskId: task.id },
-    "task detail: redirecting to dashboard panel",
+    "task detail page: rendering full page view",
   );
 
-  // Redirect to dashboard with search params to open the panel
-  return redirect(`/?task=${task.id}&project=${project.id}`);
+  return { project, task, projects: allProjects };
 }
 
-export default function TaskDetailRedirect() {
-  // This should never render — the loader always redirects.
-  return null;
+export default function TaskDetailPage({
+  loaderData,
+}: {
+  loaderData: {
+    project: Project;
+    task: { id: string; projectId: string };
+    projects: Project[];
+  };
+}) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="h-[calc(100svh-60px)]">
+      <TaskDetailPanel
+        projectId={loaderData.project.id}
+        taskId={loaderData.task.id}
+        open={true}
+        onClose={() => navigate("/")}
+        variant="page"
+        projects={loaderData.projects}
+      />
+    </div>
+  );
 }

@@ -56,6 +56,7 @@ export async function action({
     if ("vercelOrgId" in body)
       updates.vercelOrgId = body.vercelOrgId ?? null;
     if ("githubRepo" in body) updates.githubRepo = body.githubRepo ?? null;
+    if ("taskPrefix" in body) updates.taskPrefix = body.taskPrefix ?? null;
 
     if (Object.keys(updates).length === 0) {
       return Response.json({ error: "No updates provided" }, { status: 400 });

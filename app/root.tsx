@@ -24,7 +24,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             __html: `(function(){try{var t=localStorage.getItem("viagen-theme");if(t==="dark")document.documentElement.classList.add("dark")}catch(e){}})()`,
           }}
         />
-        <script src="/via/client.js" defer></script>
         <Meta />
         <Links />
       </head>

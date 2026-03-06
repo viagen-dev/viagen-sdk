@@ -41,6 +41,7 @@ interface Project {
   vercelProjectId: string | null;
   vercelProjectName: string | null;
   githubRepo: string | null;
+  taskPrefix: string | null;
   vercelEnvSync: Record<string, boolean> | null;
   createdAt: string;
   updatedAt: string;
@@ -154,6 +155,36 @@ export function ProjectSettingsPanel({
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSaved, setNameSaved] = useState(false);
   const nameChanged = projectName.trim() !== project.name;
+
+  // --- Task prefix ---
+  const [taskPrefix, setTaskPrefix] = useState(project.taskPrefix ?? "");
+  const [savingPrefix, setSavingPrefix] = useState(false);
+  const [prefixSaved, setPrefixSaved] = useState(false);
+  const prefixChanged = taskPrefix.trim() !== (project.taskPrefix ?? "");
+
+  const handleSavePrefix = async () => {
+    if (savingPrefix) return;
+    setSavingPrefix(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskPrefix: taskPrefix.trim() || null }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to update task prefix");
+        return;
+      }
+      setPrefixSaved(true);
+      toast.success("Task prefix updated");
+    } catch {
+      toast.error("Failed to update task prefix");
+    } finally {
+      setSavingPrefix(false);
+    }
+  };
 
   // --- Connections ---
   const [connections, setConnections] = useState<ConnectionStatus | null>(null);
@@ -588,6 +619,43 @@ export function ProjectSettingsPanel({
             disabled={!nameChanged || !projectName.trim() || savingName}
           >
             {savingName ? "Saving..." : nameSaved ? "Saved" : "Save"}
+          </Button>
+        </CardFooter>
+      </Card>
+
+      {/* ================================================================= */}
+      {/* Task Prefix                                                      */}
+      {/* ================================================================= */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Task Prefix</CardTitle>
+          <CardDescription>
+            Short code used in task IDs (e.g. <span className="font-mono">VGN-12</span>). If empty, a prefix is inferred from the project name.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Input
+            type="text"
+            value={taskPrefix}
+            onChange={(e) => {
+              setTaskPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10));
+              setPrefixSaved(false);
+            }}
+            placeholder="e.g. VGN"
+            className="max-w-[12rem] font-mono"
+            maxLength={10}
+            onKeyDown={(e) =>
+              e.key === "Enter" && prefixChanged && handleSavePrefix()
+            }
+          />
+        </CardContent>
+        <CardFooter className="border-t justify-between">
+          <Muted>Up to 10 characters. Letters and numbers only.</Muted>
+          <Button
+            onClick={handleSavePrefix}
+            disabled={!prefixChanged || savingPrefix}
+          >
+            {savingPrefix ? "Saving..." : prefixSaved ? "Saved" : "Save"}
           </Button>
         </CardFooter>
       </Card>

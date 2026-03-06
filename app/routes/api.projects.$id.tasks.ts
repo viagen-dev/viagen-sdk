@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, tasks, orgMembers, users } from "~/lib/db/schema";
@@ -128,7 +128,7 @@ export async function loader({
 
   // Auto-complete tasks whose PR has been merged on GitHub
   const validatingWithPr = rows.filter(
-    (t) => t.status === "validating" && t.prUrl,
+    (t) => (t.status === "validating" || t.status === "timed_out") && t.prUrl,
   );
 
   if (validatingWithPr.length > 0) {
@@ -265,6 +265,13 @@ export async function action({
     );
   }
 
+  // Get next task number for this project
+  const [{ max: maxNum }] = await db
+    .select({ max: sql<number>`coalesce(max(${tasks.taskNumber}), 0)` })
+    .from(tasks)
+    .where(eq(tasks.projectId, projectId));
+  const taskNumber = (maxNum ?? 0) + 1;
+
   const [task] = await db
     .insert(tasks)
     .values({
@@ -273,13 +280,14 @@ export async function action({
       branch,
       model,
       type,
+      taskNumber,
       status: "ready",
       createdBy: user.id,
     })
     .returning();
 
   log.info(
-    { userId: user.id, projectId, taskId: task.id, branch, model, type },
+    { userId: user.id, projectId, taskId: task.id, taskNumber, branch, model, type },
     "task created",
   );
   return Response.json({ task }, { status: 201 });

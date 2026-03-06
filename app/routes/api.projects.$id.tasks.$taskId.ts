@@ -3,6 +3,8 @@ import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, tasks, users, orgMembers } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
+import { getSecret } from "~/lib/infisical.server";
+import { parsePrUrl, isPrMerged } from "~/lib/github.server";
 
 export async function loader({
   params,
@@ -50,10 +52,53 @@ export async function loader({
     return Response.json({ error: "Task not found" }, { status: 404 });
   }
 
+  // Auto-complete if PR has been merged (result cached for 60s)
+  let task = row.task;
+  log.info(
+    { projectId, taskId, status: task.status, prUrl: task.prUrl ?? null },
+    "task detail: PR merge check eligibility",
+  );
+  if ((task.status === "validating" || task.status === "timed_out") && task.prUrl) {
+    try {
+      const githubToken = await getSecret(org.id, "GITHUB_TOKEN");
+      const parsed = parsePrUrl(task.prUrl);
+      log.info(
+        { projectId, taskId, hasToken: !!githubToken, parsed },
+        "task detail: resolved token and parsed PR URL",
+      );
+      if (githubToken && parsed) {
+        const merged = await isPrMerged(githubToken, parsed.owner, parsed.repo, parsed.number);
+        log.info(
+          { projectId, taskId, merged },
+          "task detail: PR merge check result",
+        );
+        if (merged) {
+          const [updated] = await db
+            .update(tasks)
+            .set({ status: "completed", completedAt: new Date() })
+            .where(eq(tasks.id, taskId))
+            .returning();
+          if (updated) task = updated;
+          log.info({ projectId, taskId }, "task detail: PR merged, task auto-completed");
+        }
+      }
+    } catch (err) {
+      log.warn(
+        { projectId, taskId, error: err instanceof Error ? err.message : "unknown" },
+        "task detail: PR merge check failed (non-fatal)",
+      );
+    }
+  } else {
+    log.info(
+      { projectId, taskId, status: task.status, hasPrUrl: !!task.prUrl },
+      "task detail: skipped PR merge check",
+    );
+  }
+
   log.debug({ projectId, taskId }, "task detail fetched");
   return Response.json({
     task: {
-      ...row.task,
+      ...task,
       creatorName: row.creatorName ?? null,
       creatorAvatarUrl: row.creatorAvatarUrl ?? null,
       projectName: row.projectName,

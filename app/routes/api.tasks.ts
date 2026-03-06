@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, tasks, orgMembers, users } from "~/lib/db/schema";
@@ -43,6 +43,7 @@ export async function loader({ request }: { request: Request }) {
       creatorName: users.name,
       creatorAvatarUrl: users.avatarUrl,
       projectName: projects.name,
+      taskPrefix: projects.taskPrefix,
       githubRepo: projects.githubRepo,
       vercelProjectId: projects.vercelProjectId,
       vercelProjectName: projects.vercelProjectName,
@@ -60,6 +61,7 @@ export async function loader({ request }: { request: Request }) {
     creatorName: r.creatorName ?? null,
     creatorAvatarUrl: r.creatorAvatarUrl ?? null,
     projectName: r.projectName,
+    taskPrefix: r.taskPrefix ?? null,
     githubRepo: r.githubRepo,
     vercelProjectId: r.vercelProjectId,
     vercelProjectName: r.vercelProjectName,
@@ -137,7 +139,7 @@ export async function loader({ request }: { request: Request }) {
 
   // Auto-complete tasks whose PR has been merged on GitHub
   const validatingWithPr = rows.filter(
-    (t) => t.status === "validating" && t.prUrl,
+    (t) => (t.status === "validating" || t.status === "timed_out") && t.prUrl,
   );
 
   if (validatingWithPr.length > 0) {
@@ -355,6 +357,13 @@ export async function action({ request }: { request: Request }) {
 
   // ── Create the task ──
 
+  // Get next task number for this project
+  const [{ max: maxNum }] = await db
+    .select({ max: sql<number>`coalesce(max(${tasks.taskNumber}), 0)` })
+    .from(tasks)
+    .where(eq(tasks.projectId, projectId));
+  const taskNumber = (maxNum ?? 0) + 1;
+
   const [task] = await db
     .insert(tasks)
     .values({
@@ -362,6 +371,7 @@ export async function action({ request }: { request: Request }) {
       prompt,
       branch,
       model,
+      taskNumber,
       status: "ready",
       createdBy: user.id,
     })

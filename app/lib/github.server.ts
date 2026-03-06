@@ -18,16 +18,37 @@ function githubHeaders(token: string) {
   }
 }
 
-/** Check whether a PR has been merged. Returns null if the request fails. */
+// Cache merge check results for 60s to avoid hammering GitHub API
+const mergeCache = new Map<string, { merged: boolean | null; checkedAt: number }>()
+const MERGE_CACHE_TTL = 60_000
+
+/** Check whether a PR has been merged. Returns null if the request fails. Caches results for 60s. */
 export async function isPrMerged(token: string, owner: string, repo: string, prNumber: number): Promise<boolean | null> {
+  const cacheKey = `${owner}/${repo}/${prNumber}`
+  const cached = mergeCache.get(cacheKey)
+  if (cached && Date.now() - cached.checkedAt < MERGE_CACHE_TTL) {
+    return cached.merged
+  }
+
+  const url = `${GITHUB_API}/repos/${owner}/${repo}/pulls/${prNumber}`
   try {
-    const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pulls/${prNumber}`, {
+    const res = await fetch(url, {
       headers: githubHeaders(token),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.error(`[isPrMerged] GitHub API ${res.status} for ${url}`)
+      mergeCache.set(cacheKey, { merged: null, checkedAt: Date.now() })
+      return null
+    }
     const data = await res.json()
-    return data.merged === true
-  } catch {
+    const merged = data.merged === true
+    console.log(`[isPrMerged] ${owner}/${repo}#${prNumber} — state=${data.state}, merged=${merged}`)
+    mergeCache.set(cacheKey, { merged, checkedAt: Date.now() })
+    // If merged, cache indefinitely (it won't un-merge)
+    if (merged) mergeCache.set(cacheKey, { merged, checkedAt: Date.now() + 1e12 })
+    return merged
+  } catch (err) {
+    console.error(`[isPrMerged] fetch error for ${url}:`, err)
     return null
   }
 }

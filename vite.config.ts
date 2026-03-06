@@ -8,6 +8,9 @@ export default defineConfig({
   server: {
     allowedHosts: true,
   },
+  ssr: {
+    noExternal: ["react-markdown"],
+  },
   plugins: [
     tailwindcss(),
     viagen({
