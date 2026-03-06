@@ -291,6 +291,33 @@ export async function action({
         : {}),
     });
 
+    // Insert workspace record immediately with "provisioning" status
+    const expiresAt = new Date(Date.now() + timeoutMs);
+    const [workspace] = await db
+      .insert(workspaces)
+      .values({
+        projectId: id,
+        sandboxId: sandbox.sandboxId,
+        url: "", // placeholder until setup completes
+        expiresAt,
+        branch,
+        gitRemoteUrl: remoteUrl,
+        gitUserName: "viagen",
+        gitUserEmail: "bot@viagen.dev",
+        vercelOrgId: project.vercelOrgId ?? null,
+        vercelProjectId: project.vercelProjectId ?? null,
+        viagenProjectId: id,
+        taskId: taskId ?? undefined,
+        status: "provisioning",
+        createdBy: user.id,
+      })
+      .returning();
+
+    log.info(
+      { projectId: id, workspaceId: workspace.id, sandboxId: sandbox.sandboxId },
+      "sandbox: workspace record created (provisioning)",
+    );
+
     try {
       // 2. Configure git inside sandbox
       if (githubToken) {
@@ -404,15 +431,35 @@ fetch(process.env.VIAGEN_CALLBACK_URL, {
         );
       }
 
-      // 6. Start dev server (detached, with env vars passed directly)
+      // 6. Start dev server with supervisor (auto-restarts on crash)
+      const supervisorScript = [
+        "#!/bin/bash",
+        "while true; do",
+        '  npm run dev -- --host 0.0.0.0',
+        '  echo "[supervisor] dev server exited, restarting in 1s..."',
+        "  sleep 1",
+        "done",
+        "",
+      ].join("\n");
+
+      await sandbox.writeFiles([
+        { path: "_supervisor.sh", content: Buffer.from(supervisorScript) },
+      ]);
+
+      // Ensure supervisor script doesn't show up in git diffs
+      await sandbox.runCommand("bash", [
+        "-c",
+        "echo '_supervisor.sh' >> .gitignore",
+      ]);
+
       await sandbox.runCommand({
-        cmd: "npm",
-        args: ["run", "dev", "--", "--host", "0.0.0.0"],
+        cmd: "bash",
+        args: ["_supervisor.sh"],
         env: envMap,
         detached: true,
       });
 
-      // 7. Build result and save workspace
+      // 7. Update workspace record to "running" with real URL
       const baseUrl = sandbox.domain(5173);
       const url = prompt
         ? `${baseUrl}/via/iframe/t/${token}`
@@ -426,26 +473,11 @@ fetch(process.env.VIAGEN_CALLBACK_URL, {
         },
         "sandbox URL constructed",
       );
-      const expiresAt = new Date(Date.now() + timeoutMs);
 
-      const [workspace] = await db
-        .insert(workspaces)
-        .values({
-          projectId: id,
-          sandboxId: sandbox.sandboxId,
-          url,
-          expiresAt,
-          branch,
-          gitRemoteUrl: remoteUrl,
-          gitUserName: "viagen",
-          gitUserEmail: "bot@viagen.dev",
-          vercelOrgId: project.vercelOrgId ?? null,
-          vercelProjectId: project.vercelProjectId ?? null,
-          viagenProjectId: id,
-          taskId: taskId ?? undefined,
-          createdBy: user.id,
-        })
-        .returning();
+      await db
+        .update(workspaces)
+        .set({ url, status: "running" })
+        .where(eq(workspaces.id, workspace.id));
 
       // Link workspace to task and mark as running
       if (taskId) {
@@ -477,6 +509,11 @@ fetch(process.env.VIAGEN_CALLBACK_URL, {
 
       return Response.json({ workspace });
     } catch (err) {
+      // Clean up provisioning workspace record on failure
+      await db
+        .delete(workspaces)
+        .where(eq(workspaces.id, workspace.id))
+        .catch(() => {});
       await sandbox.stop().catch(() => {});
       throw err;
     }

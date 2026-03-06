@@ -290,5 +290,11 @@ export async function action({
     { userId: user.id, projectId, taskId: task.id, taskNumber, branch, model, type },
     "task created",
   );
-  return Response.json({ task }, { status: 201 });
+  return Response.json({
+    task: {
+      ...task,
+      creatorName: user.name ?? null,
+      creatorAvatarUrl: user.avatarUrl ?? null,
+    },
+  }, { status: 201 });
 }

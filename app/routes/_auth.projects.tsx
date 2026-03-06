@@ -19,6 +19,9 @@ import {
   Plus,
   Terminal,
   Ellipsis,
+  Square,
+  Columns2,
+  ExternalLink,
 } from "lucide-react";
 import {
   TaskDetailPanel,
@@ -803,6 +806,72 @@ export default function Dashboard({
     }
   }, []);
 
+  // Active standalone workspace (not linked to a task) for launcher project
+  interface StandaloneWorkspace {
+    id: string;
+    url: string;
+    status: string;
+    taskId: string | null;
+    createdAt: string;
+  }
+  const [standaloneWs, setStandaloneWs] = useState<StandaloneWorkspace | null>(null);
+  const [stoppingWs, setStoppingWs] = useState(false);
+
+  // Poll for active workspaces on the launcher project
+  useEffect(() => {
+    if (!launcherProjectId) return;
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch(`/api/projects/${launcherProjectId}/sandbox`, {
+          credentials: "include",
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const standalone = (data.workspaces ?? []).find(
+          (ws: StandaloneWorkspace) => !ws.taskId,
+        );
+        if (!cancelled) setStandaloneWs(standalone ?? null);
+      } catch {
+        // ignore
+      }
+    };
+    check();
+    // Poll faster while provisioning, slower once running
+    const interval = setInterval(check, standaloneWs?.status === "provisioning" ? 3_000 : 15_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [launcherProjectId, standaloneWs?.status]);
+
+  const parseWsUrl = (url: string) => {
+    const match = url.match(/^(https?:\/\/[^/]+).*\/t\/([^/]+)$/);
+    if (!match) return { domain: url, token: "" };
+    return { domain: match[1], token: match[2] };
+  };
+
+  const handleStopStandaloneWs = async () => {
+    if (!standaloneWs || !launcherProjectId || stoppingWs) return;
+    setStoppingWs(true);
+    try {
+      const res = await fetch(`/api/projects/${launcherProjectId}/sandbox`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId: standaloneWs.id }),
+      });
+      if (res.ok) {
+        setStandaloneWs(null);
+        toast.success("Workspace stopped");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to stop workspace");
+      }
+    } catch {
+      toast.error("Failed to stop workspace");
+    } finally {
+      setStoppingWs(false);
+    }
+  };
+
   // Handle ?connected= and ?error= query params from OAuth redirects
   useEffect(() => {
     const connected = searchParams.get("connected");
@@ -956,6 +1025,57 @@ export default function Dashboard({
                 </PopoverContent>
               </Popover>
             )}
+          {standaloneWs && (() => {
+            const isProvisioning = standaloneWs.status === "provisioning";
+            if (isProvisioning) {
+              return (
+                <div className="flex items-center gap-1.5">
+                  <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Launching…</span>
+                </div>
+              );
+            }
+            const { domain, token } = parseWsUrl(standaloneWs.url);
+            const splitUrl = `${domain}/via/iframe/t/${token}`;
+            return (
+              <div className="flex items-center gap-1">
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  asChild
+                  title="Open workspace"
+                >
+                  <a href={standaloneWs.url} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  asChild
+                  title="Split view"
+                >
+                  <a href={splitUrl} target="_blank" rel="noopener noreferrer">
+                    <Columns2 className="size-3.5" />
+                  </a>
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  className="text-destructive hover:bg-destructive/10"
+                  disabled={stoppingWs}
+                  onClick={handleStopStandaloneWs}
+                  title="Stop workspace"
+                >
+                  {stoppingWs ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Square className="size-3.5" />
+                  )}
+                </Button>
+              </div>
+            );
+          })()}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon-sm">
@@ -963,38 +1083,42 @@ export default function Dashboard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={async () => {
-                  const pid = launcherProjectId ?? loaderData.projects[0]?.id;
-                  if (!pid) {
-                    toast.error("No project selected");
-                    return;
-                  }
-                  const branch = `sandbox-${Math.random().toString(36).slice(2, 8)}`;
-                  toast.info("Launching workspace…");
-                  try {
-                    const res = await fetch(`/api/projects/${pid}/sandbox`, {
-                      method: "POST",
-                      credentials: "include",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ branch }),
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.workspace) {
-                      toast.success("Workspace launched");
-                      window.open(data.workspace.url, "_blank");
-                    } else {
-                      toast.error(data.error ?? "Failed to launch workspace");
-                    }
-                  } catch {
-                    toast.error("Failed to launch workspace");
-                  }
-                }}
-              >
-                <Terminal className="size-3.5" />
-                Launch Workspace
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {!standaloneWs && (
+                <>
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      const pid = launcherProjectId ?? loaderData.projects[0]?.id;
+                      if (!pid) {
+                        toast.error("No project selected");
+                        return;
+                      }
+                      const branch = `sandbox-${Math.random().toString(36).slice(2, 8)}`;
+                      try {
+                        const res = await fetch(`/api/projects/${pid}/sandbox`, {
+                          method: "POST",
+                          credentials: "include",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ branch }),
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.workspace) {
+                          toast.success("Workspace launched");
+                          setStandaloneWs(data.workspace);
+                          window.open(data.workspace.url, "_blank");
+                        } else {
+                          toast.error(data.error ?? "Failed to launch workspace");
+                        }
+                      } catch {
+                        toast.error("Failed to launch workspace");
+                      }
+                    }}
+                  >
+                    <Terminal className="size-3.5" />
+                    Launch Workspace
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem asChild>
                 <Link to="/projects/new">
                   <Plus className="size-3.5" />
