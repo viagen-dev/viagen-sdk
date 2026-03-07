@@ -16,8 +16,8 @@ export default [
   layout("routes/_auth.tsx", [
     index("routes/_auth.projects.tsx"),
     route("projects/new", "routes/_auth.projects.new.tsx"),
-    route("projects/:id", "routes/_auth.projects.$id.tsx"),
     route("projects/:id/settings", "routes/_auth.projects.$id_.settings.tsx"),
+    route("projects/:id/deploys", "routes/_auth.projects.$id_.deploys.tsx"),
     route(
       "projects/:id/tasks/:taskId",
       "routes/_auth.projects.$id_.tasks.$taskId.tsx",
@@ -70,6 +70,7 @@ export default [
     "routes/api.projects.$id.tasks.$taskId.delete.ts",
   ),
   route("api/tasks", "routes/api.tasks.ts"),
+  route("api/projects/:id/deployments", "routes/api.projects.$id.deployments.ts"),
   route("api/vercel/projects", "routes/api.vercel.projects.ts"),
   route("api/github/repos", "routes/api.github.repos.ts"),
   route(

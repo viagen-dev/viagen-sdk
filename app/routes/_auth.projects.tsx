@@ -22,6 +22,7 @@ import {
   Square,
   Columns2,
   ExternalLink,
+  Rocket,
 } from "lucide-react";
 import {
   TaskDetailPanel,
@@ -1125,6 +1126,14 @@ export default function Dashboard({
                   New Project
                 </Link>
               </DropdownMenuItem>
+              {launcherProjectId && (
+                <DropdownMenuItem asChild>
+                  <Link to={`/projects/${launcherProjectId}/deploys`}>
+                    <Rocket className="size-3.5" />
+                    Deployments
+                  </Link>
+                </DropdownMenuItem>
+              )}
               {launcherProjectId && (
                 <DropdownMenuItem asChild>
                   <Link to={`/projects/${launcherProjectId}/settings`}>
