@@ -284,7 +284,7 @@ export async function action({ request }: { request: Request }) {
   }
 
   const branch = body.branch?.trim() || `feat-${Math.random().toString(36).slice(2, 8)}`;
-  const model = body.model?.trim() || "claude-sonnet-4-20250514";
+  const model = body.model?.trim() || "claude-sonnet-4-6";
 
   // ── Find or create a project for this repo + Vercel project combo ──
 

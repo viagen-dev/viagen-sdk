@@ -254,7 +254,7 @@ export async function action({
   }
 
   const branch = body.branch?.trim() || "feat";
-  const model = body.model?.trim() || "claude-sonnet-4-20250514";
+  const model = body.model?.trim() || "claude-sonnet-4-6";
 
   const validTypes = ["task", "plan"];
   const type = body.type?.trim() || "task";
