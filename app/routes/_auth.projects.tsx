@@ -817,6 +817,7 @@ export default function Dashboard({
   }
   const [standaloneWs, setStandaloneWs] = useState<StandaloneWorkspace | null>(null);
   const [stoppingWs, setStoppingWs] = useState(false);
+  const [launchingWs, setLaunchingWs] = useState(false);
 
   // Poll for active workspaces on the launcher project
   useEffect(() => {
@@ -1026,6 +1027,12 @@ export default function Dashboard({
                 </PopoverContent>
               </Popover>
             )}
+          {launchingWs && !standaloneWs && (
+            <div className="flex items-center gap-1.5">
+              <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Launching…</span>
+            </div>
+          )}
           {standaloneWs && (() => {
             const isProvisioning = standaloneWs.status === "provisioning";
             if (isProvisioning) {
@@ -1084,7 +1091,7 @@ export default function Dashboard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {!standaloneWs && (
+              {!standaloneWs && !launchingWs && (
                 <>
                   <DropdownMenuItem
                     onClick={async () => {
@@ -1094,6 +1101,7 @@ export default function Dashboard({
                         return;
                       }
                       const branch = `sandbox-${Math.random().toString(36).slice(2, 8)}`;
+                      setLaunchingWs(true);
                       try {
                         const res = await fetch(`/api/projects/${pid}/sandbox`, {
                           method: "POST",
@@ -1111,6 +1119,8 @@ export default function Dashboard({
                         }
                       } catch {
                         toast.error("Failed to launch workspace");
+                      } finally {
+                        setLaunchingWs(false);
                       }
                     }}
                   >
