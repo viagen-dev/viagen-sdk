@@ -7,6 +7,7 @@ import {
   primaryKey,
   jsonb,
   integer,
+  real,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -171,6 +172,7 @@ export const tasks = pgTable("tasks", {
   durationMs: integer("duration_ms"),
   inputTokens: integer("input_tokens"),
   outputTokens: integer("output_tokens"),
+  costUsd: real("cost_usd"),
 });
 
 export type User = typeof users.$inferSelect;
