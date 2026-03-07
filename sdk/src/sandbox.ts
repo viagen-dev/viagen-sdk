@@ -5,10 +5,13 @@
  * back to the platform without raw fetch calls.
  *
  * Env vars (set automatically by the platform):
- *   VIAGEN_CALLBACK_URL — platform callback endpoint
+ *   VIAGEN_CALLBACK_URL  — platform callback endpoint
  *   VIAGEN_AUTH_TOKEN    — one-time bearer token
  *   VIAGEN_TASK_ID       — task being worked on
+ *   VIAGEN_PROJECT_ID    — project the task belongs to
  */
+
+import type { Task } from './tasks.js'
 
 function env(key: string): string {
   const val = process.env[key]
@@ -16,7 +19,7 @@ function env(key: string): string {
   return val
 }
 
-async function report(body: Record<string, unknown>): Promise<void> {
+async function report(body: Record<string, unknown>): Promise<unknown> {
   const url = env('VIAGEN_CALLBACK_URL')
   const token = env('VIAGEN_AUTH_TOKEN')
   const taskId = env('VIAGEN_TASK_ID')
@@ -34,6 +37,8 @@ async function report(body: Record<string, unknown>): Promise<void> {
     const text = await res.text().catch(() => '')
     throw new Error(`Viagen callback failed (${res.status}): ${text}`)
   }
+
+  return res.json()
 }
 
 /**
@@ -98,4 +103,44 @@ export async function complete(opts: {
     ...(opts.inputTokens != null && { inputTokens: opts.inputTokens }),
     ...(opts.outputTokens != null && { outputTokens: opts.outputTokens }),
   })
+}
+
+/**
+ * List tasks for the current project, optionally filtered by status.
+ */
+export async function listTasks(opts?: { status?: string }): Promise<Task[]> {
+  const data = await report({
+    action: 'list_tasks',
+    projectId: env('VIAGEN_PROJECT_ID'),
+    ...(opts?.status != null && { status: opts.status }),
+  }) as { tasks: Task[] }
+  return data.tasks
+}
+
+/**
+ * Get a task by ID within the current project.
+ */
+export async function getTask(taskId: string): Promise<Task> {
+  const data = await report({
+    action: 'get_task',
+    projectId: env('VIAGEN_PROJECT_ID'),
+    taskId,
+  }) as { task: Task }
+  return data.task
+}
+
+/**
+ * Create a new task in the current project.
+ */
+export async function createTask(opts: {
+  prompt: string
+  branch?: string
+  type?: string
+}): Promise<Task> {
+  const data = await report({
+    action: 'create_task',
+    projectId: env('VIAGEN_PROJECT_ID'),
+    ...opts,
+  }) as { task: Task }
+  return data.task
 }
