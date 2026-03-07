@@ -55,7 +55,6 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "~/components/ui/tooltip";
 import { Badge } from "~/components/ui/badge";
@@ -1092,8 +1091,7 @@ export function TaskDetailPanel({
                   <Muted className="text-xs">
                     {timeAgo(ws.createdAt)}
                   </Muted>
-                  <TooltipProvider>
-                    <div className="flex shrink-0 items-center gap-1.5">
+                  <div className="flex shrink-0 items-center gap-1.5">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
@@ -1153,7 +1151,6 @@ export function TaskDetailPanel({
                         <TooltipContent>Stop workspace</TooltipContent>
                       </Tooltip>
                     </div>
-                  </TooltipProvider>
                 </CardFooter>
               );
             })
@@ -1336,24 +1333,22 @@ export function TaskDetailPanel({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {task.prUrl && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon-sm"
-                            onClick={() => window.open(task.prUrl!, "_blank")}
-                          >
-                            <GitPullRequest className="size-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {task.status === "validating"
-                            ? "Review PR"
-                            : "View PR"}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          onClick={() => window.open(task.prUrl!, "_blank")}
+                        >
+                          <GitPullRequest className="size-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {task.status === "validating"
+                          ? "Review PR"
+                          : "View PR"}
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                   {(task.status === "validating" ||
                     task.status === "running" ||
