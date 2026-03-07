@@ -16,7 +16,6 @@ import {
   ItemActions,
 } from "~/components/ui/item";
 import {
-  TooltipProvider,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -301,42 +300,38 @@ export default function ProjectDeploys({
                 </ItemContent>
                 <ItemActions>
                   {d.state === "READY" && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon-sm"
-                            className="sm:w-auto sm:px-2.5 sm:h-8"
-                            onClick={() =>
-                              window.open(`https://${d.url}`, "_blank")
-                            }
-                          >
-                            <ExternalLink className="size-3.5" />
-                            <span className="hidden sm:inline">Visit</span>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Open deployment</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          className="sm:w-auto sm:px-2.5 sm:h-8"
+                          onClick={() =>
+                            window.open(`https://${d.url}`, "_blank")
+                          }
+                        >
+                          <ExternalLink className="size-3.5" />
+                          <span className="hidden sm:inline">Visit</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Open deployment</TooltipContent>
+                    </Tooltip>
                   )}
                   {d.inspectorUrl && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() =>
-                              window.open(d.inspectorUrl, "_blank")
-                            }
-                          >
-                            <ExternalLink className="size-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>View build logs</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() =>
+                            window.open(d.inspectorUrl, "_blank")
+                          }
+                        >
+                          <ExternalLink className="size-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>View build logs</TooltipContent>
+                    </Tooltip>
                   )}
                 </ItemActions>
               </Item>
