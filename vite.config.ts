@@ -14,7 +14,7 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     viagen({
-      editable: ["./app"],
+      editable: ["."],
     }),
     reactRouter(),
     tsconfigPaths(),
