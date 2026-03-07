@@ -397,7 +397,19 @@ fetch(process.env.VIAGEN_CALLBACK_URL, {
 
         envMap["VIAGEN_PROMPT"] = `${prompt}.
 
-          GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (the gh CLI is not installed). When you are done, commit your changes, push, and create a pull request using the GitHub REST API.${callbackSnippet}`;
+When you need to manage tasks on the viagen platform, you have these MCP tools available:
+
+- viagen_list_tasks — List tasks in this project. Use status to filter (ready, running, validating, completed, timed_out). Call this first to understand what's been done and what's pending.
+- viagen_get_task — Get full details of a task by ID, including its prompt, status, branch, and PR URL.
+- viagen_create_task — Create a follow-up task. Provide a clear, actionable prompt. Set type to "plan" for architecture/design work or "task" (default) for code changes.
+- viagen_update_task — Report your current task's status. Use "review" after pushing a PR, or "completed" when fully done. Always include a brief result summary and the prUrl if applicable.
+
+Guidelines:
+- Before starting work, check existing tasks to avoid duplicating effort.
+- When you discover work outside your current scope, create a follow-up task rather than scope-creeping.
+- Always update your task status when you're done — don't leave it hanging.
+
+GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (the gh CLI is not installed). When you are done, commit your changes, push, and create a pull request using the GitHub REST API.${callbackSnippet}`;
       }
 
       if (githubToken) {
