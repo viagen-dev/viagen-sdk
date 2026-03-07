@@ -930,14 +930,14 @@ export default function Dashboard({
     fetchTasks();
   }, [fetchTasks]);
 
-  // Poll for task updates (running tasks)
+  // Poll for task updates: fast when tasks are active, gentle when idle
   const hasActiveTasks = tasks.some(
     (t) => t.status === "running" || t.status === "validating",
   );
 
   useEffect(() => {
-    if (!hasActiveTasks) return;
-    const timer = setInterval(fetchTasks, 8000);
+    const interval = hasActiveTasks ? 8_000 : 30_000;
+    const timer = setInterval(fetchTasks, interval);
     return () => clearInterval(timer);
   }, [hasActiveTasks, fetchTasks]);
 
