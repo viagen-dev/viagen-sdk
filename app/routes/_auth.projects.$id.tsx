@@ -448,7 +448,7 @@ export default function ProjectTasks({
         body: JSON.stringify({
           prompt: "Quick workspace session",
           branch: quickBranch,
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-6",
         }),
       });
 
@@ -481,7 +481,7 @@ export default function ProjectTasks({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           branch: quickBranch,
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-6",
         }),
       });
 
@@ -1886,7 +1886,7 @@ function TaskLauncher({
   const [branch, setBranch] = useState(
     () => `feat-${Math.random().toString(36).slice(2, 8)}`,
   );
-  const [model, setModel] = useState("claude-sonnet-4-20250514");
+  const [model, setModel] = useState("claude-sonnet-4-6");
   const [autoStart, setAutoStart] = useState(false);
   const [creating, setCreating] = useState(false);
   const [autoStartedTaskId, setAutoStartedTaskId] = useState<string | null>(
@@ -1971,12 +1971,12 @@ function TaskLauncher({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="claude-sonnet-4-20250514">
-                Claude Sonnet 4
+              <SelectItem value="claude-sonnet-4-6">
+                Claude Sonnet 4.6
               </SelectItem>
-              <SelectItem value="claude-opus-4-0520">Claude Opus 4</SelectItem>
-              <SelectItem value="claude-3-5-haiku-20241022">
-                Claude Haiku 3.5
+              <SelectItem value="claude-opus-4-6">Claude Opus 4.6</SelectItem>
+              <SelectItem value="claude-haiku-4-5-20251001">
+                Claude Haiku 4.5
               </SelectItem>
             </SelectContent>
           </Select>

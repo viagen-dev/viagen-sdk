@@ -157,7 +157,7 @@ export async function action({
     .replace(/-{2,}/g, "-")
     .replace(/^-|-$/g, "");
   const prompt: string | null = body.prompt?.trim() || null;
-  const model: string = body.model?.trim() || "claude-sonnet-4-20250514";
+  const model: string = body.model?.trim() || "claude-sonnet-4-6";
   const taskId: string | null = body.taskId?.trim() || null;
 
   if (rawBranch !== branch) {

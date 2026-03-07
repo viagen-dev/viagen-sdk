@@ -1,77 +1,51 @@
-[2026-03-03T22:13:10.046Z] [INFO]   ➜  Local:   http://localhost:5173/
-[2026-03-03T22:13:10.047Z] [INFO]   ➜  Network: use --host to expose
-[2026-03-03T22:13:10.047Z] [INFO]   ➜  press h + enter to show help
-[2026-03-03T22:15:00.475Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T22:16:49.022Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T22:22:27.165Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:22:27.166Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:22:27.166Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-03-03T22:22:27.166Z] [INFO] page reload app/routes/_auth.tsx
-[2026-03-03T22:24:30.950Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:24:30.950Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:24:30.951Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-03-03T22:24:30.951Z] [INFO] page reload app/routes/_auth.tsx
-[2026-03-03T22:24:47.144Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:24:47.145Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:24:47.145Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-03-03T22:24:47.145Z] [INFO] page reload app/routes/_auth.tsx
-[2026-03-03T22:25:19.878Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:25:19.879Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:25:19.879Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-03-03T22:25:19.879Z] [INFO] page reload app/routes/_auth.tsx
-[2026-03-03T22:25:19.920Z] [INFO] hmr invalidate /app/routes/_auth.tsx Could not Fast Refresh (new export)
-[2026-03-03T22:25:19.920Z] [INFO] page reload app/routes/_auth.tsx
-[2026-03-03T22:25:44.504Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:25:44.504Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:25:44.505Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T22:25:44.505Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T22:26:30.132Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:26:30.133Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:26:30.133Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T22:26:30.133Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T22:27:18.036Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:27:18.037Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:27:18.037Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T22:27:18.037Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T22:28:00.545Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:28:00.545Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:28:00.545Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-03-03T22:28:00.546Z] [INFO] page reload app/routes/_auth.tsx
-[2026-03-03T22:31:10.772Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:31:10.772Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:31:10.772Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T22:31:10.773Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T22:36:52.289Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:36:52.290Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:36:52.290Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T22:36:52.290Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T22:40:59.561Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:40:59.561Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:40:59.561Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-03-03T22:40:59.561Z] [INFO] page reload app/routes/_auth.tsx
-[2026-03-03T22:40:59.630Z] [INFO] hmr invalidate /app/routes/_auth.tsx Could not Fast Refresh (export removed)
-[2026-03-03T22:40:59.630Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:41:25.281Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:41:25.281Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:41:25.282Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T22:41:25.282Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T22:42:07.541Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:42:07.542Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:42:07.542Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T22:42:07.542Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T22:43:32.700Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:43:32.700Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:43:32.701Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-03-03T22:43:32.701Z] [INFO] page reload app/routes/_auth.tsx
-[2026-03-03T22:43:32.770Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:43:32.770Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:43:32.770Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T22:43:32.770Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T22:44:09.559Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:44:09.559Z] [INFO] hmr update /app/routes/_auth.projects.tsx
-[2026-03-03T22:44:09.560Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
-[2026-03-03T22:44:09.560Z] [INFO] page reload app/routes/_auth.projects.tsx
-[2026-03-03T22:45:09.894Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:45:09.895Z] [INFO] hmr update /app/routes/_auth.tsx
-[2026-03-03T22:45:09.895Z] [INFO] hmr update /app/app.css, /app/routes/_auth.tsx
-[2026-03-03T22:45:09.896Z] [INFO] page reload app/routes/_auth.tsx
+[2026-03-07T04:37:50.268Z] [INFO] [viagen] Auto-sending prompt: "Here's the proper list of models we can choose from in the drop downs and then pass in the api.sandbox method to the workspace!  Right now we are getting errors on launch with unsupported models:
+
+┌───────────────────┬───────────────────────────┐                                          
+  │   Display Name    │    VIAGEN_MODEL value     │
+  ├───────────────────┼───────────────────────────┤                                          
+  │ Claude Sonnet 4.6 │ claude-sonnet-4-6         │         
+  ├───────────────────┼───────────────────────────┤
+  │ Claude Opus 4.6   │ claude-opus-4-6           │
+  ├───────────────────┼───────────────────────────┤
+  │ Claude Haiku 4.5  │ claude-haiku-4-5-20251001 │
+  └───────────────────┴───────────────────────────┘.
+
+          GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (the gh CLI is not installed). When you are done, commit your changes, push, and create a pull request using the GitHub REST API.
+
+After creating the PR, report your status back. If the viagen_update_task MCP tool is available, use it. Otherwise, fall back to a direct fetch call:
+
+fetch(process.env.VIAGEN_CALLBACK_URL, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + process.env.VIAGEN_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    taskId: process.env.VIAGEN_TASK_ID,
+    status: "validating",
+    prUrl: "<the PR URL you created>",
+    result: "<brief one-line summary of what you did>",
+  }),
+});"
+[2026-03-07T04:37:50.290Z] [INFO]   ➜  Local:   http://localhost:5173/
+[2026-03-07T04:37:50.291Z] [INFO]   ➜  Network: http://192.168.0.55:5173/
+[2026-03-07T04:38:04.415Z] [INFO] ✨ new dependencies optimized: lucide-react, sonner, radix-ui, clsx, tailwind-merge, drizzle-orm, dotenv/config, pino, class-variance-authority, cmdk, arctic, drizzle-orm/pg-core, devlop, hast-util-to-jsx-runtime, html-url-attributes, remark-parse, remark-rehype, unified, unist-util-visit, vfile, react-markdown
+[2026-03-07T04:38:04.423Z] [INFO] ✨ optimized dependencies changed. reloading
+[2026-03-07T04:39:06.824Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-03-07T04:39:11.355Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-03-07T04:39:23.980Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-07T04:39:23.981Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-07T04:39:23.981Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-03-07T04:39:23.982Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-03-07T04:39:27.762Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-07T04:39:27.763Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-07T04:39:27.763Z] [INFO] hmr update /app/app.css, /app/routes/_auth.projects.tsx
+[2026-03-07T04:39:27.764Z] [INFO] page reload app/routes/_auth.projects.tsx
+[2026-03-07T04:39:36.933Z] [INFO] hmr update /app/routes/_auth.tsx
+[2026-03-07T04:39:36.934Z] [INFO] hmr update /app/routes/_auth.projects.tsx
+[2026-03-07T04:39:36.935Z] [INFO] page reload app/lib/db/schema.ts
+[2026-03-07T04:39:48.149Z] [INFO] page reload app/routes/api.projects.$id.sandbox.ts
+[2026-03-07T04:39:53.170Z] [INFO] page reload app/routes/api.projects.$id.tasks.ts
+[2026-03-07T04:39:58.006Z] [INFO] page reload app/routes/api.tasks.ts
+[2026-03-07T04:40:07.301Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
+[2026-03-07T04:40:10.047Z] [INFO] page reload app/routes/_auth.projects.$id.tsx
