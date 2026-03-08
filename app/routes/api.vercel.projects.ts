@@ -34,12 +34,25 @@ export async function action({ request }: { request: Request }) {
   )
 
   try {
-    const project = await createVercelProject(token, {
+    let project = await createVercelProject(token, {
       name: projectName,
       framework: body.framework ?? undefined,
       gitRepository: body.githubRepo
         ? { type: 'github', repo: body.githubRepo }
         : undefined,
+    }).catch(async (err) => {
+      if (body.githubRepo && err instanceof VercelApiError) {
+        // GitHub linking failed — retry without it so the project can still be created
+        log.warn(
+          { userId: user.id, orgId: org.id, projectName, githubRepo: body.githubRepo, status: err.status, message: err.message },
+          'vercel create project: GitHub link failed, retrying without GitHub link',
+        )
+        return createVercelProject(token, {
+          name: projectName,
+          framework: body.framework ?? undefined,
+        })
+      }
+      throw err
     })
 
     log.info(

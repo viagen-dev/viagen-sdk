@@ -581,7 +581,7 @@ export default function NewProject() {
                 <Muted className="text-xs">
                   Creates a new Vercel project.
                   {selectedGithubRepo
-                    ? ` Will be linked to ${selectedGithubRepo.fullName}.`
+                    ? ` Will attempt to link to ${selectedGithubRepo.fullName} (can be configured later).`
                     : " Leave blank to use the project name."}
                 </Muted>
               </div>
