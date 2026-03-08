@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -10,6 +11,18 @@ import { Toaster } from "~/components/ui/sonner";
 import { TooltipProvider } from "~/components/ui/tooltip";
 
 import "./app.css";
+
+function ClientOnly({
+  children,
+  fallback,
+}: {
+  children: React.ReactNode;
+  fallback: React.ReactNode;
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted ? children : fallback;
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -28,8 +41,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        <TooltipProvider>{children}</TooltipProvider>
-        <Toaster />
+        <ClientOnly fallback={children}>
+          <TooltipProvider>{children}</TooltipProvider>
+          <Toaster />
+        </ClientOnly>
         <ScrollRestoration />
         <Scripts />
       </body>

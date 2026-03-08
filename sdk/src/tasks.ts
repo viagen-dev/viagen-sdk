@@ -18,6 +18,7 @@ export interface Task {
   durationMs: number | null
   inputTokens: number | null
   outputTokens: number | null
+  prReviewStatus: string | null
 }
 
 export interface CreateTaskInput {
@@ -37,6 +38,7 @@ export interface UpdateTaskInput {
   durationMs?: number | null
   inputTokens?: number | null
   outputTokens?: number | null
+  prReviewStatus?: string | null
 }
 
 export interface MergeResult {

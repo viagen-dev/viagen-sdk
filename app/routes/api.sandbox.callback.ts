@@ -31,6 +31,7 @@ export async function action({ request }: { request: Request }) {
     projectId?: string;
     status?: string;
     prUrl?: string;
+    prReviewStatus?: string;
     result?: string;
     error?: string;
     inputTokens?: number;
@@ -225,6 +226,9 @@ export async function action({ request }: { request: Request }) {
   if (body.error) updates.error = body.error;
   if (body.inputTokens != null) updates.inputTokens = body.inputTokens;
   if (body.outputTokens != null) updates.outputTokens = body.outputTokens;
+  if (body.prReviewStatus && ["pass", "flag", "fail"].includes(body.prReviewStatus)) {
+    updates.prReviewStatus = body.prReviewStatus;
+  }
 
   const [updated] = await db
     .update(tasks)

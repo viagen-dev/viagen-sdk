@@ -52,6 +52,7 @@ export async function updateTask(opts: {
   status: 'review' | 'completed'
   prUrl?: string
   result: string
+  prReviewStatus?: 'pass' | 'flag' | 'fail'
   inputTokens?: number
   outputTokens?: number
   costUsd?: number
@@ -61,6 +62,7 @@ export async function updateTask(opts: {
     status: internalStatus,
     ...(opts.prUrl && { prUrl: opts.prUrl }),
     result: opts.result,
+    ...(opts.prReviewStatus && { prReviewStatus: opts.prReviewStatus }),
     ...(opts.inputTokens != null && { inputTokens: opts.inputTokens }),
     ...(opts.outputTokens != null && { outputTokens: opts.outputTokens }),
     ...(opts.costUsd != null && { costUsd: opts.costUsd }),

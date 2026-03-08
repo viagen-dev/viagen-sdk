@@ -159,6 +159,7 @@ export async function action({
   const prompt: string | null = body.prompt?.trim() || null;
   const model: string = body.model?.trim() || "claude-sonnet-4-6";
   const taskId: string | null = body.taskId?.trim() || null;
+  const reviewMode: boolean = body.reviewMode === true;
 
   if (rawBranch !== branch) {
     log.info({ rawBranch, branch }, "sanitized branch name");
@@ -364,17 +365,69 @@ export async function action({
       if (taskId) {
         envMap["VIAGEN_TASK_ID"] = taskId;
 
-        // Look up task type so the plugin can enable plan mode
+        // Look up task details for type and review mode
         const [taskRow] = await db
-          .select({ type: tasks.type })
+          .select({ type: tasks.type, prompt: tasks.prompt, prUrl: tasks.prUrl })
           .from(tasks)
           .where(eq(tasks.id, taskId));
         if (taskRow?.type) {
-          envMap["VIAGEN_TASK_TYPE"] = taskRow.type;
+          envMap["VIAGEN_TASK_TYPE"] = reviewMode ? "review" : taskRow.type;
+        }
+
+        // Build review-mode prompt if requested
+        if (reviewMode && taskRow?.prUrl) {
+          const reviewCallbackSnippet = `
+
+After completing your review, report your verdict. If the viagen_update_task MCP tool is available, use it with prReviewStatus set to your verdict. Otherwise, fall back to a direct fetch call:
+
+fetch(process.env.VIAGEN_CALLBACK_URL, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + process.env.VIAGEN_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    taskId: process.env.VIAGEN_TASK_ID,
+    status: "validating",
+    prReviewStatus: "<pass|flag|fail>",
+    result: "<brief summary of your review>",
+  }),
+});`;
+
+          envMap["VIAGEN_PROMPT"] = `You are a lightweight PR reviewer. Your job is to review a pull request — NOT write code.
+
+## Original Task
+${taskRow.prompt}
+
+## PR to Review
+${taskRow.prUrl}
+
+## Instructions
+1. Use viagen_get_task to get full task context if needed
+2. Fetch the PR diff using GITHUB_TOKEN via the GitHub API (the gh CLI is not installed):
+   GET https://api.github.com/repos/{owner}/{repo}/pulls/{number} with Accept: application/vnd.github.v3.diff
+3. Post a summary comment on the PR expressing your understanding of the changes
+4. Comment on specific lines ONLY if they are clearly incorrect or will cause failures
+5. Issue a final verdict by updating the task with prReviewStatus:
+   - "pass" — PR looks good, no critical issues
+   - "flag" — Possible concerns needing human eyes, but not blocking
+   - "fail" — Will absolutely break something (obvious errors ONLY)
+
+Be LIBERAL with passes. Only flag real problems. Do NOT nitpick style, naming, or minor issues.
+Do NOT write or modify any code — you are only reviewing.
+
+When you need to manage tasks on the viagen platform, you have these MCP tools available:
+
+- viagen_list_tasks — List tasks in this project. Use status to filter (ready, running, validating, completed, timed_out).
+- viagen_get_task — Get full details of a task by ID, including its prompt, status, branch, and PR URL.
+- viagen_create_task — Create a follow-up task if you discover work outside the review scope.
+- viagen_update_task — Report your review verdict. Set prReviewStatus to "pass", "flag", or "fail" and include a brief result summary.
+
+GITHUB_TOKEN is available in your environment for GitHub API calls via fetch.${reviewCallbackSnippet}`;
         }
       }
 
-      if (prompt) {
+      if (prompt && !reviewMode) {
         const callbackSnippet = taskId
           ? `
 

@@ -24,6 +24,10 @@ import {
   Square,
   ArrowLeft,
   Pencil,
+  Eye,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX,
 } from "lucide-react";
 import Markdown from "react-markdown";
 
@@ -128,6 +132,7 @@ export interface FeedTask {
   githubRepo: string | null;
   vercelProjectId: string | null;
   vercelProjectName: string | null;
+  prReviewStatus: string | null;
 }
 
 interface Workspace {
@@ -310,6 +315,7 @@ export function TaskDetailPanel({
   const launchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [merging, setMerging] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
 
   // Inline workspace action state (for Result card footer)
   const [stoppingWs, setStoppingWs] = useState<string | null>(null);
@@ -510,6 +516,39 @@ export function TaskDetailPanel({
       toast.error("Failed to merge PR");
     } finally {
       setMerging(false);
+    }
+  };
+
+  // Launch AI review workspace
+  const handleReview = async () => {
+    if (!task) return;
+    setReviewing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/sandbox`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          branch: task.branch,
+          taskId: task.id,
+          reviewMode: true,
+          model: task.model,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.workspace) {
+        toast.success("Review workspace launched");
+        refreshWorkspaces();
+        refreshTask();
+        onTaskChanged?.();
+      } else {
+        setError(data.error ?? "Failed to launch review workspace");
+      }
+    } catch {
+      setError("Failed to launch review workspace");
+    } finally {
+      setReviewing(false);
     }
   };
 
@@ -1372,6 +1411,49 @@ export function TaskDetailPanel({
                         )}
                       </Button>
                     )}
+                  {task.status === "validating" && task.prUrl && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={reviewing}
+                      onClick={handleReview}
+                    >
+                      {reviewing ? (
+                        <>
+                          <Loader2 className="size-3.5 animate-spin" />
+                          Reviewing…
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="size-3.5" />
+                          Review
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {task.prReviewStatus && (
+                    <Badge
+                      variant={
+                        task.prReviewStatus === "pass"
+                          ? "default"
+                          : task.prReviewStatus === "flag"
+                            ? "secondary"
+                            : "destructive"
+                      }
+                      className={
+                        task.prReviewStatus === "pass"
+                          ? "bg-green-600 text-white"
+                          : task.prReviewStatus === "flag"
+                            ? "bg-amber-500 text-white"
+                            : ""
+                      }
+                    >
+                      {task.prReviewStatus === "pass" && <ShieldCheck className="size-3 mr-1" />}
+                      {task.prReviewStatus === "flag" && <ShieldAlert className="size-3 mr-1" />}
+                      {task.prReviewStatus === "fail" && <ShieldX className="size-3 mr-1" />}
+                      {task.prReviewStatus}
+                    </Badge>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1">
