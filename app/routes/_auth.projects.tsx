@@ -1237,7 +1237,7 @@ export default function Dashboard({
 
       {/* Task Detail Panel — overlay sidebar */}
       {panelOpen && panelTaskId && panelProjectId && (
-        <div className="fixed top-[60px] right-0 w-[480px] border-l border-border bg-background animate-in slide-in-from-right duration-300 h-[calc(100svh-60px)] z-40">
+        <div className="fixed top-[60px] right-0 w-full sm:w-[480px] border-l border-border bg-background animate-in slide-in-from-right duration-300 h-[calc(100svh-60px)] z-40">
           <TaskDetailPanel
             projectId={panelProjectId}
             taskId={panelTaskId}
