@@ -958,20 +958,19 @@ export default function Dashboard({
         {/* Task Launcher */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Large>Create Task</Large>
-            {loaderData.projects.length > 1 && (
+            <div className="text-lg font-semibold flex items-center gap-1.5">
+              <span>Create task in</span>
+              {loaderData.projects.length > 1 ? (
               <Popover open={projectPickerOpen} onOpenChange={setProjectPickerOpen}>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
+                  <button
                     role="combobox"
                     aria-expanded={projectPickerOpen}
-                    className="h-8 w-auto gap-1.5 text-sm"
+                    className="inline-flex items-center gap-1 font-semibold underline decoration-dotted underline-offset-4 hover:opacity-70 transition-opacity cursor-pointer"
                   >
                     {selectedProject ? selectedProject.name : "Select project"}
-                    <ChevronDown className="size-3.5 opacity-50" />
-                  </Button>
+                    <ChevronDown className="size-4 opacity-50" />
+                  </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[240px] p-0" align="start">
                   <Command>
@@ -1004,7 +1003,10 @@ export default function Dashboard({
                   </Command>
                 </PopoverContent>
               </Popover>
-            )}
+              ) : (
+                <span>{selectedProject ? selectedProject.name : "Select project"}</span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1.5">
           {launchingWs && !standaloneWs && (
