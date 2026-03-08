@@ -39,12 +39,15 @@ export async function action({ request }: { request: Request }) {
     prompt?: string;
     branch?: string;
     type?: string;
+    costUsd?: number;
   };
   try {
     body = await request.json();
   } catch {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
+
+  log.info({ payload: body }, "sandbox callback: received payload");
 
   const tokenHash = createHash("sha256").update(token).digest("hex");
 
@@ -229,6 +232,7 @@ export async function action({ request }: { request: Request }) {
   if (body.prReviewStatus && ["pass", "flag", "fail"].includes(body.prReviewStatus)) {
     updates.prReviewStatus = body.prReviewStatus;
   }
+  if (body.costUsd != null) updates.costUsd = body.costUsd;
 
   const [updated] = await db
     .update(tasks)

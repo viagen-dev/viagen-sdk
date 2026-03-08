@@ -378,7 +378,17 @@ export async function action({
         if (reviewMode && taskRow?.prUrl) {
           const reviewCallbackSnippet = `
 
-After completing your review, report your verdict. If the viagen_update_task MCP tool is available, use it with prReviewStatus set to your verdict. Otherwise, fall back to a direct fetch call:
+After completing your review, report your verdict. If the viagen_update_task MCP tool is available, use it with prReviewStatus set to your verdict. Otherwise, fall back to a direct fetch call.
+
+IMPORTANT: Always include token usage, cost, and your review verdict when reporting. The viagen_update_task tool accepts these fields:
+- status: "review" (keeps task in review state)
+- prReviewStatus: "pass", "flag", or "fail"
+- result: brief summary of your review
+- inputTokens: total input tokens used (number)
+- outputTokens: total output tokens used (number)
+- costUsd: estimated total cost in USD (number)
+
+Fallback fetch example:
 
 fetch(process.env.VIAGEN_CALLBACK_URL, {
   method: "POST",
@@ -391,6 +401,9 @@ fetch(process.env.VIAGEN_CALLBACK_URL, {
     status: "validating",
     prReviewStatus: "<pass|flag|fail>",
     result: "<brief summary of your review>",
+    inputTokens: <number>,
+    outputTokens: <number>,
+    costUsd: <number>,
   }),
 });`;
 
@@ -421,7 +434,7 @@ When you need to manage tasks on the viagen platform, you have these MCP tools a
 - viagen_list_tasks — List tasks in this project. Use status to filter (ready, running, validating, completed, timed_out).
 - viagen_get_task — Get full details of a task by ID, including its prompt, status, branch, and PR URL.
 - viagen_create_task — Create a follow-up task if you discover work outside the review scope.
-- viagen_update_task — Report your review verdict. Set prReviewStatus to "pass", "flag", or "fail" and include a brief result summary.
+- viagen_update_task — Report your review verdict. Set prReviewStatus to "pass", "flag", or "fail". Always include: result (summary), inputTokens, outputTokens, and costUsd.
 
 GITHUB_TOKEN is available in your environment for GitHub API calls via fetch.${reviewCallbackSnippet}`;
         }
@@ -431,7 +444,17 @@ GITHUB_TOKEN is available in your environment for GitHub API calls via fetch.${r
         const callbackSnippet = taskId
           ? `
 
-After creating the PR, report your status back. If the viagen_update_task MCP tool is available, use it. Otherwise, fall back to a direct fetch call:
+After creating the PR, report your status back. If the viagen_update_task MCP tool is available, use it. Otherwise, fall back to a direct fetch call.
+
+IMPORTANT: Always include token usage and cost when reporting status. The viagen_update_task tool accepts these fields:
+- status: "review" (PR created) or "completed" (fully done)
+- prUrl: the PR URL you created
+- result: brief summary of what you did
+- inputTokens: total input tokens used (number)
+- outputTokens: total output tokens used (number)
+- costUsd: estimated total cost in USD (number)
+
+Fallback fetch example:
 
 fetch(process.env.VIAGEN_CALLBACK_URL, {
   method: "POST",
@@ -444,6 +467,9 @@ fetch(process.env.VIAGEN_CALLBACK_URL, {
     status: "validating",
     prUrl: "<the PR URL you created>",
     result: "<brief one-line summary of what you did>",
+    inputTokens: <number>,
+    outputTokens: <number>,
+    costUsd: <number>,
   }),
 });`
           : "";
@@ -455,7 +481,7 @@ When you need to manage tasks on the viagen platform, you have these MCP tools a
 - viagen_list_tasks — List tasks in this project. Use status to filter (ready, running, validating, completed, timed_out). Call this first to understand what's been done and what's pending.
 - viagen_get_task — Get full details of a task by ID, including its prompt, status, branch, and PR URL.
 - viagen_create_task — Create a follow-up task. Provide a clear, actionable prompt. Set type to "plan" for architecture/design work or "task" (default) for code changes.
-- viagen_update_task — Report your current task's status. Use "review" after pushing a PR, or "completed" when fully done. Always include a brief result summary and the prUrl if applicable.
+- viagen_update_task — Report your current task's status. Use "review" after pushing a PR, or "completed" when fully done. Always include: result (summary), prUrl, inputTokens, outputTokens, and costUsd.
 
 Guidelines:
 - Before starting work, check existing tasks to avoid duplicating effort.
