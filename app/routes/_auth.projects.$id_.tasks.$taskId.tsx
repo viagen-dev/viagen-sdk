@@ -145,15 +145,13 @@ export default function TaskDetailPage({
   const navigate = useNavigate();
 
   return (
-    <div className="h-[calc(100svh-60px)]">
-      <TaskDetailPanel
-        projectId={loaderData.project.id}
-        taskId={loaderData.task.id}
-        open={true}
-        onClose={() => navigate("/")}
-        variant="page"
-        projects={loaderData.projects}
-      />
-    </div>
+    <TaskDetailPanel
+      projectId={loaderData.project.id}
+      taskId={loaderData.task.id}
+      open={true}
+      onClose={() => navigate("/")}
+      variant="page"
+      projects={loaderData.projects}
+    />
   );
 }
