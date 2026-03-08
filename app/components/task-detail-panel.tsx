@@ -82,6 +82,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { cn } from "~/lib/utils";
 import { WorkspaceList } from "~/components/workspace-list";
 
@@ -341,6 +348,9 @@ export function TaskDetailPanel({
   const [editingBranch, setEditingBranch] = useState(false);
   const [editBranch, setEditBranch] = useState("");
   const [savingBranch, setSavingBranch] = useState(false);
+
+  // Model state
+  const [savingModel, setSavingModel] = useState(false);
 
   // Auto-size prompt textarea on open
   useEffect(() => {
@@ -678,6 +688,37 @@ export function TaskDetailPanel({
     }
   };
 
+  const MODELS = [
+    { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+    { value: "claude-opus-4-6", label: "Claude Opus 4.6" },
+    { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+  ] as const;
+
+  const changeModel = async (newModel: string) => {
+    if (!task || newModel === task.model) return;
+    setSavingModel(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: newModel }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTask((prev) => (prev ? { ...prev, ...data.task } : prev));
+        onTaskChanged?.();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to update model");
+      }
+    } catch {
+      toast.error("Failed to update model");
+    } finally {
+      setSavingModel(false);
+    }
+  };
+
   // Fetch team members (lazy — only when assignee picker opens)
   const fetchTeamMembers = useCallback(async () => {
     if (teamMembersFetched) return;
@@ -1000,6 +1041,36 @@ export function TaskDetailPanel({
         <GitBranch className="size-3.5" />
         {task.branch}
       </Button>
+    </div>
+  );
+
+  const modelSection = task && (
+    <div className="flex items-center">
+      <Small className="w-28 shrink-0">Model</Small>
+      {task.status === "ready" ? (
+        <Select
+          value={task.model}
+          onValueChange={changeModel}
+          disabled={savingModel}
+        >
+          <SelectTrigger className="h-auto w-auto gap-1.5 border-0 bg-transparent px-2 py-1 text-sm text-muted-foreground shadow-none hover:text-foreground focus:ring-0">
+            <Cpu className="size-3.5 shrink-0" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MODELS.map((m) => (
+              <SelectItem key={m.value} value={m.value}>
+                {m.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <span className="flex items-center gap-2 px-2 py-1 text-sm text-muted-foreground">
+          <Cpu className="size-3.5" />
+          {MODELS.find((m) => m.value === task.model)?.label ?? task.model}
+        </span>
+      )}
     </div>
   );
 
@@ -1339,6 +1410,7 @@ export function TaskDetailPanel({
                   {assigneeSection}
                   {projectSection}
                   {branchSectionEditable}
+                  {modelSection}
                 </CardContent>
               </Card>
 
@@ -1531,6 +1603,7 @@ export function TaskDetailPanel({
                   {assigneeSection}
                   {projectSection}
                   {branchSectionReadonly}
+                  {modelSection}
 
                   {/* Duration */}
                   <div className="flex items-center">

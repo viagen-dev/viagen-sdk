@@ -154,6 +154,7 @@ export async function action({
     status?: string;
     prompt?: string;
     branch?: string;
+    model?: string;
     projectId?: string;
     createdBy?: string;
     result?: string | null;
@@ -189,6 +190,15 @@ export async function action({
     return Response.json({ error: "Prompt cannot be empty" }, { status: 400 });
   }
 
+  // Validate model if provided
+  const validModels = ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5-20251001"];
+  if (body.model !== undefined && !validModels.includes(body.model)) {
+    return Response.json(
+      { error: `Invalid model. Must be one of: ${validModels.join(", ")}` },
+      { status: 400 },
+    );
+  }
+
   // Validate projectId if provided — must belong to the same org
   if (body.projectId !== undefined) {
     const [newProject] = await db
@@ -216,6 +226,7 @@ export async function action({
   const updates: Record<string, unknown> = {};
 
   if (body.prompt !== undefined) updates.prompt = body.prompt.trim();
+  if (body.model !== undefined) updates.model = body.model;
   if (body.branch !== undefined) {
     const trimmed = body.branch.trim();
     if (!trimmed) {
