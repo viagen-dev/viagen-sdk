@@ -1,21 +1,91 @@
 import { requireAuth } from '~/lib/session.server'
 import { db } from '~/lib/db/index.server'
-import { databases } from '~/lib/db/schema'
+import { databases, projects } from '~/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
-import { getSecret, setSecret, deleteSecret } from '~/lib/infisical.server'
+import { getSecret, setSecret, deleteSecret, listProjectSecrets, listOrgSecrets } from '~/lib/infisical.server'
 import { createNeonProject, deleteNeonProject } from '~/lib/neon.server'
 import { log } from '~/lib/logger.server'
 
+const DB_URL_PATTERNS = [
+  'DATABASE_URL',
+  'DB_URL',
+  'POSTGRES_URL',
+  'POSTGRESQL_URL',
+  'DATABASE_URI',
+  'POSTGRES_URI',
+  'MYSQL_URL',
+  'MONGO_URL',
+  'MONGODB_URI',
+  'REDIS_URL',
+  'CONNECTION_URL',
+  'CONNECTION_STRING',
+]
+
+function isDbUrlKey(key: string): boolean {
+  const upper = key.toUpperCase()
+  return DB_URL_PATTERNS.some((p) => upper === p || upper.endsWith(`_${p}`))
+}
+
+function maskValue(val: string): string {
+  if (val.length <= 20) return '••••••••'
+  // Show protocol + host hint, mask the rest
+  const match = val.match(/^([a-z]+:\/\/[^:@]*[:@])/)
+  if (match) return match[1] + '••••••••'
+  return val.slice(0, 12) + '••••••••'
+}
+
 export async function loader({ request }: { request: Request }) {
   const { org } = await requireAuth(request)
+  const url = new URL(request.url)
+  const scan = url.searchParams.get('scan')
 
   const rows = await db
     .select()
     .from(databases)
     .where(eq(databases.organizationId, org.id))
 
-  log.info({ orgId: org.id, count: rows.length }, 'databases list')
-  return Response.json({ databases: rows })
+  if (scan !== 'true') {
+    log.info({ orgId: org.id, count: rows.length }, 'databases list')
+    return Response.json({ databases: rows })
+  }
+
+  // Scan Infisical secrets for DB URL patterns across org + all projects
+  const orgProjects = await db
+    .select({ id: projects.id, name: projects.name })
+    .from(projects)
+    .where(eq(projects.organizationId, org.id))
+
+  const discovered: { projectId: string | null; projectName: string | null; key: string; maskedValue: string }[] = []
+
+  // Scan org-level secrets
+  try {
+    const orgSecrets = await listOrgSecrets(org.id)
+    for (const s of orgSecrets) {
+      if (isDbUrlKey(s.key)) {
+        discovered.push({ projectId: null, projectName: null, key: s.key, maskedValue: maskValue(s.value) })
+      }
+    }
+  } catch (err) {
+    log.warn({ orgId: org.id, err }, 'database scan: failed to list org secrets')
+  }
+
+  // Scan per-project secrets in parallel
+  const projectScans = orgProjects.map(async (p) => {
+    try {
+      const secrets = await listProjectSecrets(org.id, p.id)
+      for (const s of secrets) {
+        if (isDbUrlKey(s.key)) {
+          discovered.push({ projectId: p.id, projectName: p.name, key: s.key, maskedValue: maskValue(s.value) })
+        }
+      }
+    } catch (err) {
+      log.warn({ orgId: org.id, projectId: p.id, err }, 'database scan: failed to list project secrets')
+    }
+  })
+  await Promise.all(projectScans)
+
+  log.info({ orgId: org.id, dbCount: rows.length, discoveredCount: discovered.length }, 'databases list with scan')
+  return Response.json({ databases: rows, discovered, projects: orgProjects })
 }
 
 export async function action({ request }: { request: Request }) {

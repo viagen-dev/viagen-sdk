@@ -23,6 +23,7 @@ import {
   Columns2,
   ExternalLink,
   Rocket,
+  Database,
 } from "lucide-react";
 import {
   TaskDetailPanel,
@@ -764,14 +765,14 @@ export default function Dashboard({
     localStorage.setItem("viagen-status-filter", val);
   }, []);
 
-  // Project filter state
+  // Project filter state — always has a value (also used by the launcher)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     () => {
-      if (typeof window === "undefined") return null;
+      if (typeof window === "undefined") return loaderData.projects[0]?.id ?? null;
       const saved = localStorage.getItem("viagen-filter-project");
       if (saved && loaderData.projects.some((p) => p.id === saved))
         return saved;
-      return null;
+      return loaderData.projects[0]?.id ?? null;
     },
   );
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
@@ -779,32 +780,9 @@ export default function Dashboard({
     ? (loaderData.projects.find((p) => p.id === selectedProjectId) ?? null)
     : null;
 
-  // The project the launcher/dropdown targets — always has a value
-  const [launcherProjectId, setLauncherProjectId] = useState<string | null>(
-    () => {
-      if (typeof window === "undefined") return loaderData.projects[0]?.id ?? null;
-      const saved = localStorage.getItem("viagen-launcher-project");
-      if (saved && loaderData.projects.some((p) => p.id === saved)) return saved;
-      return loaderData.projects[0]?.id ?? null;
-    },
-  );
-  const [launcherPickerOpen, setLauncherPickerOpen] = useState(false);
-  const launcherProject = launcherProjectId
-    ? (loaderData.projects.find((p) => p.id === launcherProjectId) ?? null)
-    : null;
-
-  const updateLauncherProject = useCallback((id: string) => {
-    setLauncherProjectId(id);
-    localStorage.setItem("viagen-launcher-project", id);
-  }, []);
-
-  const updateFilterProject = useCallback((id: string | null) => {
+  const updateFilterProject = useCallback((id: string) => {
     setSelectedProjectId(id);
-    if (id) {
-      localStorage.setItem("viagen-filter-project", id);
-    } else {
-      localStorage.removeItem("viagen-filter-project");
-    }
+    localStorage.setItem("viagen-filter-project", id);
   }, []);
 
   // Active standalone workspace (not linked to a task) for launcher project
@@ -821,11 +799,11 @@ export default function Dashboard({
 
   // Poll for active workspaces on the launcher project
   useEffect(() => {
-    if (!launcherProjectId) return;
+    if (!selectedProjectId) return;
     let cancelled = false;
     const check = async () => {
       try {
-        const res = await fetch(`/api/projects/${launcherProjectId}/sandbox`, {
+        const res = await fetch(`/api/projects/${selectedProjectId}/sandbox`, {
           credentials: "include",
         });
         if (!res.ok || cancelled) return;
@@ -842,7 +820,7 @@ export default function Dashboard({
     // Poll faster while provisioning, slower once running
     const interval = setInterval(check, standaloneWs?.status === "provisioning" ? 3_000 : 15_000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [launcherProjectId, standaloneWs?.status]);
+  }, [selectedProjectId, standaloneWs?.status]);
 
   const parseWsUrl = (url: string) => {
     const match = url.match(/^(https?:\/\/[^/]+).*\/t\/([^/]+)$/);
@@ -851,10 +829,10 @@ export default function Dashboard({
   };
 
   const handleStopStandaloneWs = async () => {
-    if (!standaloneWs || !launcherProjectId || stoppingWs) return;
+    if (!standaloneWs || !selectedProjectId || stoppingWs) return;
     setStoppingWs(true);
     try {
-      const res = await fetch(`/api/projects/${launcherProjectId}/sandbox`, {
+      const res = await fetch(`/api/projects/${selectedProjectId}/sandbox`, {
         method: "DELETE",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -979,23 +957,23 @@ export default function Dashboard({
       >
         {/* Task Launcher */}
         <div className="mb-4 flex items-center justify-between">
-          <Large>Create Task</Large>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
+            <Large>Create Task</Large>
             {loaderData.projects.length > 1 && (
-              <Popover open={launcherPickerOpen} onOpenChange={setLauncherPickerOpen}>
+              <Popover open={projectPickerOpen} onOpenChange={setProjectPickerOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
                     role="combobox"
-                    aria-expanded={launcherPickerOpen}
+                    aria-expanded={projectPickerOpen}
                     className="h-8 w-auto gap-1.5 text-sm"
                   >
-                    {launcherProject ? launcherProject.name : "Select project"}
+                    {selectedProject ? selectedProject.name : "Select project"}
                     <ChevronDown className="size-3.5 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[240px] p-0" align="end">
+                <PopoverContent className="w-[240px] p-0" align="start">
                   <Command>
                     <CommandInput placeholder="Search projects..." />
                     <CommandList>
@@ -1006,15 +984,15 @@ export default function Dashboard({
                             key={p.id}
                             value={p.name}
                             onSelect={() => {
-                              updateLauncherProject(p.id);
-                              setLauncherPickerOpen(false);
+                              updateFilterProject(p.id);
+                              setProjectPickerOpen(false);
                             }}
                           >
                             {p.name}
                             <Check
                               className={cn(
                                 "ml-auto size-3.5",
-                                launcherProjectId === p.id
+                                selectedProjectId === p.id
                                   ? "opacity-100"
                                   : "opacity-0",
                               )}
@@ -1027,6 +1005,8 @@ export default function Dashboard({
                 </PopoverContent>
               </Popover>
             )}
+          </div>
+          <div className="flex items-center gap-1.5">
           {launchingWs && !standaloneWs && (
             <div className="flex items-center gap-1.5">
               <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
@@ -1095,7 +1075,7 @@ export default function Dashboard({
                 <>
                   <DropdownMenuItem
                     onClick={async () => {
-                      const pid = launcherProjectId ?? loaderData.projects[0]?.id;
+                      const pid = selectedProjectId ?? loaderData.projects[0]?.id;
                       if (!pid) {
                         toast.error("No project selected");
                         return;
@@ -1136,17 +1116,23 @@ export default function Dashboard({
                   New Project
                 </Link>
               </DropdownMenuItem>
-              {launcherProjectId && (
+              {selectedProjectId && (
                 <DropdownMenuItem asChild>
-                  <Link to={`/projects/${launcherProjectId}/deploys`}>
+                  <Link to={`/projects/${selectedProjectId}/deploys`}>
                     <Rocket className="size-3.5" />
                     Deployments
                   </Link>
                 </DropdownMenuItem>
               )}
-              {launcherProjectId && (
+              <DropdownMenuItem asChild>
+                <Link to="/data">
+                  <Database className="size-3.5" />
+                  Data Sources
+                </Link>
+              </DropdownMenuItem>
+              {selectedProjectId && (
                 <DropdownMenuItem asChild>
-                  <Link to={`/projects/${launcherProjectId}/settings`}>
+                  <Link to={`/projects/${selectedProjectId}/settings`}>
                     <Settings className="size-3.5" />
                     Project Settings
                   </Link>
@@ -1160,93 +1146,15 @@ export default function Dashboard({
           onTaskCreated={handleTaskCreated}
           integrations={integrations}
           projects={loaderData.projects}
-          projectId={launcherProjectId}
+          projectId={selectedProjectId}
         />
 
-        {/* Feed tabs + project filter */}
+        {/* Feed tabs */}
         <Tabs
           value={statusFilter ?? "backlog"}
           onValueChange={updateStatusFilter}
         >
           <div className="mb-4 flex items-center gap-4">
-            <Large className="whitespace-nowrap">Task Feed</Large>
-
-            <div className="flex items-center gap-1">
-              {loaderData.projects.length > 1 && (
-                <Popover
-                  open={projectPickerOpen}
-                  onOpenChange={setProjectPickerOpen}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      role="combobox"
-                      aria-expanded={projectPickerOpen}
-                      className="h-8 w-auto gap-1.5 text-sm"
-                    >
-                      {selectedProject ? selectedProject.name : "All Projects"}
-                      <ChevronDown className="size-3.5 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[240px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search projects..." />
-                      <CommandList>
-                        <CommandEmpty>No projects found.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="__all__"
-                            onSelect={() => {
-                              updateFilterProject(null);
-                              setProjectPickerOpen(false);
-                            }}
-                          >
-                            All Projects
-                            <Check
-                              className={cn(
-                                "ml-auto size-3.5",
-                                selectedProjectId === null
-                                  ? "opacity-100"
-                                  : "opacity-0",
-                              )}
-                            />
-                          </CommandItem>
-                          {loaderData.projects.map((project) => (
-                            <CommandItem
-                              key={project.id}
-                              value={project.name}
-                              onSelect={() => {
-                                updateFilterProject(project.id);
-                                setProjectPickerOpen(false);
-                              }}
-                            >
-                              {project.name}
-                              <Check
-                                className={cn(
-                                  "ml-auto size-3.5",
-                                  selectedProjectId === project.id
-                                    ? "opacity-100"
-                                    : "opacity-0",
-                                )}
-                              />
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              )}
-              {selectedProjectId && (
-                <Button variant="ghost" size="icon-sm" asChild>
-                  <Link to={`/projects/${selectedProjectId}/settings`}>
-                    <Settings className="size-3.5" />
-                  </Link>
-                </Button>
-              )}
-            </div>
-
             <TabsList>
               <TabsTrigger value="backlog">
                 Backlog
