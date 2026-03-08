@@ -1245,7 +1245,7 @@ export function TaskDetailPanel({
 
   return (
     <>
-      <div className="flex h-full flex-col overflow-y-auto">
+      <div className={cn("flex flex-col", variant === "drawer" && "h-full overflow-y-auto")}>
         <div className={cn("flex flex-col gap-4 p-6", variant === "page" && "mx-auto w-full max-w-2xl")}>
           {loading || !task ? (
             <div className="flex items-center justify-center py-16">
