@@ -945,7 +945,16 @@ export default function Dashboard({
   // Handle new task created from the launcher
   const handleTaskCreated = useCallback((task: FeedTask) => {
     setTasks((prev) => [task, ...prev]);
-  }, []);
+
+    // Auto-switch to new task and highlight it
+    // If we're on review or completed tab, switch to backlog since new tasks have status "ready"
+    if (statusFilter === "review" || statusFilter === "completed") {
+      switchStatusFilter("backlog");
+    }
+
+    // Always open the newly created task in the detail panel to highlight it
+    openTaskPanel(task);
+  }, [statusFilter, switchStatusFilter, openTaskPanel]);
 
   // Project-scoped tasks
   const projectTasks = useMemo(
