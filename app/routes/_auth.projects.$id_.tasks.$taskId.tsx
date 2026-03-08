@@ -1,5 +1,5 @@
-import { useNavigate, useParams, useRouteLoaderData } from "react-router";
-import { requireAuth } from "~/lib/session.server";
+import { redirect, useNavigate, useParams, useRouteLoaderData } from "react-router";
+import { requireAuth, serializeCookie } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, tasks } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -23,10 +23,10 @@ export async function loader({
   request: Request;
   params: { id: string; taskId: string };
 }) {
-  const { org } = await requireAuth(request);
+  const { org, memberships } = await requireAuth(request);
 
   // Verify project belongs to org
-  const [project] = await db
+  let [project] = await db
     .select()
     .from(projects)
     .where(
@@ -34,6 +34,40 @@ export async function loader({
     );
 
   if (!project) {
+    // Project not found for current org — check if the user is a member of the org
+    // that actually owns this project (e.g. they followed a direct link while a
+    // different org was active in their cookie).
+    const [projectAny] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, params.id));
+
+    if (projectAny) {
+      const membershipForOrg = memberships.find(
+        (m) => m.organizationId === projectAny.organizationId,
+      );
+
+      if (membershipForOrg) {
+        // User is a member of the org that owns this project. Switch the active
+        // org cookie and redirect back to this same URL so that the full layout
+        // (navbar, integrations, etc.) also picks up the correct org.
+        log.info(
+          { projectId: params.id, fromOrgId: org.id, toOrgId: projectAny.organizationId },
+          "task detail page: switching org context to match project's org",
+        );
+        const url = new URL(request.url);
+        throw redirect(url.pathname + url.search, {
+          headers: {
+            "Set-Cookie": serializeCookie("viagen-org", projectAny.organizationId, {
+              path: "/",
+              maxAge: 60 * 60 * 24 * 365,
+              sameSite: "Lax",
+            }),
+          },
+        });
+      }
+    }
+
     log.warn(
       { projectId: params.id, orgId: org.id },
       "task detail page: project not found or not in org",
