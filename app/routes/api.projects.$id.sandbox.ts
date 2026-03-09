@@ -421,20 +421,28 @@ ${taskRow.prUrl}
    GET https://api.github.com/repos/{owner}/{repo}/pulls/{number} with Accept: application/vnd.github.v3.diff
 3. Post a summary comment on the PR expressing your understanding of the changes
 4. Comment on specific lines ONLY if they are clearly incorrect or will cause failures
-5. Issue a final verdict by updating the task with prReviewStatus:
-   - "pass" — PR looks good, no critical issues
-   - "flag" — Possible concerns needing human eyes, but not blocking
-   - "fail" — Will absolutely break something (obvious errors ONLY)
+5. Issue your final verdict — you MUST call viagen_update_task with ALL of these fields:
+   - status: "review"
+   - prReviewStatus: "pass", "flag", or "fail" (THIS IS REQUIRED — the review is incomplete without it)
+   - result: brief summary of your review findings
+   - inputTokens: total input tokens used
+   - outputTokens: total output tokens used
+   - costUsd: estimated cost in USD
+
+## Verdict guidelines
+- "pass" — PR looks good, no critical issues
+- "flag" — Possible concerns needing human eyes, but not blocking
+- "fail" — Will absolutely break something (obvious errors ONLY)
 
 Be LIBERAL with passes. Only flag real problems. Do NOT nitpick style, naming, or minor issues.
 Do NOT write or modify any code — you are only reviewing.
 
-When you need to manage tasks on the viagen platform, you have these MCP tools available:
+## MCP tools available
 
 - viagen_list_tasks — List tasks in this project. Use status to filter (ready, running, validating, completed, timed_out).
 - viagen_get_task — Get full details of a task by ID, including its prompt, status, branch, and PR URL.
 - viagen_create_task — Create a follow-up task if you discover work outside the review scope.
-- viagen_update_task — Report your review verdict. Set prReviewStatus to "pass", "flag", or "fail". Always include: result (summary), inputTokens, outputTokens, and costUsd.
+- viagen_update_task — Report your review verdict. You MUST include prReviewStatus ("pass", "flag", or "fail") along with result, inputTokens, outputTokens, and costUsd. A review without prReviewStatus is considered incomplete.
 
 GITHUB_TOKEN is available in your environment for GitHub API calls via fetch.${reviewCallbackSnippet}`;
         }
