@@ -1,7 +1,19 @@
 import { redirect, useLoaderData } from "react-router";
+import { useState } from "react";
 import { getSessionUser } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
 import { ViagenLogo } from "~/components/icons/viagen-logo";
+
+function parseCookies(header: string | null): Record<string, string> {
+  if (!header) return {};
+  return Object.fromEntries(
+    header.split(";").map((c) => {
+      const [k, ...v] = c.trim().split("=");
+      return [k, v.join("=")];
+    }),
+  );
+}
 
 export async function loader({ request }: { request: Request }) {
   const url = new URL(request.url);
@@ -14,14 +26,50 @@ export async function loader({ request }: { request: Request }) {
   if (session) {
     return redirect(returnTo ?? "/onboarding");
   }
-  return { returnTo };
+
+  const cookies = parseCookies(request.headers.get("Cookie"));
+  const hasInvite = cookies["viagen-invite"] === "1";
+
+  // If no INVITE_CODES configured, skip the gate
+  const codesConfigured =
+    (process.env.INVITE_CODES ?? "").split(",").filter((c) => c.trim())
+      .length > 0;
+
+  return { returnTo, hasInvite: hasInvite || !codesConfigured };
 }
 
 export default function Login() {
-  const { returnTo } = useLoaderData<typeof loader>();
+  const { returnTo, hasInvite } = useLoaderData<typeof loader>();
   const returnParam = returnTo
     ? `?returnTo=${encodeURIComponent(returnTo)}`
     : "";
+
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleInviteSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? "Invalid code");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="flex min-h-svh flex-col bg-muted">
@@ -34,20 +82,48 @@ export default function Login() {
           /ˈviː.ə.dʒən/ <span className="not-italic">n.</span> vite + agent;
           also: travel
         </p>
-        <div className="flex w-[260px] flex-col gap-2.5">
-          <Button variant="outline" asChild>
-            <a href={`/api/auth/login/github${returnParam}`}>
-              <GitHubIcon />
-              Continue with GitHub
-            </a>
-          </Button>
-          <Button variant="outline" asChild>
-            <a href={`/api/auth/login/google${returnParam}`}>
-              <GoogleIcon />
-              Continue with Google
-            </a>
-          </Button>
-        </div>
+
+        {!hasInvite ? (
+          <form
+            onSubmit={handleInviteSubmit}
+            className="flex w-[260px] flex-col gap-2.5"
+          >
+            <Input
+              type="text"
+              placeholder="Enter invite code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              autoFocus
+            />
+            {error && (
+              <p className="text-center text-sm text-destructive">{error}</p>
+            )}
+            <Button type="submit" disabled={submitting || !code.trim()}>
+              {submitting ? "Checking…" : "Continue"}
+            </Button>
+          </form>
+        ) : (
+          <div className="flex w-[260px] flex-col gap-2.5">
+            <Button variant="outline" asChild>
+              <a href={`/api/auth/login/github${returnParam}`}>
+                <GitHubIcon />
+                Continue with GitHub
+              </a>
+            </Button>
+            <Button variant="outline" asChild>
+              <a href={`/api/auth/login/google${returnParam}`}>
+                <GoogleIcon />
+                Continue with Google
+              </a>
+            </Button>
+            <Button variant="outline" asChild>
+              <a href={`/api/auth/login/microsoft${returnParam}`}>
+                <MicrosoftIcon />
+                Continue with Microsoft
+              </a>
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -80,6 +156,17 @@ function GoogleIcon() {
         fill="#34A853"
         d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
       />
+    </svg>
+  );
+}
+
+function MicrosoftIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 21 21">
+      <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+      <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+      <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+      <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
     </svg>
   );
 }

@@ -41,6 +41,7 @@ export interface AuthClient {
    */
   loginCli(options?: {
     port?: number
+    inviteCode?: string
     onOpenUrl?: (url: string) => void
   }): Promise<{ token: string; expiresAt: string }>
   /** List the current user's API tokens. */
@@ -72,8 +73,8 @@ export function createAuthClient(baseUrl: string, request: RequestFn): AuthClien
       }
     },
 
-    async loginCli(options = {}) {
-      const { port: preferredPort, onOpenUrl } = options
+    async loginCli(options: { port?: number; inviteCode?: string; onOpenUrl?: (url: string) => void } = {}) {
+      const { port: preferredPort, inviteCode, onOpenUrl } = options
 
       const http = await import('node:http')
 
@@ -88,7 +89,7 @@ export function createAuthClient(baseUrl: string, request: RequestFn): AuthClien
         server.listen(preferredPort ?? 0, '127.0.0.1', () => {
           const address = server.address() as import('net').AddressInfo
           const port = address.port
-          const loginUrl = `${baseUrl}/cli/authorize?port=${port}`
+          const loginUrl = `${baseUrl}/cli/authorize?port=${port}${inviteCode ? `&inviteCode=${encodeURIComponent(inviteCode)}` : ''}`
 
           if (onOpenUrl) {
             onOpenUrl(loginUrl)
