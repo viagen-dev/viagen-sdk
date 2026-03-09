@@ -1149,6 +1149,33 @@ export default function Dashboard({
                   </Link>
                 </DropdownMenuItem>
               )}
+              {(selectedProject?.githubRepo || selectedProject?.vercelProjectId) && (
+                <DropdownMenuSeparator />
+              )}
+              {selectedProject?.githubRepo && (
+                <DropdownMenuItem asChild>
+                  <a
+                    href={`https://github.com/${selectedProject.githubRepo}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <GitHubIcon size={14} />
+                    GitHub Repository
+                  </a>
+                </DropdownMenuItem>
+              )}
+              {selectedProject?.vercelProjectId && (
+                <DropdownMenuItem asChild>
+                  <a
+                    href={`https://vercel.com/${selectedProject.vercelProjectName ?? selectedProject.vercelProjectId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <VercelIcon />
+                    Vercel Project
+                  </a>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           </div>
