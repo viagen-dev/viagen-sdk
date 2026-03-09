@@ -84,7 +84,7 @@ export async function exchangeCode(provider: ProviderName, code: string, codeVer
     throw new Error('Microsoft token exchange failed')
   }
   const tokens = await res.json()
-  return { accessToken: () => tokens.access_token, accessTokenExpiresAt: () => new Date(Date.now() + tokens.expires_in * 1000) }
+  return { accessToken: () => tokens.access_token, idToken: () => tokens.id_token, accessTokenExpiresAt: () => new Date(Date.now() + tokens.expires_in * 1000) }
 }
 
 // --- Fetch User Info from Provider ---
@@ -96,7 +96,7 @@ interface ProviderUser {
   providerUserId: string
 }
 
-export async function fetchProviderUser(provider: ProviderName, accessToken: string): Promise<ProviderUser> {
+export async function fetchProviderUser(provider: ProviderName, accessToken: string, idToken?: string): Promise<ProviderUser> {
   if (provider === 'google') {
     const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -130,13 +130,32 @@ export async function fetchProviderUser(provider: ProviderName, accessToken: str
     }
   }
 
-  // Microsoft
+  // Microsoft — personal accounts return mail:null from Graph, so fall back to ID token claims
   const res = await fetch('https://graph.microsoft.com/v1.0/me', {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   const data = await res.json()
+  console.log('[auth] Microsoft Graph /me response:', JSON.stringify(data))
+
+  let email = data.mail ?? data.userPrincipalName
+  // For personal Microsoft accounts, Graph often returns null for mail.
+  // Try to extract email from the ID token if available.
+  if (!email && idToken) {
+    try {
+      const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64url').toString())
+      email = payload.email ?? payload.preferred_username
+      console.log('[auth] Extracted email from ID token:', email)
+    } catch {
+      console.error('[auth] Failed to decode ID token')
+    }
+  }
+
+  if (!email) {
+    throw new Error('Could not determine email from Microsoft account')
+  }
+
   return {
-    email: data.mail ?? data.userPrincipalName,
+    email,
     name: data.displayName ?? null,
     avatarUrl: null,
     providerUserId: data.id,
