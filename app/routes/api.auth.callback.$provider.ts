@@ -86,7 +86,8 @@ export async function loader({ params, request }: { params: { provider: string }
 
     // Normal login flow
     log.info({ provider }, 'auth callback: fetching provider user info')
-    const idToken = typeof tokens.idToken === 'function' ? tokens.idToken() : undefined
+    let idToken: string | undefined
+    try { idToken = typeof tokens.idToken === 'function' ? tokens.idToken() : undefined } catch { /* no id_token for this provider */ }
     const providerUser = await fetchProviderUser(provider, tokens.accessToken(), idToken)
     log.info({ provider, email: providerUser.email }, 'auth callback: upserting user')
     const user = await upsertUser(provider, providerUser)
