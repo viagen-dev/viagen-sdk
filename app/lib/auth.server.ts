@@ -64,7 +64,27 @@ export async function exchangeCode(provider: ProviderName, code: string, codeVer
   if (provider === 'google') {
     return providers.google.validateAuthorizationCode(code, codeVerifier!)
   }
-  return providers.microsoft.validateAuthorizationCode(code, codeVerifier!)
+  // Arctic sends credentials via Basic auth header, but Microsoft's
+  // multi-tenant + personal accounts endpoint requires client_id in the body.
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: `${redirectBase}/api/auth/callback/microsoft`,
+    code_verifier: codeVerifier!,
+    client_id: process.env.MICROSOFT_CLIENT_ID!,
+    client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
+  })
+  const res = await fetch(
+    `https://login.microsoftonline.com/${process.env.MICROSOFT_TENANT_ID ?? 'common'}/oauth2/v2.0/token`,
+    { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body },
+  )
+  if (!res.ok) {
+    const err = await res.text()
+    console.error('[auth] Microsoft token exchange failed:', err)
+    throw new Error('Microsoft token exchange failed')
+  }
+  const tokens = await res.json()
+  return { accessToken: () => tokens.access_token, accessTokenExpiresAt: () => new Date(Date.now() + tokens.expires_in * 1000) }
 }
 
 // --- Fetch User Info from Provider ---
