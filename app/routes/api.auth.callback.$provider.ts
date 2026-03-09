@@ -17,91 +17,101 @@ import { log } from '~/lib/logger.server'
 const SESSION_COOKIE = 'viagen-session'
 
 export async function loader({ params, request }: { params: { provider: string }; request: Request }) {
-  const provider = params.provider
-  if (!isValidProvider(provider)) {
-    return Response.json({ error: `Unknown provider: ${provider}` }, { status: 400 })
-  }
-
-  const url = new URL(request.url)
-  const code = url.searchParams.get('code')
-  const state = url.searchParams.get('state')
-  const cookieHeader = request.headers.get('Cookie')
-  const storedState = parseCookie(cookieHeader, 'oauth-state')
-  const codeVerifier = parseCookie(cookieHeader, 'oauth-verifier')
-
-  const cleanupHeaders = new Headers()
-  cleanupHeaders.append('Set-Cookie', deleteCookieHeader('oauth-state'))
-  cleanupHeaders.append('Set-Cookie', deleteCookieHeader('oauth-verifier'))
-
-  if (!code || !state || state !== storedState) {
-    log.warn({ provider }, 'auth callback: invalid state or missing code')
-    return Response.json({ error: 'Invalid OAuth callback' }, { status: 400 })
-  }
-
-  let tokens
   try {
-    tokens = await exchangeCode(provider, code, codeVerifier)
-  } catch (err: any) {
-    log.error({ provider, error: err?.message }, 'auth callback: token exchange failed')
-    return Response.json({ error: 'Token exchange failed', detail: err?.message }, { status: 500, headers: cleanupHeaders })
-  }
-
-  // Check if this is a GitHub connect flow (not a login)
-  const connectOrgId = parseCookie(cookieHeader, 'github-connect-org')
-  if (connectOrgId && provider === 'github') {
-    const returnTo = parseCookie(cookieHeader, 'connect-return-to') ?? '/onboarding'
-    cleanupHeaders.append('Set-Cookie', deleteCookieHeader('github-connect-org'))
-    cleanupHeaders.append('Set-Cookie', deleteCookieHeader('connect-return-to'))
-
-    let connected = false
-    const sessionToken = parseCookie(cookieHeader, SESSION_COOKIE)
-    if (!sessionToken) {
-      log.warn('github connect: no session cookie')
-    } else {
-      const result = await validateSession(sessionToken)
-      if (!result) {
-        log.warn('github connect: invalid or expired session')
-      } else {
-        const [membership] = await db
-          .select()
-          .from(orgMembers)
-          .where(and(eq(orgMembers.userId, result.user.id), eq(orgMembers.organizationId, connectOrgId)))
-
-        if (!membership) {
-          log.warn({ userId: result.user.id, orgId: connectOrgId }, 'github connect: user not a member of org')
-        } else {
-          await setSecret(connectOrgId, 'GITHUB_TOKEN', tokens.accessToken())
-          log.info({ userId: result.user.id, orgId: connectOrgId }, 'github integration connected')
-          connected = true
-        }
-      }
+    const provider = params.provider
+    if (!isValidProvider(provider)) {
+      return Response.json({ error: `Unknown provider: ${provider}` }, { status: 400 })
     }
 
-    const param = connected ? 'connected=github' : 'error=github'
-    return redirect(`${returnTo}?${param}`, { headers: cleanupHeaders })
+    const url = new URL(request.url)
+    const code = url.searchParams.get('code')
+    const state = url.searchParams.get('state')
+    const cookieHeader = request.headers.get('Cookie')
+    const storedState = parseCookie(cookieHeader, 'oauth-state')
+    const codeVerifier = parseCookie(cookieHeader, 'oauth-verifier')
+
+    const cleanupHeaders = new Headers()
+    cleanupHeaders.append('Set-Cookie', deleteCookieHeader('oauth-state'))
+    cleanupHeaders.append('Set-Cookie', deleteCookieHeader('oauth-verifier'))
+
+    if (!code || !state || state !== storedState) {
+      log.warn({ provider, state, storedState, hasCode: !!code }, 'auth callback: invalid state or missing code')
+      return Response.json({ error: 'Invalid OAuth callback', detail: { hasCode: !!code, stateMatch: state === storedState } }, { status: 400 })
+    }
+
+    log.info({ provider }, 'auth callback: exchanging code for tokens')
+
+    let tokens
+    try {
+      tokens = await exchangeCode(provider, code, codeVerifier)
+    } catch (err: any) {
+      log.error({ provider, error: err?.message, stack: err?.stack }, 'auth callback: token exchange failed')
+      return Response.json({ error: 'Token exchange failed', detail: err?.message }, { status: 500, headers: cleanupHeaders })
+    }
+
+    // Check if this is a GitHub connect flow (not a login)
+    const connectOrgId = parseCookie(cookieHeader, 'github-connect-org')
+    if (connectOrgId && provider === 'github') {
+      const returnTo = parseCookie(cookieHeader, 'connect-return-to') ?? '/onboarding'
+      cleanupHeaders.append('Set-Cookie', deleteCookieHeader('github-connect-org'))
+      cleanupHeaders.append('Set-Cookie', deleteCookieHeader('connect-return-to'))
+
+      let connected = false
+      const sessionToken = parseCookie(cookieHeader, SESSION_COOKIE)
+      if (!sessionToken) {
+        log.warn('github connect: no session cookie')
+      } else {
+        const result = await validateSession(sessionToken)
+        if (!result) {
+          log.warn('github connect: invalid or expired session')
+        } else {
+          const [membership] = await db
+            .select()
+            .from(orgMembers)
+            .where(and(eq(orgMembers.userId, result.user.id), eq(orgMembers.organizationId, connectOrgId)))
+
+          if (!membership) {
+            log.warn({ userId: result.user.id, orgId: connectOrgId }, 'github connect: user not a member of org')
+          } else {
+            await setSecret(connectOrgId, 'GITHUB_TOKEN', tokens.accessToken())
+            log.info({ userId: result.user.id, orgId: connectOrgId }, 'github integration connected')
+            connected = true
+          }
+        }
+      }
+
+      const param = connected ? 'connected=github' : 'error=github'
+      return redirect(`${returnTo}?${param}`, { headers: cleanupHeaders })
+    }
+
+    // Normal login flow
+    log.info({ provider }, 'auth callback: fetching provider user info')
+    const idToken = typeof tokens.idToken === 'function' ? tokens.idToken() : undefined
+    const providerUser = await fetchProviderUser(provider, tokens.accessToken(), idToken)
+    log.info({ provider, email: providerUser.email }, 'auth callback: upserting user')
+    const user = await upsertUser(provider, providerUser)
+    const { token, expiresAt } = await createSession(user.id)
+    log.info({ userId: user.id, provider }, 'user logged in')
+    const isProd = process.env.NODE_ENV === 'production'
+
+    cleanupHeaders.append('Set-Cookie', serializeCookie(SESSION_COOKIE, token, {
+      path: '/',
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'Lax',
+      expires: expiresAt,
+    }))
+
+    // Check for returnTo cookie (e.g., CLI authorize flow)
+    const returnTo = parseCookie(cookieHeader, 'auth-return-to')
+    if (returnTo) {
+      cleanupHeaders.append('Set-Cookie', deleteCookieHeader('auth-return-to'))
+      return redirect(returnTo, { headers: cleanupHeaders })
+    }
+
+    return redirect('/', { headers: cleanupHeaders })
+  } catch (err: any) {
+    log.error({ error: err?.message, stack: err?.stack }, 'auth callback: unhandled error')
+    return Response.json({ error: 'Auth callback failed', detail: err?.message, stack: err?.stack }, { status: 500 })
   }
-
-  // Normal login flow
-  const providerUser = await fetchProviderUser(provider, tokens.accessToken())
-  const user = await upsertUser(provider, providerUser)
-  const { token, expiresAt } = await createSession(user.id)
-  log.info({ userId: user.id, provider }, 'user logged in')
-  const isProd = process.env.NODE_ENV === 'production'
-
-  cleanupHeaders.append('Set-Cookie', serializeCookie(SESSION_COOKIE, token, {
-    path: '/',
-    httpOnly: true,
-    secure: isProd,
-    sameSite: 'Lax',
-    expires: expiresAt,
-  }))
-
-  // Check for returnTo cookie (e.g., CLI authorize flow)
-  const returnTo = parseCookie(cookieHeader, 'auth-return-to')
-  if (returnTo) {
-    cleanupHeaders.append('Set-Cookie', deleteCookieHeader('auth-return-to'))
-    return redirect(returnTo, { headers: cleanupHeaders })
-  }
-
-  return redirect('/', { headers: cleanupHeaders })
 }
