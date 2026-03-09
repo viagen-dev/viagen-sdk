@@ -30,38 +30,41 @@ export async function action({ request }: { request: Request }) {
   }
 
   const templateRepo = body.templateRepo?.trim() // e.g. "viagen-dev/viagen-react-router"
+  const owner = body.owner?.trim() // GitHub org login, or omit for personal account
 
   log.info(
-    { userId: user.id, orgId: org.id, repoName, private: body.private ?? true, templateRepo: templateRepo ?? null },
+    { userId: user.id, orgId: org.id, repoName, owner: owner ?? '(personal)', private: body.private ?? true, templateRepo: templateRepo ?? null },
     templateRepo ? 'github create repo: generating from template' : 'github create repo: creating repository',
   )
 
   let res: Response
+  const ghHeaders = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'viagen-sdk',
+  }
 
   if (templateRepo) {
     // Use GitHub's template repository API: POST /repos/{template_owner}/{template_repo}/generate
     const ghUrl = `https://api.github.com/repos/${templateRepo}/generate`
     res = await fetch(ghUrl, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'viagen-sdk',
-      },
+      headers: ghHeaders,
       body: JSON.stringify({
         name: repoName,
+        owner: owner || undefined,
         private: body.private ?? true,
         description: body.description ?? '',
       }),
     })
   } else {
-    res = await fetch('https://api.github.com/user/repos', {
+    // If owner is specified and different from the authenticated user, create under org
+    const createUrl = owner
+      ? `https://api.github.com/orgs/${owner}/repos`
+      : 'https://api.github.com/user/repos'
+    res = await fetch(createUrl, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'viagen-sdk',
-      },
+      headers: ghHeaders,
       body: JSON.stringify({
         name: repoName,
         private: body.private ?? true,
@@ -110,7 +113,7 @@ export async function action({ request }: { request: Request }) {
   return Response.json({ repo }, { status: 201 })
 }
 
-// ── GET: List GitHub repositories ─────────────────────────────────────────
+// ── GET: List GitHub repositories or orgs ─────────────────────────────────
 
 export async function loader({ request }: { request: Request }) {
   const { user, org } = await requireAuth(request)
@@ -121,6 +124,38 @@ export async function loader({ request }: { request: Request }) {
   }
 
   const url = new URL(request.url)
+
+  // If ?type=orgs, return the list of GitHub orgs + the authenticated user
+  if (url.searchParams.get('type') === 'orgs') {
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'viagen-sdk',
+    }
+
+    const [userRes, orgsRes] = await Promise.all([
+      fetch('https://api.github.com/user', { headers }),
+      fetch('https://api.github.com/user/orgs?per_page=100', { headers }),
+    ])
+
+    if (!userRes.ok || !orgsRes.ok) {
+      if (userRes.status === 401 || orgsRes.status === 401) {
+        return Response.json({ error: 'GitHub token is invalid or expired' }, { status: 401 })
+      }
+      return Response.json({ error: 'Failed to fetch GitHub orgs' }, { status: 502 })
+    }
+
+    const ghUser = await userRes.json()
+    const ghOrgs = await orgsRes.json()
+
+    return Response.json({
+      orgs: [
+        { login: ghUser.login, avatarUrl: ghUser.avatar_url, type: 'user' },
+        ...ghOrgs.map((o: any) => ({ login: o.login, avatarUrl: o.avatar_url, type: 'org' })),
+      ],
+    })
+  }
+
   const page = url.searchParams.get('page') ?? '1'
   const perPage = url.searchParams.get('per_page') ?? '30'
 

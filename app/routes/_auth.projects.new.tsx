@@ -106,6 +106,15 @@ export default function NewProject() {
   const [newRepoName, setNewRepoName] = useState("");
   const [creatingRepo, setCreatingRepo] = useState(false);
 
+  // GitHub orgs state
+  const [githubOrgs, setGithubOrgs] = useState<
+    { login: string; avatarUrl: string; type: string }[]
+  >([]);
+  const [githubOrgsLoaded, setGithubOrgsLoaded] = useState(false);
+  const [selectedGithubOrg, setSelectedGithubOrg] = useState<string | null>(
+    null,
+  );
+
   // Vercel state
   const [vercelProjects, setVercelProjects] = useState<VercelProject[]>([]);
   const [vercelLoading, setVercelLoading] = useState(false);
@@ -195,12 +204,42 @@ export default function NewProject() {
     }
   };
 
+  // Load GitHub orgs when "Create new" is shown
+  const loadGithubOrgs = async () => {
+    if (githubOrgsLoaded) return;
+    try {
+      const res = await fetch("/api/github/repos?type=orgs", {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGithubOrgs(data.orgs);
+        // Default to the personal account (type=user)
+        const personal = data.orgs.find(
+          (o: { type: string }) => o.type === "user",
+        );
+        if (personal) setSelectedGithubOrg(personal.login);
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setGithubOrgsLoaded(true);
+    }
+  };
+
   // Create new repo
   const handleCreateRepo = async () => {
     const repoName = newRepoName.trim() || name.trim();
     if (!repoName || creatingRepo) return;
     setCreatingRepo(true);
     try {
+      // Determine if we're creating under an org or personal account
+      const personalAccount = githubOrgs.find((o) => o.type === "user");
+      const owner =
+        selectedGithubOrg && selectedGithubOrg !== personalAccount?.login
+          ? selectedGithubOrg
+          : undefined;
+
       const res = await fetch("/api/github/repos", {
         method: "POST",
         credentials: "include",
@@ -208,6 +247,7 @@ export default function NewProject() {
         body: JSON.stringify({
           name: repoName,
           private: true,
+          owner,
           templateRepo: selectedTemplate
             ? (TEMPLATES.find((t) => t.id === selectedTemplate)?.repo ??
               undefined)
@@ -420,6 +460,19 @@ export default function NewProject() {
             {showCreateRepo ? (
               <div className="flex flex-col gap-3 w-full">
                 <div className="flex items-center gap-2">
+                  <select
+                    value={selectedGithubOrg ?? ""}
+                    onChange={(e) => setSelectedGithubOrg(e.target.value)}
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    {githubOrgs.map((o) => (
+                      <option key={o.login} value={o.login}>
+                        {o.login}
+                        {o.type === "user" ? " (personal)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-muted-foreground">/</span>
                   <Input
                     type="text"
                     value={newRepoName}
@@ -485,7 +538,10 @@ export default function NewProject() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowCreateRepo(true)}
+                  onClick={() => {
+                    setShowCreateRepo(true);
+                    loadGithubOrgs();
+                  }}
                 >
                   <Plus className="size-3.5" />
                   Create new
