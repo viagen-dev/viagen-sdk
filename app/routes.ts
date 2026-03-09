@@ -28,6 +28,7 @@ export default [
   ]),
 
   // Resource routes (REST API for SDK)
+  route("api/auth/invite", "routes/api.auth.invite.ts"),
   route("api/auth/login/:provider", "routes/api.auth.login.$provider.ts"),
   route("api/auth/callback/:provider", "routes/api.auth.callback.$provider.ts"),
   route("api/auth/me", "routes/api.auth.me.ts"),
