@@ -38,7 +38,13 @@ export async function loader({ params, request }: { params: { provider: string }
     return Response.json({ error: 'Invalid OAuth callback' }, { status: 400 })
   }
 
-  const tokens = await exchangeCode(provider, code, codeVerifier)
+  let tokens
+  try {
+    tokens = await exchangeCode(provider, code, codeVerifier)
+  } catch (err: any) {
+    log.error({ provider, error: err?.message }, 'auth callback: token exchange failed')
+    return Response.json({ error: 'Token exchange failed', detail: err?.message }, { status: 500, headers: cleanupHeaders })
+  }
 
   // Check if this is a GitHub connect flow (not a login)
   const connectOrgId = parseCookie(cookieHeader, 'github-connect-org')
