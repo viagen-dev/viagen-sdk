@@ -91,6 +91,7 @@ import {
 } from "~/components/ui/select";
 import { cn } from "~/lib/utils";
 import { WorkspaceList } from "~/components/workspace-list";
+import { TaskAttachments, type Attachment } from "~/components/task-attachments";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -140,6 +141,7 @@ export interface FeedTask {
   vercelProjectId: string | null;
   vercelProjectName: string | null;
   prReviewStatus: string | null;
+  attachments?: Attachment[];
 }
 
 interface Workspace {
@@ -1165,6 +1167,19 @@ export function TaskDetailPanel({
           ) : (
             <div className="text-sm leading-relaxed text-muted-foreground prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
               <Markdown>{task.prompt}</Markdown>
+            </div>
+          )}
+          {(task.attachments?.length || task.status === "ready") && (
+            <div className="mt-3 pt-3 border-t">
+              <TaskAttachments
+                projectId={projectId}
+                taskId={task.id}
+                attachments={task.attachments ?? []}
+                onChanged={(atts) =>
+                  setTask((prev) => prev ? { ...prev, attachments: atts } : prev)
+                }
+                readOnly={task.status !== "ready"}
+              />
             </div>
           )}
         </CardContent>

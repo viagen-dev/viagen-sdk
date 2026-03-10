@@ -25,6 +25,7 @@ import {
   Rocket,
   Database,
 } from "lucide-react";
+import { StagedAttachments } from "~/components/task-attachments";
 import {
   TaskDetailPanel,
   STATUS_CONFIG,
@@ -421,6 +422,7 @@ function DashboardTaskLauncher({
   );
   const [model, setModel] = useState("claude-sonnet-4-6");
   const [creating, setCreating] = useState(false);
+  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const project = projectId
@@ -464,8 +466,22 @@ function DashboardTaskLauncher({
         task.vercelProjectName = project.vercelProjectName;
       }
 
+      // Upload staged attachments (fire-and-forget, non-blocking)
+      if (stagedFiles.length > 0) {
+        for (const file of stagedFiles) {
+          const form = new FormData();
+          form.append("file", file);
+          fetch(`/api/projects/${project.id}/tasks/${task.id}/attachments`, {
+            method: "POST",
+            credentials: "include",
+            body: form,
+          }).catch(() => {});
+        }
+      }
+
       onTaskCreated(task);
       setPrompt("");
+      setStagedFiles([]);
       setBranch(`feat-${Math.random().toString(36).slice(2, 8)}`);
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
@@ -547,6 +563,10 @@ function DashboardTaskLauncher({
               </SelectItem>
             </SelectContent>
           </Select>
+          <StagedAttachments
+            files={stagedFiles}
+            onFilesChanged={setStagedFiles}
+          />
         </div>
         <Button
           size="icon-sm"
