@@ -184,4 +184,19 @@ export type Project = typeof projects.$inferSelect;
 export type Workspace = typeof workspaces.$inferSelect;
 export type Database = typeof databases.$inferSelect;
 export type ApiToken = typeof apiTokens.$inferSelect;
+export const taskAttachments = pgTable("task_attachments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  taskId: uuid("task_id")
+    .notNull()
+    .references(() => tasks.id, { onDelete: "cascade" }),
+  filename: varchar("filename", { length: 255 }).notNull(),
+  blobUrl: text("blob_url").notNull(),
+  contentType: varchar("content_type", { length: 128 }).notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 export type Task = typeof tasks.$inferSelect;
+export type TaskAttachment = typeof taskAttachments.$inferSelect;

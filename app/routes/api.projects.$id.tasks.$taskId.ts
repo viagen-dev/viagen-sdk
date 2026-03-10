@@ -1,7 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { projects, tasks, users, orgMembers } from "~/lib/db/schema";
+import { projects, tasks, users, orgMembers, taskAttachments } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
 import { getSecret } from "~/lib/infisical.server";
 import { parsePrUrl, isPrMerged } from "~/lib/github.server";
@@ -95,6 +95,12 @@ export async function loader({
     );
   }
 
+  // Fetch attachments
+  const attachments = await db
+    .select()
+    .from(taskAttachments)
+    .where(eq(taskAttachments.taskId, taskId));
+
   log.debug({ projectId, taskId }, "task detail fetched");
   return Response.json({
     task: {
@@ -102,6 +108,7 @@ export async function loader({
       creatorName: row.creatorName ?? null,
       creatorAvatarUrl: row.creatorAvatarUrl ?? null,
       projectName: row.projectName,
+      attachments,
     },
   });
 }

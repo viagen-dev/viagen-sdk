@@ -71,6 +71,10 @@ export default [
     "api/projects/:id/tasks/:taskId/delete",
     "routes/api.projects.$id.tasks.$taskId.delete.ts",
   ),
+  route(
+    "api/projects/:id/tasks/:taskId/attachments",
+    "routes/api.projects.$id.tasks.$taskId.attachments.ts",
+  ),
   route("api/tasks", "routes/api.tasks.ts"),
   route("api/projects/:id/deployments", "routes/api.projects.$id.deployments.ts"),
   route("api/vercel/projects", "routes/api.vercel.projects.ts"),

@@ -159,6 +159,12 @@ type Pages = {
       "taskId": string;
     };
   };
+  "/api/projects/:id/tasks/:taskId/attachments": {
+    params: {
+      "id": string;
+      "taskId": string;
+    };
+  };
   "/api/tasks": {
     params: {};
   };
@@ -199,7 +205,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/onboarding" | "/cli/authorize" | "/projects/new" | "/projects/:id/settings" | "/projects/:id/deploys" | "/projects/:id/tasks/:taskId" | "/settings" | "/data" | "/billing" | "/api/auth/invite" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/profile" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/sync" | "/api/projects/:id" | "/api/projects/:id/claude" | "/api/projects/:id/secrets" | "/api/projects/:id/vercel-sync" | "/api/projects/:id/sandbox" | "/api/sandbox/callback" | "/api/projects/:id/workspaces/:workspaceId/logs" | "/api/databases" | "/api/projects/:id/status" | "/api/projects/:id/tasks" | "/api/projects/:id/tasks/:taskId" | "/api/projects/:id/tasks/:taskId/merge" | "/api/projects/:id/tasks/:taskId/cancel" | "/api/projects/:id/tasks/:taskId/delete" | "/api/tasks" | "/api/projects/:id/deployments" | "/api/vercel/projects" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
+    page: "/" | "/login" | "/onboarding" | "/cli/authorize" | "/projects/new" | "/projects/:id/settings" | "/projects/:id/deploys" | "/projects/:id/tasks/:taskId" | "/settings" | "/data" | "/billing" | "/api/auth/invite" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/profile" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/sync" | "/api/projects/:id" | "/api/projects/:id/claude" | "/api/projects/:id/secrets" | "/api/projects/:id/vercel-sync" | "/api/projects/:id/sandbox" | "/api/sandbox/callback" | "/api/projects/:id/workspaces/:workspaceId/logs" | "/api/databases" | "/api/projects/:id/status" | "/api/projects/:id/tasks" | "/api/projects/:id/tasks/:taskId" | "/api/projects/:id/tasks/:taskId/merge" | "/api/projects/:id/tasks/:taskId/cancel" | "/api/projects/:id/tasks/:taskId/delete" | "/api/projects/:id/tasks/:taskId/attachments" | "/api/tasks" | "/api/projects/:id/deployments" | "/api/vercel/projects" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
   };
   "routes/login.tsx": {
     id: "routes/login";
@@ -349,6 +355,10 @@ type RouteFiles = {
     id: "routes/api.projects.$id.tasks.$taskId.delete";
     page: "/api/projects/:id/tasks/:taskId/delete";
   };
+  "routes/api.projects.$id.tasks.$taskId.attachments.ts": {
+    id: "routes/api.projects.$id.tasks.$taskId.attachments";
+    page: "/api/projects/:id/tasks/:taskId/attachments";
+  };
   "routes/api.tasks.ts": {
     id: "routes/api.tasks";
     page: "/api/tasks";
@@ -434,6 +444,7 @@ type RouteModules = {
   "routes/api.projects.$id.tasks.$taskId.merge": typeof import("./app/routes/api.projects.$id.tasks.$taskId.merge.ts");
   "routes/api.projects.$id.tasks.$taskId.cancel": typeof import("./app/routes/api.projects.$id.tasks.$taskId.cancel.ts");
   "routes/api.projects.$id.tasks.$taskId.delete": typeof import("./app/routes/api.projects.$id.tasks.$taskId.delete.ts");
+  "routes/api.projects.$id.tasks.$taskId.attachments": typeof import("./app/routes/api.projects.$id.tasks.$taskId.attachments.ts");
   "routes/api.tasks": typeof import("./app/routes/api.tasks.ts");
   "routes/api.projects.$id.deployments": typeof import("./app/routes/api.projects.$id.deployments.ts");
   "routes/api.vercel.projects": typeof import("./app/routes/api.vercel.projects.ts");

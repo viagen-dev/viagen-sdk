@@ -2,7 +2,7 @@ import { randomUUID, createHash } from "crypto";
 import { Sandbox } from "@vercel/sandbox";
 import { requireAuth, isAdminRole } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { projects, workspaces, tasks } from "~/lib/db/schema";
+import { projects, workspaces, tasks, taskAttachments } from "~/lib/db/schema";
 import { eq, and, gt, desc } from "drizzle-orm";
 import { resolveAllSecrets, flattenSecrets } from "~/lib/infisical.server";
 import { log } from "~/lib/logger.server";
@@ -266,6 +266,26 @@ export async function action({
     }
   }
 
+  // ── Fetch task attachments ─────────────────────────
+  let attachmentRows: { filename: string; blobUrl: string; contentType: string }[] = [];
+  if (taskId) {
+    attachmentRows = await db
+      .select({
+        filename: taskAttachments.filename,
+        blobUrl: taskAttachments.blobUrl,
+        contentType: taskAttachments.contentType,
+      })
+      .from(taskAttachments)
+      .where(eq(taskAttachments.taskId, taskId));
+
+    if (attachmentRows.length > 0) {
+      log.info(
+        { taskId, count: attachmentRows.length, filenames: attachmentRows.map((a) => a.filename) },
+        "sandbox: task has attachments to inject",
+      );
+    }
+  }
+
   // ── Build sandbox ───────────────────────────────────
   const token = randomUUID();
   const tokenHash = createHash("sha256").update(token).digest("hex");
@@ -344,6 +364,35 @@ export async function action({
           "--global",
           "credential.helper",
           "store",
+        ]);
+      }
+
+      // 2b. Download task attachments into sandbox
+      if (attachmentRows.length > 0) {
+        await sandbox.runCommand("mkdir", ["-p", ".viagen/attachments"]);
+        for (const att of attachmentRows) {
+          try {
+            const resp = await fetch(att.blobUrl);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const buf = Buffer.from(await resp.arrayBuffer());
+            await sandbox.writeFiles([
+              { path: `.viagen/attachments/${att.filename}`, content: buf },
+            ]);
+            log.info(
+              { taskId, filename: att.filename, size: buf.length },
+              "sandbox: attachment written",
+            );
+          } catch (err) {
+            log.warn(
+              { taskId, filename: att.filename, blobUrl: att.blobUrl, err },
+              "sandbox: failed to write attachment (non-fatal)",
+            );
+          }
+        }
+        // Exclude attachments dir from git
+        await sandbox.runCommand("bash", [
+          "-c",
+          "echo '.viagen/' >> .gitignore",
         ]);
       }
 
@@ -482,7 +531,12 @@ fetch(process.env.VIAGEN_CALLBACK_URL, {
 });`
           : "";
 
-        envMap["VIAGEN_PROMPT"] = `${prompt}.
+        const attachmentSnippet =
+          attachmentRows.length > 0
+            ? `\n\n## Attached Files\nThe following files have been provided as context for this task. They are located in .viagen/attachments/:\n${attachmentRows.map((a) => `- ${a.filename}`).join("\n")}\n\nRead these files before starting work — they contain important context for your task.`
+            : "";
+
+        envMap["VIAGEN_PROMPT"] = `${prompt}.${attachmentSnippet}
 
 When you need to manage tasks on the viagen platform, you have these MCP tools available:
 
