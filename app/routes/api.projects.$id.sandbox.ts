@@ -407,6 +407,7 @@ export async function action({
       envMap["VIAGEN_SESSION_TIMEOUT"] = String(timeoutMinutes * 60);
       envMap["VIAGEN_PROJECT_ID"] = id;
       envMap["VIAGEN_MODEL"] = model;
+      envMap["VIAGEN_PREVIEW"] = "true";
 
       const redirectBase =
         process.env.AUTH_REDIRECT_BASE ?? "http://localhost:5173";
