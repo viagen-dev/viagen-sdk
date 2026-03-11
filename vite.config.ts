@@ -8,8 +8,20 @@ export default defineConfig({
   server: {
     allowedHosts: true,
   },
+  resolve: {
+    dedupe: ["react", "react-dom"],
+  },
   ssr: {
     noExternal: ["react-markdown"],
+  },
+  optimizeDeps: {
+    include: [
+      "react",
+      "react-dom",
+      "react-dom/client",
+      "react-markdown",
+      "radix-ui",
+    ],
   },
   plugins: [
     tailwindcss(),
