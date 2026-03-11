@@ -157,4 +157,4 @@ try {
 
 ## License
 
-Proprietary
+Proprietary.
