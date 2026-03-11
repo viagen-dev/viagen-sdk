@@ -13,6 +13,8 @@ interface Workspace {
   createdAt: string;
 }
 
+const generateRandomBranch = () => `feat-${Math.random().toString(36).slice(2, 8)}`;
+
 export function WorkspaceLauncher({
   projectId,
   allReady,
@@ -25,7 +27,7 @@ export function WorkspaceLauncher({
   onError: (message: string) => void;
 }) {
   const [prompt, setPrompt] = useState("");
-  const [branch, setBranch] = useState("feat");
+  const [branch, setBranch] = useState(() => generateRandomBranch());
   const [launching, setLaunching] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -63,6 +65,7 @@ export function WorkspaceLauncher({
       }
       onCreated(data.workspace);
       setPrompt("");
+      setBranch(generateRandomBranch());
     } catch {
       onError("Failed to launch sandbox");
     } finally {

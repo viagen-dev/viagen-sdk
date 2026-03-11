@@ -88,6 +88,8 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { cn } from "~/lib/utils";
 
+const generateRandomBranch = () => `feat-${Math.random().toString(36).slice(2, 8)}`;
+
 // ── Loader ────────────────────────────────────────────────────────────────
 
 export async function loader({ request }: { request: Request }) {
@@ -417,9 +419,7 @@ function DashboardTaskLauncher({
   projectId: string | null;
 }) {
   const [prompt, setPrompt] = useState("");
-  const [branch, setBranch] = useState(
-    () => `feat-${Math.random().toString(36).slice(2, 8)}`,
-  );
+  const [branch, setBranch] = useState(() => generateRandomBranch());
   const [model, setModel] = useState("claude-sonnet-4-6");
   const [creating, setCreating] = useState(false);
   const [stagedFiles, setStagedFiles] = useState<File[]>([]);
@@ -482,7 +482,7 @@ function DashboardTaskLauncher({
       onTaskCreated(task);
       setPrompt("");
       setStagedFiles([]);
-      setBranch(`feat-${Math.random().toString(36).slice(2, 8)}`);
+      setBranch(generateRandomBranch());
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
