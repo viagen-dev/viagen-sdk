@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Link,
   useNavigate,
@@ -1295,18 +1295,84 @@ export default function Dashboard({
 
       {/* Task Detail Panel — overlay sidebar */}
       {panelOpen && panelTaskId && panelProjectId && (
-        <div className="fixed top-[60px] right-0 w-full sm:w-[480px] border-l border-border bg-background animate-in slide-in-from-right duration-300 h-[calc(100svh-60px)] z-40">
-          <TaskDetailPanel
-            projectId={panelProjectId}
-            taskId={panelTaskId}
-            open={panelOpen}
-            onClose={closeTaskPanel}
-            onTaskChanged={fetchTasks}
-            onStatusFilterChange={switchStatusFilter}
-            projects={loaderData.projects}
+        <>
+          {/* Backdrop — click outside to close */}
+          <div
+            className="fixed inset-0 top-[60px] z-30"
+            onClick={closeTaskPanel}
           />
-        </div>
+          {/* Resizable drawer */}
+          <DrawerPanel onClose={closeTaskPanel}>
+            <TaskDetailPanel
+              projectId={panelProjectId}
+              taskId={panelTaskId}
+              open={panelOpen}
+              onClose={closeTaskPanel}
+              onTaskChanged={fetchTasks}
+              onStatusFilterChange={switchStatusFilter}
+              projects={loaderData.projects}
+            />
+          </DrawerPanel>
+        </>
       )}
+    </div>
+  );
+}
+
+// ── Resizable Drawer Panel ────────────────────────────────────────────────
+
+const MIN_WIDTH = 320;
+const MAX_WIDTH = 900;
+const DEFAULT_WIDTH = 480;
+
+function DrawerPanel({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const startWidth = useRef(DEFAULT_WIDTH);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    startX.current = e.clientX;
+    startWidth.current = width;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isDragging.current) return;
+      const delta = startX.current - ev.clientX;
+      const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
+      setWidth(next);
+    };
+
+    const onMouseUp = () => {
+      isDragging.current = false;
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  }, [width]);
+
+  return (
+    <div
+      className="fixed top-[60px] right-0 border-l border-border bg-background animate-in slide-in-from-right duration-300 h-[calc(100svh-60px)] z-40 flex"
+      style={{ width: `min(${width}px, 100vw)` }}
+    >
+      {/* Resize handle */}
+      <div
+        className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors z-10 group"
+        onMouseDown={onMouseDown}
+      >
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 rounded-full bg-border group-hover:bg-primary/40 transition-colors" />
+      </div>
+      <div className="flex-1 overflow-hidden">{children}</div>
     </div>
   );
 }
