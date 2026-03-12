@@ -27,12 +27,18 @@ export async function loader({
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
 
-  // Return all active workspaces (not expired)
+  // Return only running workspaces (not expired, not still provisioning).
+  // Provisioning workspaces have url="" which causes the frontend to construct
+  // an invalid split-view URL with no token, resulting in a 404.
   const activeWorkspaces = await db
     .select()
     .from(workspaces)
     .where(
-      and(eq(workspaces.projectId, id), gt(workspaces.expiresAt, new Date())),
+      and(
+        eq(workspaces.projectId, id),
+        gt(workspaces.expiresAt, new Date()),
+        eq(workspaces.status, "running"),
+      ),
     )
     .orderBy(desc(workspaces.createdAt));
 
