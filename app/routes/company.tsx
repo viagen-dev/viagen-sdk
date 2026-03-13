@@ -135,9 +135,6 @@ export default function CompanyPage() {
           <div className="flex flex-col gap-3">
             <Muted>Terms &amp; policies</Muted>
             <nav className="flex flex-col gap-3">
-              <Link to="/terms" className="text-sm font-medium hover:underline">
-                Terms of use
-              </Link>
               <Link
                 to="/privacy"
                 className="text-sm font-medium hover:underline"
