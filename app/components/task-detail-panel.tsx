@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
+import { useTaskStore, useTask, useWorkspaces, useIsLaunching } from "~/store/task-store";
 import { toast } from "sonner";
 import {
   ChevronDown,
@@ -93,66 +94,9 @@ import { cn } from "~/lib/utils";
 import { WorkspaceList } from "~/components/workspace-list";
 import { TaskAttachments, type Attachment } from "~/components/task-attachments";
 
-// ── Types ─────────────────────────────────────────────────────────────────
-
-export interface Project {
-  id: string;
-  name: string;
-  templateId: string | null;
-  taskPrefix: string | null;
-  vercelProjectId: string | null;
-  vercelProjectName: string | null;
-  githubRepo: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type TaskStatus =
-  | "ready"
-  | "running"
-  | "validating"
-  | "completed"
-  | "timed_out";
-
-export interface FeedTask {
-  id: string;
-  projectId: string;
-  prompt: string;
-  model: string;
-  status: TaskStatus;
-  result: string | null;
-  error: string | null;
-  prUrl: string | null;
-  workspaceId: string | null;
-  branch: string;
-  taskNumber: number | null;
-  createdBy: string;
-  creatorName: string | null;
-  creatorAvatarUrl: string | null;
-  createdAt: string;
-  startedAt: string | null;
-  completedAt: string | null;
-  durationMs: number | null;
-  inputTokens: number | null;
-  outputTokens: number | null;
-  projectName: string;
-  taskPrefix: string | null;
-  githubRepo: string | null;
-  vercelProjectId: string | null;
-  vercelProjectName: string | null;
-  prReviewStatus: string | null;
-  attachments?: Attachment[];
-}
-
-interface Workspace {
-  id: string;
-  sandboxId: string;
-  url: string;
-  expiresAt: string;
-  branch: string;
-  taskId: string | null;
-  createdAt: string;
-}
+// ── Types (re-exported from ~/types/task) ─────────────────────────────────
+export type { Project, TaskStatus, FeedTask, Workspace } from "~/types/task";
+import type { Project, FeedTask, TaskStatus } from "~/types/task";
 
 // ── Status config ─────────────────────────────────────────────────────────
 
@@ -301,7 +245,6 @@ export function TaskDetailPanel({
   taskId,
   open,
   onClose,
-  onTaskChanged,
   onStatusFilterChange,
   projects,
   variant = "drawer",
@@ -310,18 +253,19 @@ export function TaskDetailPanel({
   taskId: string;
   open: boolean;
   onClose: () => void;
-  onTaskChanged?: () => void;
   onStatusFilterChange?: (filter: string) => void;
   projects: Project[];
   variant?: "drawer" | "page";
 }) {
   const navigate = useNavigate();
-  const [task, setTask] = useState<FeedTask | null>(null);
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [launching, setLaunching] = useState(false);
-  const [launchElapsed, setLaunchElapsed] = useState(0);
-  const launchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Store-backed state ──────────────────────────────────────────────────
+  const task = useTask(taskId) ?? null;
+  const workspaces = useWorkspaces(taskId);
+  const launching = useIsLaunching(taskId);
+  const store = useTaskStore;
+  const loading = !task;
+
   const [error, setError] = useState<string | null>(null);
   const [merging, setMerging] = useState(false);
   const [reviewing, setReviewing] = useState(false);
@@ -384,48 +328,17 @@ export function TaskDetailPanel({
   const [teamMembersLoading, setTeamMembersLoading] = useState(false);
   const [teamMembersFetched, setTeamMembersFetched] = useState(false);
 
-  // Fetch task
-  const refreshTask = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/tasks/${taskId}`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.task) setTask((prev) => ({ ...prev, ...data.task }));
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false);
-    }
+  // Store fetch helpers
+  const refreshTask = useCallback(() => {
+    store.getState().fetchTask(projectId, taskId);
   }, [projectId, taskId]);
 
-  // Fetch workspaces
-  const refreshWorkspaces = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/sandbox`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.workspaces) {
-          const linked = (data.workspaces as Workspace[]).filter(
-            (w) => w.taskId === taskId,
-          );
-          setWorkspaces(linked);
-        }
-      }
-    } catch {
-      // silently fail
-    }
+  const refreshWorkspaces = useCallback(() => {
+    store.getState().fetchWorkspaces(projectId, taskId);
   }, [projectId, taskId]);
 
-  // Reset state when switching tasks
+  // Reset local UI state when switching tasks
   useEffect(() => {
-    setTask(null);
-    setWorkspaces([]);
-    setLoading(true);
     setError(null);
     setEditing(false);
     setEditPrompt("");
@@ -435,41 +348,20 @@ export function TaskDetailPanel({
     setProjectPickerOpen(false);
     setCancelOpen(false);
     setDeleteOpen(false);
-    setLaunching(false);
-    setLaunchElapsed(0);
-    refreshTask();
-    refreshWorkspaces();
   }, [projectId, taskId]);
 
-  // Initial load
+  // Detail polling: fetches this task + workspaces every 5 s while active
   useEffect(() => {
     if (!open) return;
-    setLoading(true);
-    refreshTask();
-    refreshWorkspaces();
-  }, [open, refreshTask, refreshWorkspaces]);
-
-  // Poll when active
-  const isActive = task?.status === "running" || task?.status === "validating";
-  useEffect(() => {
-    if (!open || !isActive) return;
-    const timer = setInterval(() => {
-      refreshTask();
-      refreshWorkspaces();
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [open, isActive, refreshTask, refreshWorkspaces]);
+    return store.getState().startDetailPolling(projectId, taskId);
+  }, [open, projectId, taskId]);
 
   // Launch workspace
   const handleLaunch = async () => {
     if (!task) return;
     const isRun = task.status === "ready";
-    setLaunching(true);
-    setLaunchElapsed(0);
+    store.getState().setLaunching(taskId, true);
     setError(null);
-
-    const timer = setInterval(() => setLaunchElapsed((p) => p + 1), 1000);
-    launchTimerRef.current = timer;
 
     try {
       const res = await fetch(`/api/projects/${projectId}/sandbox`, {
@@ -486,11 +378,10 @@ export function TaskDetailPanel({
 
       if (res.ok && data.workspace) {
         if (isRun) {
-          setTask((prev) => (prev ? { ...prev, status: "running" } : prev));
+          store.getState().setTask({ ...task, status: "running" });
         }
         refreshWorkspaces();
         refreshTask();
-        onTaskChanged?.();
         if (isRun) {
           onStatusFilterChange?.("review");
         }
@@ -500,9 +391,7 @@ export function TaskDetailPanel({
     } catch {
       setError("Failed to launch workspace");
     } finally {
-      setLaunching(false);
-      clearInterval(timer);
-      launchTimerRef.current = null;
+      store.getState().setLaunching(taskId, false);
     }
   };
 
@@ -519,8 +408,7 @@ export function TaskDetailPanel({
       if (res.ok) {
         toast.success("Pull request merged");
         if (data.task)
-          setTask((prev) => (prev ? { ...prev, ...data.task } : prev));
-        onTaskChanged?.();
+          store.getState().setTask({ ...task, ...data.task });
       } else {
         toast.error(data.error ?? "Failed to merge PR");
       }
@@ -553,7 +441,6 @@ export function TaskDetailPanel({
         toast.success("Review workspace launched");
         refreshWorkspaces();
         refreshTask();
-        onTaskChanged?.();
       } else {
         setError(data.error ?? "Failed to launch review workspace");
       }
@@ -593,7 +480,6 @@ export function TaskDetailPanel({
         refreshTask();
         refreshWorkspaces();
         setCancelOpen(false);
-        onTaskChanged?.();
       } else {
         toast.error(data.error ?? "Failed to cancel task");
       }
@@ -620,7 +506,7 @@ export function TaskDetailPanel({
       if (res.ok) {
         toast.success("Task deleted");
         setDeleteOpen(false);
-        onTaskChanged?.();
+        store.getState().removeTask(taskId);
         onClose();
       } else {
         toast.error(data.error ?? "Failed to delete task");
@@ -644,10 +530,9 @@ export function TaskDetailPanel({
       });
       if (res.ok) {
         const data = await res.json();
-        setTask((prev) => (prev ? { ...prev, ...data.task } : prev));
+        if (task) store.getState().setTask({ ...task, ...data.task });
         setEditing(false);
         setEditPrompt("");
-        onTaskChanged?.();
       } else {
         const data = await res.json().catch(() => ({}));
         toast.error(data.error ?? "Failed to save prompt");
@@ -675,10 +560,9 @@ export function TaskDetailPanel({
       });
       if (res.ok) {
         const data = await res.json();
-        setTask((prev) => (prev ? { ...prev, ...data.task } : prev));
+        if (task) store.getState().setTask({ ...task, ...data.task });
         setEditingBranch(false);
         setEditBranch("");
-        onTaskChanged?.();
       } else {
         const data = await res.json().catch(() => ({}));
         toast.error(data.error ?? "Failed to save branch");
@@ -708,8 +592,7 @@ export function TaskDetailPanel({
       });
       if (res.ok) {
         const data = await res.json();
-        setTask((prev) => (prev ? { ...prev, ...data.task } : prev));
-        onTaskChanged?.();
+        if (task) store.getState().setTask({ ...task, ...data.task });
       } else {
         const data = await res.json().catch(() => ({}));
         toast.error(data.error ?? "Failed to update model");
@@ -753,17 +636,14 @@ export function TaskDetailPanel({
       });
       if (res.ok) {
         const member = teamMembers.find((m) => m.id === userId);
-        setTask((prev) =>
-          prev
-            ? {
-                ...prev,
-                createdBy: userId,
-                creatorName: member?.name ?? prev.creatorName,
-                creatorAvatarUrl: member?.avatarUrl ?? prev.creatorAvatarUrl,
-              }
-            : prev,
-        );
-        onTaskChanged?.();
+        if (task) {
+          store.getState().setTask({
+            ...task,
+            createdBy: userId,
+            creatorName: member?.name ?? task.creatorName,
+            creatorAvatarUrl: member?.avatarUrl ?? task.creatorAvatarUrl,
+          });
+        }
         toast.success("Assignee updated");
       } else {
         const data = await res.json().catch(() => ({}));
@@ -787,7 +667,7 @@ export function TaskDetailPanel({
       });
       if (res.ok) {
         toast.success("Task moved to new project");
-        onTaskChanged?.();
+        store.getState().fetchAllTasks();
         onClose();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -808,9 +688,9 @@ export function TaskDetailPanel({
         body: JSON.stringify({ workspaceId }),
       });
       if (res.ok) {
-        setWorkspaces((prev) => prev.filter((w) => w.id !== workspaceId));
+        // Update workspaces in store
+        store.getState().fetchWorkspaces(projectId, taskId);
         refreshTask();
-        onTaskChanged?.();
       }
     } catch {
       // ignore
@@ -1175,9 +1055,9 @@ export function TaskDetailPanel({
                 projectId={projectId}
                 taskId={task.id}
                 attachments={task.attachments ?? []}
-                onChanged={(atts) =>
-                  setTask((prev) => prev ? { ...prev, attachments: atts } : prev)
-                }
+                onChanged={(atts) => {
+                  if (task) store.getState().setTask({ ...task, attachments: atts });
+                }}
                 readOnly={task.status !== "ready"}
               />
             </div>
@@ -1292,7 +1172,7 @@ export function TaskDetailPanel({
                 {launching ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin" />
-                    Launching… {launchElapsed}s
+                    Launching…
                   </>
                 ) : (
                   <>
@@ -1351,7 +1231,7 @@ export function TaskDetailPanel({
                   {launching ? (
                     <>
                       <Loader2 className="size-3.5 animate-spin" />
-                      Launching… {launchElapsed}s
+                      Launching…
                     </>
                   ) : (
                     <>
@@ -1444,8 +1324,8 @@ export function TaskDetailPanel({
                   <WorkspaceList
                     projectId={projectId}
                     workspaces={workspaces}
-                    onStopped={(id) =>
-                      setWorkspaces((prev) => prev.filter((w) => w.id !== id))
+                    onStopped={() =>
+                      store.getState().fetchWorkspaces(projectId, taskId)
                     }
                   />
                 </div>

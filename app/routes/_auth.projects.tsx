@@ -36,7 +36,8 @@ import {
   VercelIcon,
   GitHubIcon,
 } from "~/components/task-detail-panel";
-import type { FeedTask, Project, TaskStatus } from "~/components/task-detail-panel";
+import type { FeedTask, Project, TaskStatus } from "~/types/task";
+import { useTaskStore, useTaskList, useIsLaunching } from "~/store/task-store";
 
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
@@ -595,8 +596,9 @@ function TaskFeedItem({
   onOpen: (task: FeedTask) => void;
   isSelected?: boolean;
 }) {
+  const isLaunching = useIsLaunching(task.id);
   const config = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.ready;
-  const StatusIcon = config.icon;
+  const StatusIcon = isLaunching ? Loader2 : config.icon;
 
   return (
     <div
@@ -644,15 +646,15 @@ function TaskFeedItem({
 
           {/* Meta badges — right-aligned */}
           <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
-            <Badge variant="outline" className={config.badgeClassName}>
+            <Badge variant="outline" className={isLaunching ? STATUS_CONFIG.running.badgeClassName : config.badgeClassName}>
               <StatusIcon
                 className={cn(
                   "size-3",
-                  config.className,
-                  task.status === "running" ? "animate-spin" : "",
+                  isLaunching ? "text-blue-500 animate-spin" : config.className,
+                  !isLaunching && task.status === "running" ? "animate-spin" : "",
                 )}
               />
-              {config.label}
+              {isLaunching ? "Launching..." : config.label}
             </Badge>
 
             {task.prUrl && (
@@ -733,9 +735,10 @@ export default function Dashboard({
     setPanelProjectId(null);
   }, []);
 
-  // Task feed state
-  const [tasks, setTasks] = useState<FeedTask[]>([]);
-  const [tasksLoading, setTasksLoading] = useState(true);
+  // Task feed state (from Zustand store)
+  const tasks = useTaskList();
+  const tasksLoaded = useTaskStore((s) => s.tasksLoaded);
+  const tasksLoading = !tasksLoaded;
   const [statusFilter, setStatusFilter] = useState<string | null>("backlog");
 
   // Flag to skip closing panel when tab change is programmatic (e.g. after launching a task)
@@ -909,40 +912,14 @@ export default function Dashboard({
     }
   }, [searchParams, setSearchParams, revalidator]);
 
-  // Fetch tasks
-  const fetchTasks = useCallback(async () => {
-    try {
-      const res = await fetch("/api/tasks", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setTasks(data.tasks ?? []);
-      }
-    } catch {
-      // silently fail, tasks will show as empty
-    } finally {
-      setTasksLoading(false);
-    }
+  // Start store polling (8 s active / 30 s idle)
+  useEffect(() => {
+    return useTaskStore.getState().startPolling();
   }, []);
-
-  useEffect(() => {
-    setTasksLoading(true);
-    fetchTasks();
-  }, [fetchTasks]);
-
-  // Poll for task updates: fast when tasks are active, gentle when idle
-  const hasActiveTasks = tasks.some(
-    (t) => t.status === "running" || t.status === "validating",
-  );
-
-  useEffect(() => {
-    const interval = hasActiveTasks ? 8_000 : 30_000;
-    const timer = setInterval(fetchTasks, interval);
-    return () => clearInterval(timer);
-  }, [hasActiveTasks, fetchTasks]);
 
   // Handle new task created from the launcher
   const handleTaskCreated = useCallback((task: FeedTask) => {
-    setTasks((prev) => [task, ...prev]);
+    useTaskStore.getState().setTask(task);
 
     // Auto-switch to new task and highlight it
     // If we're on review or completed tab, switch to backlog since new tasks have status "ready"
@@ -1308,7 +1285,6 @@ export default function Dashboard({
               taskId={panelTaskId}
               open={panelOpen}
               onClose={closeTaskPanel}
-              onTaskChanged={fetchTasks}
               onStatusFilterChange={switchStatusFilter}
               projects={loaderData.projects}
             />

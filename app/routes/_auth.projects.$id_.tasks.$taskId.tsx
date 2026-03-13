@@ -7,7 +7,7 @@ import { log } from "~/lib/logger.server";
 import { getSecret } from "~/lib/infisical.server";
 import { parsePrUrl, isPrMerged } from "~/lib/github.server";
 import { TaskDetailPanel } from "~/components/task-detail-panel";
-import type { Project } from "~/components/task-detail-panel";
+import type { Project } from "~/types/task";
 
 interface ParentData {
   user: { id: string; email: string; name: string | null; avatarUrl: string | null };
