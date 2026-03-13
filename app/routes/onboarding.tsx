@@ -45,18 +45,18 @@ export default function Onboarding({
   // redirect them to the projects page
   const newTeam = searchParams.get("new_team");
   if (hasOrg && newTeam !== "true" && typeof window !== "undefined") {
-    navigate("/", { replace: true });
+    navigate("/dashboard", { replace: true });
     return null;
   }
 
   const handleOrgCreated = (orgId: string) => {
     document.cookie = `viagen-org=${orgId}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
     // Full reload so the _auth layout re-runs with the new org's integration status
-    window.location.href = "/";
+    window.location.href = "/dashboard";
   };
 
   const handleCancel = () => {
-    navigate("/", { replace: true });
+    navigate("/dashboard", { replace: true });
   };
 
   return (

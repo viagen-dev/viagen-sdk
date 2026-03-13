@@ -1,4 +1,9 @@
-import { redirect, useNavigate, useParams, useRouteLoaderData } from "react-router";
+import {
+  redirect,
+  useNavigate,
+  useParams,
+  useRouteLoaderData,
+} from "react-router";
 import { requireAuth, serializeCookie } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, tasks } from "~/lib/db/schema";
@@ -10,7 +15,12 @@ import { TaskDetailPanel } from "~/components/task-detail-panel";
 import type { Project } from "~/types/task";
 
 interface ParentData {
-  user: { id: string; email: string; name: string | null; avatarUrl: string | null };
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    avatarUrl: string | null;
+  };
   currentOrg: { id: string; name: string };
   organizations: { id: string; name: string; role: string }[];
   integrations: { github: boolean; vercel: boolean; claude: boolean };
@@ -52,17 +62,25 @@ export async function loader({
         // org cookie and redirect back to this same URL so that the full layout
         // (navbar, integrations, etc.) also picks up the correct org.
         log.info(
-          { projectId: params.id, fromOrgId: org.id, toOrgId: projectAny.organizationId },
+          {
+            projectId: params.id,
+            fromOrgId: org.id,
+            toOrgId: projectAny.organizationId,
+          },
           "task detail page: switching org context to match project's org",
         );
         const url = new URL(request.url);
         throw redirect(url.pathname + url.search, {
           headers: {
-            "Set-Cookie": serializeCookie("viagen-org", projectAny.organizationId, {
-              path: "/",
-              maxAge: 60 * 60 * 24 * 365,
-              sameSite: "Lax",
-            }),
+            "Set-Cookie": serializeCookie(
+              "viagen-org",
+              projectAny.organizationId,
+              {
+                path: "/",
+                maxAge: 60 * 60 * 24 * 365,
+                sameSite: "Lax",
+              },
+            ),
           },
         });
       }
@@ -90,12 +108,20 @@ export async function loader({
   }
 
   // Auto-complete if PR has been merged
-  if ((task.status === "validating" || task.status === "timed_out") && task.prUrl) {
+  if (
+    (task.status === "validating" || task.status === "timed_out") &&
+    task.prUrl
+  ) {
     try {
       const githubToken = await getSecret(org.id, "GITHUB_TOKEN");
       const parsed = parsePrUrl(task.prUrl);
       if (githubToken && parsed) {
-        const merged = await isPrMerged(githubToken, parsed.owner, parsed.repo, parsed.number);
+        const merged = await isPrMerged(
+          githubToken,
+          parsed.owner,
+          parsed.repo,
+          parsed.number,
+        );
         if (merged) {
           log.info(
             { projectId: project.id, taskId: task.id, prUrl: task.prUrl },
@@ -113,7 +139,11 @@ export async function loader({
       }
     } catch (err) {
       log.warn(
-        { projectId: project.id, taskId: task.id, error: err instanceof Error ? err.message : "unknown" },
+        {
+          projectId: project.id,
+          taskId: task.id,
+          error: err instanceof Error ? err.message : "unknown",
+        },
         "task detail page: failed to check PR merge status (non-fatal)",
       );
     }
@@ -150,7 +180,7 @@ export default function TaskDetailPage({
         projectId={loaderData.project.id}
         taskId={loaderData.task.id}
         open={true}
-        onClose={() => navigate("/")}
+        onClose={() => navigate("/dashboard")}
         variant="page"
         projects={loaderData.projects}
       />

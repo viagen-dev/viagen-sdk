@@ -187,9 +187,16 @@ export function inferPrefix(name: string): string {
 
 export function shortTaskId(
   id: string,
-  opts?: { prefix?: string | null; projectName?: string | null; taskNumber?: number | null },
+  opts?: {
+    prefix?: string | null;
+    projectName?: string | null;
+    taskNumber?: number | null;
+  },
 ): string {
-  const prefix = opts?.prefix || (opts?.projectName ? inferPrefix(opts.projectName) : null) || "VI";
+  const prefix =
+    opts?.prefix ||
+    (opts?.projectName ? inferPrefix(opts.projectName) : null) ||
+    "VI";
   const num = opts?.taskNumber;
   if (num != null) {
     return `${prefix}-${num}`;
@@ -716,7 +723,7 @@ export function TaskDetailPanel({
   // Close button: in page variant, navigate back to dashboard
   const handleClose = () => {
     if (variant === "page") {
-      navigate("/");
+      navigate("/dashboard");
     } else {
       onClose();
     }
@@ -815,10 +822,7 @@ export function TaskDetailPanel({
   const projectSection = task && (
     <div className="flex items-center">
       <Small className="w-28 shrink-0">Project</Small>
-      <Popover
-        open={projectPickerOpen}
-        onOpenChange={setProjectPickerOpen}
-      >
+      <Popover open={projectPickerOpen} onOpenChange={setProjectPickerOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="ghost"
@@ -848,9 +852,7 @@ export function TaskDetailPanel({
                     <Check
                       className={cn(
                         "ml-auto size-3.5",
-                        task.projectId === p.id
-                          ? "opacity-100"
-                          : "opacity-0",
+                        task.projectId === p.id ? "opacity-100" : "opacity-0",
                       )}
                     />
                   </CommandItem>
@@ -963,7 +965,12 @@ export function TaskDetailPanel({
         onClick={() => setTaskOpen((v) => !v)}
       >
         <div className="flex items-center gap-2">
-          <ChevronDown className={cn("size-3.5 transition-transform", taskOpen ? "" : "-rotate-90")} />
+          <ChevronDown
+            className={cn(
+              "size-3.5 transition-transform",
+              taskOpen ? "" : "-rotate-90",
+            )}
+          />
           <CardTitle className="text-sm">Task</CardTitle>
         </div>
         <div className="flex items-center gap-1">
@@ -1024,7 +1031,10 @@ export function TaskDetailPanel({
                 autoFocus
                 className="min-h-[60px] resize-none overflow-hidden border-0 bg-transparent px-0 shadow-none text-sm leading-relaxed focus-visible:ring-0 transition-colors"
               />
-              <div className="flex items-center justify-end gap-2" data-prompt-actions>
+              <div
+                className="flex items-center justify-end gap-2"
+                data-prompt-actions
+              >
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1038,7 +1048,11 @@ export function TaskDetailPanel({
                 <Button
                   size="sm"
                   onClick={savePrompt}
-                  disabled={saving || !editPrompt.trim() || editPrompt.trim() === task.prompt}
+                  disabled={
+                    saving ||
+                    !editPrompt.trim() ||
+                    editPrompt.trim() === task.prompt
+                  }
                 >
                   {saving ? "Saving…" : "Save"}
                 </Button>
@@ -1074,7 +1088,12 @@ export function TaskDetailPanel({
         onClick={() => setPreviewOpen((v) => !v)}
       >
         <div className="flex items-center gap-2">
-          <ChevronDown className={cn("size-3.5 transition-transform", previewOpen ? "" : "-rotate-90")} />
+          <ChevronDown
+            className={cn(
+              "size-3.5 transition-transform",
+              previewOpen ? "" : "-rotate-90",
+            )}
+          />
           <CardTitle className="text-sm">Preview</CardTitle>
         </div>
         {previewOpen && (
@@ -1180,11 +1199,7 @@ export function TaskDetailPanel({
               <Muted className="text-xs">
                 Launch a sandbox to preview changes.
               </Muted>
-              <Button
-                onClick={handleLaunch}
-                disabled={launching}
-                size="sm"
-              >
+              <Button onClick={handleLaunch} disabled={launching} size="sm">
                 {launching ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin" />
@@ -1211,7 +1226,12 @@ export function TaskDetailPanel({
         onClick={() => setResultsOpen((v) => !v)}
       >
         <div className="flex items-center gap-2">
-          <ChevronDown className={cn("size-3.5 transition-transform", resultsOpen ? "" : "-rotate-90")} />
+          <ChevronDown
+            className={cn(
+              "size-3.5 transition-transform",
+              resultsOpen ? "" : "-rotate-90",
+            )}
+          />
           <CardTitle className="text-sm">Results</CardTitle>
         </div>
       </CardHeader>
@@ -1228,7 +1248,12 @@ export function TaskDetailPanel({
   return (
     <>
       <div className="flex h-full flex-col overflow-y-auto overflow-x-hidden">
-        <div className={cn("flex flex-col gap-4 p-4 sm:p-6", variant === "page" && "mx-auto w-full max-w-2xl")}>
+        <div
+          className={cn(
+            "flex flex-col gap-4 p-4 sm:p-6",
+            variant === "page" && "mx-auto w-full max-w-2xl",
+          )}
+        >
           {loading || !task ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -1279,7 +1304,12 @@ export function TaskDetailPanel({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => window.open(`/projects/${projectId}/tasks/${taskId}`, "_blank")}
+                      onClick={() =>
+                        window.open(
+                          `/projects/${projectId}/tasks/${taskId}`,
+                          "_blank",
+                        )
+                      }
                     >
                       <ExternalLink className="size-4" />
                     </Button>
@@ -1299,7 +1329,11 @@ export function TaskDetailPanel({
                 <CardHeader className="flex flex-row items-center justify-between space-y-0">
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-base">
-                      {shortTaskId(task.id, { prefix: task.taskPrefix, projectName: task.projectName, taskNumber: task.taskNumber })}
+                      {shortTaskId(task.id, {
+                        prefix: task.taskPrefix,
+                        projectName: task.projectName,
+                        taskNumber: task.taskNumber,
+                      })}
                     </CardTitle>
                     <Muted>{timeAgo(task.createdAt)}</Muted>
                   </div>
@@ -1366,9 +1400,7 @@ export function TaskDetailPanel({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {task.status === "validating"
-                          ? "Review PR"
-                          : "View PR"}
+                        {task.status === "validating" ? "Review PR" : "View PR"}
                       </TooltipContent>
                     </Tooltip>
                   )}
@@ -1431,9 +1463,15 @@ export function TaskDetailPanel({
                             : ""
                       }
                     >
-                      {task.prReviewStatus === "pass" && <ShieldCheck className="size-3 mr-1" />}
-                      {task.prReviewStatus === "flag" && <ShieldAlert className="size-3 mr-1" />}
-                      {task.prReviewStatus === "fail" && <ShieldX className="size-3 mr-1" />}
+                      {task.prReviewStatus === "pass" && (
+                        <ShieldCheck className="size-3 mr-1" />
+                      )}
+                      {task.prReviewStatus === "flag" && (
+                        <ShieldAlert className="size-3 mr-1" />
+                      )}
+                      {task.prReviewStatus === "fail" && (
+                        <ShieldX className="size-3 mr-1" />
+                      )}
                       {task.prReviewStatus}
                     </Badge>
                   )}
@@ -1472,7 +1510,12 @@ export function TaskDetailPanel({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => window.open(`/projects/${projectId}/tasks/${taskId}`, "_blank")}
+                      onClick={() =>
+                        window.open(
+                          `/projects/${projectId}/tasks/${taskId}`,
+                          "_blank",
+                        )
+                      }
                     >
                       <ExternalLink className="size-4" />
                     </Button>
@@ -1492,7 +1535,11 @@ export function TaskDetailPanel({
                 <CardHeader className="flex flex-row items-center justify-between space-y-0">
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-base">
-                      {shortTaskId(task.id, { prefix: task.taskPrefix, projectName: task.projectName, taskNumber: task.taskNumber })}
+                      {shortTaskId(task.id, {
+                        prefix: task.taskPrefix,
+                        projectName: task.projectName,
+                        taskNumber: task.taskNumber,
+                      })}
                     </CardTitle>
                     <Muted>{timeAgo(task.createdAt)}</Muted>
                   </div>

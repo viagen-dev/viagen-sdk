@@ -162,7 +162,6 @@ export default function Settings() {
   const [orgKeyInput, setOrgKeyInput] = useState("");
   const [savingOrgKey, setSavingOrgKey] = useState(false);
 
-
   // Handle OAuth redirect: update connection state, then clean up URL params
   useEffect(() => {
     const connected = searchParams.get("connected");
@@ -362,7 +361,7 @@ export default function Settings() {
       const otherOrg = organizations.find((o) => o.id !== currentOrg.id);
       if (otherOrg) {
         document.cookie = `viagen-org=${otherOrg.id}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-        window.location.href = "/";
+        window.location.href = "/dashboard";
       } else {
         navigate("/onboarding");
       }
@@ -1107,7 +1106,7 @@ export default function Settings() {
                                   );
                                   if (otherOrg) {
                                     document.cookie = `viagen-org=${otherOrg.id}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-                                    window.location.href = "/";
+                                    window.location.href = "/dashboard";
                                   } else {
                                     window.location.href = "/onboarding";
                                   }
@@ -1127,7 +1126,6 @@ export default function Settings() {
               )}
             </>
           )}
-
         </div>
       </div>
     </div>

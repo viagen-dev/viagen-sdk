@@ -559,7 +559,7 @@ export function ProjectSettingsPanel({
         for (const w of data.warnings) toast.warning(w);
       }
       toast.success("Project deleted");
-      navigate("/");
+      navigate("/dashboard");
     } catch {
       toast.error("Failed to delete project");
     } finally {
@@ -630,7 +630,9 @@ export function ProjectSettingsPanel({
         <CardHeader>
           <CardTitle>Task Prefix</CardTitle>
           <CardDescription>
-            Short code used in task IDs (e.g. <span className="font-mono">VGN-12</span>). If empty, a prefix is inferred from the project name.
+            Short code used in task IDs (e.g.{" "}
+            <span className="font-mono">VGN-12</span>). If empty, a prefix is
+            inferred from the project name.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -638,7 +640,12 @@ export function ProjectSettingsPanel({
             type="text"
             value={taskPrefix}
             onChange={(e) => {
-              setTaskPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10));
+              setTaskPrefix(
+                e.target.value
+                  .toUpperCase()
+                  .replace(/[^A-Z0-9]/g, "")
+                  .slice(0, 10),
+              );
               setPrefixSaved(false);
             }}
             placeholder="e.g. VGN"

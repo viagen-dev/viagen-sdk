@@ -128,8 +128,8 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
       return;
     }
     document.cookie = `viagen-org=${value}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-    // Redirect to projects index to avoid 404s on team-specific pages
-    window.location.href = "/";
+    // Redirect to dashboard to avoid 404s on team-specific pages
+    window.location.href = "/dashboard";
   };
 
   const handleLogout = async () => {
@@ -140,7 +140,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
     navigate("/login");
   };
 
-  const isProjectsIndex = location.pathname === "/";
+  const isProjectsIndex = location.pathname === "/dashboard";
 
   const userInitials = user.name
     ? user.name
@@ -157,14 +157,14 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
         <div className="grid h-[60px] grid-cols-3 items-center px-6">
           <div className="flex items-center">
             {isProjectsIndex ? (
-              <Link to="/" className="no-underline">
+              <Link to="/dashboard" className="no-underline">
                 <ViagenLogo className="size-8" />
               </Link>
             ) : (
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/dashboard")}
               >
                 <ArrowLeft className="size-4" />
               </Button>
@@ -256,7 +256,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
       <main className="mt-[60px] flex-1 bg-muted/30">
         {location.pathname === "/settings" ? (
           <Outlet />
-        ) : location.pathname === "/" ? (
+        ) : location.pathname === "/dashboard" ? (
           <div className="w-full px-6 py-8">
             <Outlet />
           </div>

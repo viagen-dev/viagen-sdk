@@ -493,7 +493,7 @@ Do NOT write or modify any code — you are only reviewing.
 - viagen_list_tasks — List tasks in this project. Use status to filter (ready, running, validating, completed, timed_out).
 - viagen_get_task — Get full details of a task by ID, including its prompt, status, branch, and PR URL.
 - viagen_create_task — Create a follow-up task if you discover work outside the review scope.
-- viagen_update_task — Report your review verdict. You MUST include prReviewStatus ("pass", "flag", or "fail") along with result, inputTokens, outputTokens, and costUsd. A review without prReviewStatus is considered incomplete.
+- viagen_update_task — Report your review verdict. You MUST include prReviewStatus ("approved", "changes_requested", or "commented") along with result, inputTokens, outputTokens, and costUsd. A review without prReviewStatus is considered incomplete.
 
 GITHUB_TOKEN is available in your environment for GitHub API calls via fetch.${reviewCallbackSnippet}`;
         }
