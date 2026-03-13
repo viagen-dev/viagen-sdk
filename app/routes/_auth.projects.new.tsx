@@ -339,7 +339,7 @@ export default function NewProject() {
         return;
       }
 
-      navigate("/");
+      navigate("/dashboard");
     } catch {
       setError("Something went wrong");
     } finally {

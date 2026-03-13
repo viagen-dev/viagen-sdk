@@ -8,13 +8,18 @@ import {
 
 export default [
   // Public pages
+  index("routes/home.tsx"),
   route("login", "routes/login.tsx"),
+  route("privacy", "routes/privacy.tsx"),
+  route("terms", "routes/terms.tsx"),
+  route("company", "routes/company.tsx"),
+  route("request-invite", "routes/early-access.tsx"),
   route("onboarding", "routes/onboarding.tsx"),
   route("cli/authorize", "routes/cli.authorize.tsx"),
 
   // Authenticated layout
   layout("routes/_auth.tsx", [
-    index("routes/_auth.projects.tsx"),
+    route("dashboard", "routes/_auth.projects.tsx"),
     route("projects/new", "routes/_auth.projects.new.tsx"),
     route("projects/:id/settings", "routes/_auth.projects.$id_.settings.tsx"),
     route("projects/:id/deploys", "routes/_auth.projects.$id_.deploys.tsx"),
@@ -76,7 +81,10 @@ export default [
     "routes/api.projects.$id.tasks.$taskId.attachments.ts",
   ),
   route("api/tasks", "routes/api.tasks.ts"),
-  route("api/projects/:id/deployments", "routes/api.projects.$id.deployments.ts"),
+  route(
+    "api/projects/:id/deployments",
+    "routes/api.projects.$id.deployments.ts",
+  ),
   route("api/vercel/projects", "routes/api.vercel.projects.ts"),
   route("api/github/repos", "routes/api.github.repos.ts"),
   route(
