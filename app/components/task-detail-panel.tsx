@@ -1091,12 +1091,27 @@ export function TaskDetailPanel({
             workspaces.map((ws) => {
               const { domain, token } = parseWsUrl(ws.url);
               const splitUrl = `${domain}/via/iframe/t/${token}`;
+              const isProvisioning = ws.status === "provisioning";
               return (
                 <CardFooter key={ws.id} className="justify-between">
-                  <Muted className="text-xs">
-                    {timeAgo(ws.createdAt)}
-                  </Muted>
-                  <div className="flex shrink-0 items-center gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <Muted className="text-xs">
+                      {timeAgo(ws.createdAt)}
+                    </Muted>
+                    {ws.taskType && (
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {ws.taskType}
+                      </Badge>
+                    )}
+                    {isProvisioning && (
+                      <Muted className="text-xs flex items-center gap-1">
+                        <Loader2 className="size-3 animate-spin" />
+                        Provisioning…
+                      </Muted>
+                    )}
+                  </div>
+                  {!isProvisioning && (
+                    <div className="flex shrink-0 items-center gap-1.5">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
@@ -1156,6 +1171,7 @@ export function TaskDetailPanel({
                         <TooltipContent>Stop workspace</TooltipContent>
                       </Tooltip>
                     </div>
+                  )}
                 </CardFooter>
               );
             })

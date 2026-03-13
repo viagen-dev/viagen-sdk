@@ -329,6 +329,7 @@ export async function action({
         vercelProjectId: project.vercelProjectId ?? null,
         viagenProjectId: id,
         taskId: taskId ?? undefined,
+        taskType: reviewMode ? "review" : "build",
         status: "provisioning",
         createdBy: user.id,
       })

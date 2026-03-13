@@ -56,5 +56,7 @@ export interface Workspace {
   expiresAt: string;
   branch: string;
   taskId: string | null;
+  taskType: string | null;
+  status: string;
   createdAt: string;
 }

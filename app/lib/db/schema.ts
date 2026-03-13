@@ -96,6 +96,7 @@ export const workspaces = pgTable("workspaces", {
   vercelProjectId: varchar("vercel_project_id", { length: 255 }),
   viagenProjectId: uuid("viagen_project_id"),
   taskId: uuid("task_id"),
+  taskType: varchar("task_type", { length: 32 }),
   status: varchar("status", { length: 32 }).notNull().default("provisioning"),
   createdBy: uuid("created_by")
     .notNull()
