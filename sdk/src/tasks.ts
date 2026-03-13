@@ -81,6 +81,16 @@ export interface CancelTaskInput {
   newBranch?: string
 }
 
+export interface TaskAttachment {
+  id: string
+  taskId: string
+  filename: string
+  blobUrl: string
+  contentType: string
+  sizeBytes: number
+  createdAt: string
+}
+
 export interface TasksClient {
   /** List tasks for a project, optionally filtered by status. */
   list(projectId: string, status?: string): Promise<Task[]>
@@ -94,6 +104,8 @@ export interface TasksClient {
   merge(projectId: string, taskId: string): Promise<MergeResult>
   /** Cancel a task: stop sandbox, optionally close PR, reset to ready. */
   cancel(projectId: string, taskId: string, input?: CancelTaskInput): Promise<Task>
+  /** Upload a file attachment to a task. Task must be in 'ready' status. */
+  addAttachment(projectId: string, taskId: string, file: File | Blob, filename: string): Promise<TaskAttachment>
   /** List tasks across all projects in the org. */
   listTeam(options?: ListTeamOptions): Promise<TeamTask[]>
   /** Create a task with auto project creation (find-or-create by repo + Vercel project). */
@@ -135,6 +147,16 @@ export function createTasksClient(_baseUrl: string, request: RequestFn): TasksCl
       return request<MergeResult>(`/api/projects/${projectId}/tasks/${taskId}/merge`, {
         method: 'POST',
       })
+    },
+
+    async addAttachment(projectId, taskId, file, filename) {
+      const form = new FormData()
+      form.append('file', file, filename)
+      const data = await request<{ attachment: TaskAttachment }>(
+        `/api/projects/${projectId}/tasks/${taskId}/attachments`,
+        { method: 'POST', body: form },
+      )
+      return data.attachment
     },
 
     async cancel(projectId, taskId, input = {}) {

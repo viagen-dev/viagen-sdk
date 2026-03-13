@@ -38,6 +38,7 @@ export type {
 export type {
   Task,
   TeamTask,
+  TaskAttachment,
   CreateTaskInput,
   UpdateTaskInput,
   CreateTeamTaskInput,
@@ -88,8 +89,10 @@ export function createViagen(config: ViagenConfig): ViagenClient {
   const baseUrl = config.baseUrl.replace(/\/+$/, "");
 
   async function request<T>(path: string, options?: RequestInit): Promise<T> {
+    const isFormData = options?.body instanceof FormData;
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
+      // Don't set Content-Type for FormData — let the runtime set the multipart boundary
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       Accept: "application/json",
       ...(options?.headers as Record<string, string>),
     };
