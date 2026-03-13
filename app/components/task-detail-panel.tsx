@@ -1110,69 +1110,87 @@ export function TaskDetailPanel({
             workspaces.map((ws) => {
               const { domain, token } = parseWsUrl(ws.url);
               const splitUrl = `${domain}/via/iframe/t/${token}`;
+              const isProvisioning = ws.status === "provisioning";
               return (
                 <CardFooter key={ws.id} className="justify-between">
-                  <Muted className="text-xs">{timeAgo(ws.createdAt)}</Muted>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          size="icon-sm"
-                          variant="outline"
-                          className="size-7"
-                          asChild
-                        >
-                          <a
-                            href={splitUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <Columns2 className="size-3.5" />
-                          </a>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Split view</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          size="icon-sm"
-                          variant="outline"
-                          className="size-7"
-                          onClick={() => {
-                            navigator.clipboard.writeText(ws.url);
-                            setCopiedWs(ws.id);
-                            setTimeout(() => setCopiedWs(null), 2000);
-                          }}
-                        >
-                          {copiedWs === ws.id ? (
-                            <Check className="size-3.5" />
-                          ) : (
-                            <Copy className="size-3.5" />
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Copy URL</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          size="icon-sm"
-                          variant="outline"
-                          className="size-7 text-destructive hover:bg-destructive/10"
-                          disabled={stoppingWs === ws.id}
-                          onClick={() => handleStopWorkspace(ws.id)}
-                        >
-                          {stoppingWs === ws.id ? (
-                            <Loader2 className="size-3.5 animate-spin" />
-                          ) : (
-                            <Square className="size-3.5" />
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Stop workspace</TooltipContent>
-                    </Tooltip>
+                  <div className="flex items-center gap-2">
+                    <Muted className="text-xs">
+                      {timeAgo(ws.createdAt)}
+                    </Muted>
+                    {ws.taskType && (
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {ws.taskType}
+                      </Badge>
+                    )}
+                    {isProvisioning && (
+                      <Muted className="text-xs flex items-center gap-1">
+                        <Loader2 className="size-3 animate-spin" />
+                        Provisioning…
+                      </Muted>
+                    )}
                   </div>
+                  {!isProvisioning && (
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon-sm"
+                            variant="outline"
+                            className="size-7"
+                            asChild
+                          >
+                            <a
+                              href={splitUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Columns2 className="size-3.5" />
+                            </a>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Split view</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon-sm"
+                            variant="outline"
+                            className="size-7"
+                            onClick={() => {
+                              navigator.clipboard.writeText(ws.url);
+                              setCopiedWs(ws.id);
+                              setTimeout(() => setCopiedWs(null), 2000);
+                            }}
+                          >
+                            {copiedWs === ws.id ? (
+                              <Check className="size-3.5" />
+                            ) : (
+                              <Copy className="size-3.5" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Copy URL</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon-sm"
+                            variant="outline"
+                            className="size-7 text-destructive hover:bg-destructive/10"
+                            disabled={stoppingWs === ws.id}
+                            onClick={() => handleStopWorkspace(ws.id)}
+                          >
+                            {stoppingWs === ws.id ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Square className="size-3.5" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Stop workspace</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  )}
                 </CardFooter>
               );
             })

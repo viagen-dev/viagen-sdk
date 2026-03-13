@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
+import { Badge } from "~/components/ui/badge";
 import {
   Loader2,
   GitBranch,
@@ -18,6 +19,8 @@ interface Workspace {
   expiresAt: string;
   branch: string;
   taskId: string | null;
+  taskType: string | null;
+  status: string;
   createdAt: string;
 }
 
@@ -90,6 +93,7 @@ export function WorkspaceList({
           const viewUrl = `${domain}/t/${token}`;
           const splitUrl = `${domain}/via/iframe/t/${token}`;
           const codeUrl = `${domain}/via/ui/t/${token}`;
+          const isProvisioning = ws.status === "provisioning";
 
           return (
             <div
@@ -99,76 +103,89 @@ export function WorkspaceList({
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="font-medium">{ws.branch}</span>
+                {ws.taskType && (
+                  <Badge variant="outline" className="text-xs capitalize">
+                    {ws.taskType}
+                  </Badge>
+                )}
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {timeAgo(ws.createdAt)}
                 </span>
+                {isProvisioning && (
+                  <span className="shrink-0 text-xs text-muted-foreground flex items-center gap-1">
+                    <Loader2 className="size-3 animate-spin" />
+                    Provisioning…
+                  </span>
+                )}
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <Button
-                  size="icon-sm"
-                  variant="outline"
-                  className="size-7"
-                  title="View app"
-                  asChild
-                >
-                  <a href={viewUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="size-3.5" />
-                  </a>
-                </Button>
-                <Button
-                  size="icon-sm"
-                  variant="outline"
-                  className="size-7"
-                  title="Split view"
-                  asChild
-                >
-                  <a href={splitUrl} target="_blank" rel="noopener noreferrer">
-                    <Columns2 className="size-3.5" />
-                  </a>
-                </Button>
-                <Button
-                  size="icon-sm"
-                  variant="outline"
-                  className="size-7"
-                  title="Code panel"
-                  asChild
-                >
-                  <a href={codeUrl} target="_blank" rel="noopener noreferrer">
-                    <Code className="size-3.5" />
-                  </a>
-                </Button>
-                <Button
-                  size="icon-sm"
-                  variant="outline"
-                  className="size-7"
-                  onClick={() => {
-                    navigator.clipboard.writeText(ws.url);
-                    setCopiedId(ws.id);
-                    setTimeout(() => setCopiedId(null), 2000);
-                  }}
-                  title="Copy URL"
-                >
-                  {copiedId === ws.id ? (
-                    <Check className="size-3.5" />
-                  ) : (
-                    <Copy className="size-3.5" />
-                  )}
-                </Button>
-                <Button
-                  size="icon-sm"
-                  variant="outline"
-                  className="size-7 text-destructive hover:bg-destructive/10"
-                  disabled={stoppingId === ws.id}
-                  onClick={() => handleStop(ws.id)}
-                  title="Stop workspace"
-                >
-                  {stoppingId === ws.id ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <Square className="size-3.5" />
-                  )}
-                </Button>
-              </div>
+              {!isProvisioning && (
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Button
+                    size="icon-sm"
+                    variant="outline"
+                    className="size-7"
+                    title="View app"
+                    asChild
+                  >
+                    <a href={viewUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="size-3.5" />
+                    </a>
+                  </Button>
+                  <Button
+                    size="icon-sm"
+                    variant="outline"
+                    className="size-7"
+                    title="Split view"
+                    asChild
+                  >
+                    <a href={splitUrl} target="_blank" rel="noopener noreferrer">
+                      <Columns2 className="size-3.5" />
+                    </a>
+                  </Button>
+                  <Button
+                    size="icon-sm"
+                    variant="outline"
+                    className="size-7"
+                    title="Code panel"
+                    asChild
+                  >
+                    <a href={codeUrl} target="_blank" rel="noopener noreferrer">
+                      <Code className="size-3.5" />
+                    </a>
+                  </Button>
+                  <Button
+                    size="icon-sm"
+                    variant="outline"
+                    className="size-7"
+                    onClick={() => {
+                      navigator.clipboard.writeText(ws.url);
+                      setCopiedId(ws.id);
+                      setTimeout(() => setCopiedId(null), 2000);
+                    }}
+                    title="Copy URL"
+                  >
+                    {copiedId === ws.id ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <Copy className="size-3.5" />
+                    )}
+                  </Button>
+                  <Button
+                    size="icon-sm"
+                    variant="outline"
+                    className="size-7 text-destructive hover:bg-destructive/10"
+                    disabled={stoppingId === ws.id}
+                    onClick={() => handleStop(ws.id)}
+                    title="Stop workspace"
+                  >
+                    {stoppingId === ws.id ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Square className="size-3.5" />
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           );
         })}
