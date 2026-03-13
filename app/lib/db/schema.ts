@@ -173,7 +173,7 @@ export const tasks = pgTable("tasks", {
   inputTokens: integer("input_tokens"),
   outputTokens: integer("output_tokens"),
   costUsd: real("cost_usd"),
-  prReviewStatus: varchar("pr_review_status", { length: 16 }),
+  prReviewStatus: varchar("pr_review_status", { length: 32 }),
 });
 
 export type User = typeof users.$inferSelect;
