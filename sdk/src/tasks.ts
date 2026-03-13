@@ -18,6 +18,7 @@ export interface Task {
   durationMs: number | null
   inputTokens: number | null
   outputTokens: number | null
+  costUsd: number | null
   prReviewStatus: string | null
 }
 
@@ -38,6 +39,7 @@ export interface UpdateTaskInput {
   durationMs?: number | null
   inputTokens?: number | null
   outputTokens?: number | null
+  costUsd?: number | null
   prReviewStatus?: string | null
 }
 

@@ -171,6 +171,8 @@ export async function action({
     durationMs?: number | null;
     inputTokens?: number | null;
     outputTokens?: number | null;
+    costUsd?: number | null;
+    prReviewStatus?: string | null;
   };
   try {
     body = await request.json();
@@ -295,6 +297,8 @@ export async function action({
   if (body.durationMs !== undefined) updates.durationMs = body.durationMs;
   if (body.inputTokens !== undefined) updates.inputTokens = body.inputTokens;
   if (body.outputTokens !== undefined) updates.outputTokens = body.outputTokens;
+  if (body.costUsd !== undefined) updates.costUsd = body.costUsd;
+  if (body.prReviewStatus !== undefined) updates.prReviewStatus = body.prReviewStatus;
 
   if (Object.keys(updates).length === 0) {
     return Response.json({ error: "No fields to update" }, { status: 400 });

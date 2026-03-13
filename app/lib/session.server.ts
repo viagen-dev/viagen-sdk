@@ -1,7 +1,8 @@
+import { createHash } from "crypto";
 import { redirect } from "react-router";
 import { validateSession, validateApiToken } from "./auth.server";
 import { db } from "./db/index.server";
-import { orgMembers, organizations, users } from "./db/schema";
+import { orgMembers, organizations, tasks, projects, users } from "./db/schema";
 import { eq } from "drizzle-orm";
 import type { User } from "./db/schema";
 import { log } from "./logger.server";
@@ -88,6 +89,13 @@ export async function getSessionUser(
       const memberships = await fetchMemberships(result.user.id);
       return { user: result.user, memberships };
     }
+
+    // 1b. Try as sandbox callback token (hashed against tasks.callbackTokenHash)
+    const sandboxResult = await validateSandboxToken(token);
+    if (sandboxResult) {
+      const memberships = await fetchMemberships(sandboxResult.user.id);
+      return { user: sandboxResult.user, memberships };
+    }
   }
 
   // 2. Fall back to session cookie (web)
@@ -167,6 +175,40 @@ export async function requireAuth(request: Request) {
     role: membership.role,
     memberships: session.memberships,
   };
+}
+
+/**
+ * Validate a sandbox callback token by hashing it and looking up a task
+ * with a matching callbackTokenHash. Returns the task creator's user record.
+ * This allows sandbox tokens to authenticate against regular API endpoints.
+ */
+async function validateSandboxToken(
+  token: string,
+): Promise<{ user: User } | null> {
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+
+  // Find any task with this callback token hash
+  const [task] = await db
+    .select({ createdBy: tasks.createdBy })
+    .from(tasks)
+    .where(eq(tasks.callbackTokenHash, tokenHash))
+    .limit(1);
+
+  if (!task) return null;
+
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, task.createdBy))
+    .limit(1);
+
+  if (!user) return null;
+
+  log.info(
+    { userId: user.id },
+    "sandbox token auth: authenticated via callbackTokenHash",
+  );
+  return { user };
 }
 
 /** Check if a role has admin-level privileges (admin or owner). */
