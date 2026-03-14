@@ -133,8 +133,14 @@ import { updateTask } from 'viagen-sdk/sandbox'
 // Report task ready for review
 await updateTask({ status: 'review', prUrl: 'https://...', result: 'Added feature X' })
 
-// Report task completed
-await updateTask({ status: 'completed', result: 'Done' })
+// Report task completed with token usage and cost
+await updateTask({
+  status: 'completed',
+  result: 'Done',
+  inputTokens: 12000,
+  outputTokens: 800,
+  costUsd: 0.05,
+})
 ```
 
 ## Error handling
