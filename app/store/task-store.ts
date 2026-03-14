@@ -62,10 +62,14 @@ export const useTaskStore = create<TaskState>()(
           let changed = !get().tasksLoaded;
           const next = { ...current };
           for (const t of incoming) {
-            if (!changed && JSON.stringify(current[t.id]) !== JSON.stringify(t)) {
+            // Preserve attachments loaded via fetchTask — the list endpoint doesn't include them
+            const merged: FeedTask = current[t.id]?.attachments
+              ? { ...t, attachments: current[t.id].attachments }
+              : t;
+            if (!changed && JSON.stringify(current[t.id]) !== JSON.stringify(merged)) {
               changed = true;
             }
-            next[t.id] = t;
+            next[t.id] = merged;
           }
           if (changed) {
             set({ tasks: next, tasksLoaded: true });

@@ -310,6 +310,12 @@ export async function action({
     .where(eq(tasks.id, taskId))
     .returning();
 
+  // Include attachments in response so the client store stays accurate
+  const attachments = await db
+    .select()
+    .from(taskAttachments)
+    .where(eq(taskAttachments.taskId, taskId));
+
   log.info(
     {
       userId: user.id,
@@ -326,5 +332,5 @@ export async function action({
     "task updated",
   );
 
-  return Response.json({ task: updated });
+  return Response.json({ task: { ...updated, attachments } });
 }
