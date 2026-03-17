@@ -587,26 +587,39 @@ function DashboardTaskLauncher({
 }
 
 
-function TaskFeedItem({
-  task,
-  onOpen,
-  isSelected,
-}: {
-  task: FeedTask;
-  onOpen: (task: FeedTask) => void;
-  isSelected?: boolean;
-}) {
+const TaskFeedItem = React.forwardRef<
+  HTMLDivElement,
+  {
+    task: FeedTask;
+    onOpen: (task: FeedTask) => void;
+    isSelected?: boolean;
+    isFocused?: boolean;
+  }
+>(({ task, onOpen, isSelected, isFocused }, ref) => {
   const isLaunching = useIsLaunching(task.id);
   const config = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.ready;
   const StatusIcon = isLaunching ? Loader2 : config.icon;
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onOpen(task);
+    }
+  };
+
   return (
     <div
+      ref={ref}
       className={cn(
-        "group flex gap-3 rounded-lg border border-border p-4 transition-all hover:border-foreground/20 cursor-pointer",
+        "group flex gap-3 rounded-lg border border-border p-4 transition-all hover:border-foreground/20 cursor-pointer outline-none",
         isSelected ? "bg-muted -ml-2 pl-6 shadow-sm" : "bg-background",
+        isFocused ? "ring-2 ring-ring ring-offset-2 border-foreground/40" : "",
       )}
       onClick={() => onOpen(task)}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      role="button"
+      aria-label={`Task: ${task.prompt}`}
     >
       {/* Avatar */}
       <div className="shrink-0 pt-0.5">
@@ -680,7 +693,9 @@ function TaskFeedItem({
       </div>
     </div>
   );
-}
+});
+
+TaskFeedItem.displayName = "TaskFeedItem";
 
 // ── Main Component ────────────────────────────────────────────────────────
 
@@ -741,6 +756,10 @@ export default function Dashboard({
   const tasksLoading = !tasksLoaded;
   const [statusFilter, setStatusFilter] = useState<string | null>("backlog");
 
+  // Keyboard navigation state
+  const [focusedTaskIndex, setFocusedTaskIndex] = useState(-1);
+  const taskRefs = useRef<(HTMLDivElement | null)[]>([]);
+
   // Flag to skip closing panel when tab change is programmatic (e.g. after launching a task)
   const skipPanelCloseRef = useRef(false);
 
@@ -768,6 +787,7 @@ export default function Dashboard({
     setStatusFilter(val);
     localStorage.setItem("viagen-status-filter", val);
   }, []);
+
 
   useEffect(() => {
     if (statusFilterRef.current === statusFilter) return;
@@ -939,6 +959,43 @@ export default function Dashboard({
         : tasks,
     [tasks, selectedProjectId],
   );
+
+  // Keyboard navigation handlers
+  const handleTaskListKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const filteredTaskList = filteredTasks(projectTasks, statusFilter);
+    if (filteredTaskList.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setFocusedTaskIndex((prev) => {
+        const next = prev < filteredTaskList.length - 1 ? prev + 1 : 0;
+        return next;
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setFocusedTaskIndex((prev) => {
+        const next = prev > 0 ? prev - 1 : filteredTaskList.length - 1;
+        return next;
+      });
+    } else if (e.key === "Enter" || e.key === " ") {
+      if (focusedTaskIndex >= 0 && focusedTaskIndex < filteredTaskList.length) {
+        e.preventDefault();
+        openTaskPanel(filteredTaskList[focusedTaskIndex]);
+      }
+    }
+  }, [focusedTaskIndex, statusFilter, projectTasks, openTaskPanel]);
+
+  // Focus management
+  useEffect(() => {
+    if (focusedTaskIndex >= 0 && taskRefs.current[focusedTaskIndex]) {
+      taskRefs.current[focusedTaskIndex]?.focus();
+    }
+  }, [focusedTaskIndex]);
+
+  // Reset focus when filter changes
+  useEffect(() => {
+    setFocusedTaskIndex(-1);
+  }, [statusFilter]);
 
   // Filter counts (respect project filter)
   const counts = useMemo(() => {
@@ -1256,13 +1313,22 @@ export default function Dashboard({
               </CardContent>
             </Card>
           ) : (
-            <div className="flex flex-col gap-2">
-              {filteredTasks(projectTasks, statusFilter).map((task) => (
+            <div
+              className="flex flex-col gap-2"
+              onKeyDown={handleTaskListKeyDown}
+              role="listbox"
+              aria-label="Task list"
+            >
+              {filteredTasks(projectTasks, statusFilter).map((task, index) => (
                 <TaskFeedItem
                   key={task.id}
                   task={task}
                   onOpen={openTaskPanel}
                   isSelected={panelOpen && panelTaskId === task.id}
+                  isFocused={index === focusedTaskIndex}
+                  ref={(el) => {
+                    taskRefs.current[index] = el;
+                  }}
                 />
               ))}
             </div>
