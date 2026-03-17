@@ -6,6 +6,8 @@ build/
 .env.test
 *.tsbuildinfo
 .viagen/
+.zed/
+
 
 
 .DS_Store
