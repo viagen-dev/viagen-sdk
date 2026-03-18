@@ -9,7 +9,7 @@ import {
 import { toast } from "sonner";
 import {
   ChevronDown,
-  ArrowDown,
+  ArrowUp,
   Loader2,
   GitBranch,
   Check,
@@ -578,7 +578,7 @@ function DashboardTaskLauncher({
           {creating ? (
             <Loader2 className="size-3.5 animate-spin" />
           ) : (
-            <ArrowDown className="size-3.5" />
+            <ArrowUp className="size-3.5" />
           )}
         </Button>
       </CardFooter>
