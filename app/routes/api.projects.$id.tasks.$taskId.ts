@@ -1,7 +1,13 @@
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { projects, tasks, users, orgMembers, taskAttachments } from "~/lib/db/schema";
+import {
+  projects,
+  tasks,
+  users,
+  orgMembers,
+  taskAttachments,
+} from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
 import { getSecret } from "~/lib/infisical.server";
 import { parsePrUrl, isPrMerged } from "~/lib/github.server";
@@ -58,7 +64,10 @@ export async function loader({
     { projectId, taskId, status: task.status, prUrl: task.prUrl ?? null },
     "task detail: PR merge check eligibility",
   );
-  if ((task.status === "validating" || task.status === "timed_out") && task.prUrl) {
+  if (
+    (task.status === "validating" || task.status === "timed_out") &&
+    task.prUrl
+  ) {
     try {
       const githubToken = await getSecret(org.id, "GITHUB_TOKEN");
       const parsed = parsePrUrl(task.prUrl);
@@ -67,7 +76,12 @@ export async function loader({
         "task detail: resolved token and parsed PR URL",
       );
       if (githubToken && parsed) {
-        const merged = await isPrMerged(githubToken, parsed.owner, parsed.repo, parsed.number);
+        const merged = await isPrMerged(
+          githubToken,
+          parsed.owner,
+          parsed.repo,
+          parsed.number,
+        );
         log.info(
           { projectId, taskId, merged },
           "task detail: PR merge check result",
@@ -79,12 +93,19 @@ export async function loader({
             .where(eq(tasks.id, taskId))
             .returning();
           if (updated) task = updated;
-          log.info({ projectId, taskId }, "task detail: PR merged, task auto-completed");
+          log.info(
+            { projectId, taskId },
+            "task detail: PR merged, task auto-completed",
+          );
         }
       }
     } catch (err) {
       log.warn(
-        { projectId, taskId, error: err instanceof Error ? err.message : "unknown" },
+        {
+          projectId,
+          taskId,
+          error: err instanceof Error ? err.message : "unknown",
+        },
         "task detail: PR merge check failed (non-fatal)",
       );
     }
@@ -159,6 +180,7 @@ export async function action({
 
   let body: {
     status?: string;
+    title?: string | null;
     prompt?: string;
     branch?: string;
     model?: string;
@@ -194,13 +216,12 @@ export async function action({
     );
   }
 
-  // Validate prompt if provided
-  if (body.prompt !== undefined && !body.prompt.trim()) {
-    return Response.json({ error: "Prompt cannot be empty" }, { status: 400 });
-  }
-
   // Validate model if provided
-  const validModels = ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5-20251001"];
+  const validModels = [
+    "claude-sonnet-4-6",
+    "claude-opus-4-6",
+    "claude-haiku-4-5-20251001",
+  ];
   if (body.model !== undefined && !validModels.includes(body.model)) {
     return Response.json(
       { error: `Invalid model. Must be one of: ${validModels.join(", ")}` },
@@ -234,6 +255,7 @@ export async function action({
   // Build the update payload — only include provided fields
   const updates: Record<string, unknown> = {};
 
+  if (body.title !== undefined) updates.title = body.title?.trim() || null;
   if (body.prompt !== undefined) updates.prompt = body.prompt.trim();
   if (body.model !== undefined) updates.model = body.model;
   if (body.branch !== undefined) {
@@ -298,7 +320,8 @@ export async function action({
   if (body.inputTokens !== undefined) updates.inputTokens = body.inputTokens;
   if (body.outputTokens !== undefined) updates.outputTokens = body.outputTokens;
   if (body.costUsd !== undefined) updates.costUsd = body.costUsd;
-  if (body.prReviewStatus !== undefined) updates.prReviewStatus = body.prReviewStatus;
+  if (body.prReviewStatus !== undefined)
+    updates.prReviewStatus = body.prReviewStatus;
 
   if (Object.keys(updates).length === 0) {
     return Response.json({ error: "No fields to update" }, { status: 400 });

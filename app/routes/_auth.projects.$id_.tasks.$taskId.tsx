@@ -1,9 +1,14 @@
+import { useCallback, useRef } from "react";
+import { redirect, useNavigate, useSearchParams, Link } from "react-router";
+import { ChevronRight, Ellipsis, Trash2 } from "lucide-react";
+import { Button } from "~/components/ui/button";
+import { SidebarToggle } from "~/components/sidebar-toggle";
 import {
-  redirect,
-  useNavigate,
-  useParams,
-  useRouteLoaderData,
-} from "react-router";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { requireAuth, serializeCookie } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, tasks } from "~/lib/db/schema";
@@ -160,30 +165,130 @@ export async function loader({
     "task detail page: rendering full page view",
   );
 
-  return { project, task, projects: allProjects };
+  return {
+    project,
+    task: {
+      id: task.id,
+      projectId: task.projectId,
+      title: task.title ?? null,
+      prompt: task.prompt,
+      taskNumber: task.taskNumber,
+    },
+    projects: allProjects,
+  };
+}
+
+import { shortTaskId } from "~/components/task-detail-panel";
+import { useTask } from "~/store/task-store";
+
+interface TaskLoaderData {
+  project: Project;
+  task: {
+    id: string;
+    projectId: string;
+    title: string | null;
+    prompt: string;
+    taskNumber: number | null;
+  };
+  projects: Project[];
 }
 
 export default function TaskDetailPage({
   loaderData,
 }: {
-  loaderData: {
-    project: Project;
-    task: { id: string; projectId: string };
-    projects: Project[];
-  };
+  loaderData: TaskLoaderData;
 }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const from = searchParams.get("from");
+  const deleteTriggerRef = useRef<(() => void) | null>(null);
+  const handleRegisterDeleteTrigger = useCallback((trigger: () => void) => {
+    deleteTriggerRef.current = trigger;
+  }, []);
+
+  // Read the live task from the store so the breadcrumb updates reactively
+  // when the user edits the title inside the panel below.
+  const liveTask = useTask(loaderData.task.id);
+  const liveTitle = liveTask?.title ?? loaderData.task.title;
+  const livePrompt = liveTask?.prompt ?? loaderData.task.prompt;
+
+  const taskId = shortTaskId(loaderData.task.id, {
+    projectName: loaderData.project.name,
+    taskNumber: loaderData.task.taskNumber,
+  });
+
+  const breadcrumbLabel = liveTitle
+    ? liveTitle.length > 60
+      ? liveTitle.slice(0, 60).trimEnd() + "…"
+      : liveTitle
+    : livePrompt.length > 48
+      ? livePrompt.slice(0, 48).trimEnd() + "…"
+      : livePrompt;
+
+  const handleClose = () => {
+    if (from === "tasks") {
+      navigate("/tasks");
+    } else {
+      navigate("/dashboard");
+    }
+  };
 
   return (
-    <div className="h-[calc(100svh-60px)]">
-      <TaskDetailPanel
-        projectId={loaderData.project.id}
-        taskId={loaderData.task.id}
-        open={true}
-        onClose={() => navigate("/dashboard")}
-        variant="page"
-        projects={loaderData.projects}
-      />
+    <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
+      {/* ── Breadcrumb header ─────────────────────────────────────────── */}
+      <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
+        <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+          <SidebarToggle />
+          {from === "tasks" ? (
+            <Link
+              to="/tasks"
+              className="text-base font-semibold hover:text-muted-foreground transition-colors whitespace-nowrap shrink-0"
+            >
+              My tasks
+            </Link>
+          ) : (
+            <Link
+              to="/dashboard"
+              className="text-base font-semibold hover:text-muted-foreground transition-colors whitespace-nowrap shrink-0"
+            >
+              Dashboard
+            </Link>
+          )}
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
+          <span className="text-base font-semibold text-muted-foreground truncate min-w-0">
+            {taskId} {breadcrumbLabel}
+          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" className="shrink-0 ml-1">
+                <Ellipsis className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => deleteTriggerRef.current?.()}
+              >
+                <Trash2 className="size-3.5" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* ── Task detail content ───────────────────────────────────────── */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <TaskDetailPanel
+          projectId={loaderData.project.id}
+          taskId={loaderData.task.id}
+          open={true}
+          onClose={handleClose}
+          variant="page"
+          projects={loaderData.projects}
+          onRegisterDeleteTrigger={handleRegisterDeleteTrigger}
+        />
+      </div>
     </div>
   );
 }

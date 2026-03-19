@@ -22,6 +22,7 @@ export type TaskStatus =
 export interface FeedTask {
   id: string;
   projectId: string;
+  title: string | null;
   prompt: string;
   model: string;
   status: TaskStatus;

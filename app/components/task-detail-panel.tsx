@@ -1,12 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { useTaskStore, useTask, useWorkspaces, useIsLaunching } from "~/store/task-store";
+import {
+  useTaskStore,
+  useTask,
+  useWorkspaces,
+  useIsLaunching,
+} from "~/store/task-store";
 import { toast } from "sonner";
 import {
   ChevronDown,
   Loader2,
   GitBranch,
   Check,
+  Box,
   CheckCircle2,
   CircleDot,
   GitPullRequest,
@@ -29,8 +35,10 @@ import {
   ShieldCheck,
   ShieldAlert,
   ShieldX,
+  Paperclip,
 } from "lucide-react";
 import Markdown from "react-markdown";
+import { AnthropicIcon } from "~/components/icons/anthropic-icon";
 
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -92,7 +100,10 @@ import {
 } from "~/components/ui/select";
 import { cn } from "~/lib/utils";
 import { WorkspaceList } from "~/components/workspace-list";
-import { TaskAttachments, type Attachment } from "~/components/task-attachments";
+import {
+  TaskAttachments,
+  type Attachment,
+} from "~/components/task-attachments";
 
 // ── Types (re-exported from ~/types/task) ─────────────────────────────────
 export type { Project, TaskStatus, FeedTask, Workspace } from "~/types/task";
@@ -118,30 +129,30 @@ export const STATUS_CONFIG: Record<
   running: {
     label: "Running",
     icon: Loader2,
-    className: "text-blue-500",
+    className: "text-purple-500",
     badgeClassName:
-      "gap-1.5 font-normal border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300",
+      "gap-1.5 font-normal bg-purple-500 hover:bg-purple-500 text-white border-transparent",
   },
   validating: {
     label: "PR Ready",
     icon: GitPullRequest,
-    className: "text-yellow-500",
+    className: "text-teal-500",
     badgeClassName:
-      "gap-1.5 font-normal border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300",
+      "gap-1.5 font-normal bg-teal-500 hover:bg-teal-500 text-white border-transparent",
   },
   completed: {
     label: "Merged",
     icon: GitMerge,
-    className: "text-green-500",
+    className: "text-indigo-500",
     badgeClassName:
-      "gap-1.5 font-normal border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300",
+      "gap-1.5 font-normal bg-indigo-500 hover:bg-indigo-500 text-white border-transparent",
   },
   timed_out: {
     label: "Timed Out",
     icon: AlertTriangle,
     className: "text-red-500",
     badgeClassName:
-      "gap-1.5 font-normal border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300",
+      "gap-1.5 font-normal bg-red-500 hover:bg-red-500 text-white border-transparent",
   },
 };
 
@@ -253,6 +264,7 @@ export function TaskDetailPanel({
   open,
   onClose,
   onStatusFilterChange,
+  onRegisterDeleteTrigger,
   projects,
   variant = "drawer",
 }: {
@@ -261,6 +273,8 @@ export function TaskDetailPanel({
   open: boolean;
   onClose: () => void;
   onStatusFilterChange?: (filter: string) => void;
+  /** Called once on mount with a function that opens the delete dialog */
+  onRegisterDeleteTrigger?: (trigger: () => void) => void;
   projects: Project[];
   variant?: "drawer" | "page";
 }) {
@@ -291,11 +305,21 @@ export function TaskDetailPanel({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Expose delete trigger to parent (used by page-variant header)
+  useEffect(() => {
+    onRegisterDeleteTrigger?.(() => setDeleteOpen(true));
+  }, [onRegisterDeleteTrigger]);
+
   // Edit prompt state
   const [editing, setEditing] = useState(false);
   const [editPrompt, setEditPrompt] = useState("");
   const [saving, setSaving] = useState(false);
   const promptRef = useRef<HTMLTextAreaElement>(null);
+
+  // Edit title state
+  const [editTitle, setEditTitle] = useState("");
+  const [savingTitle, setSavingTitle] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
 
   // Edit branch state
   const [editingBranch, setEditingBranch] = useState(false);
@@ -414,8 +438,7 @@ export function TaskDetailPanel({
       const data = await res.json();
       if (res.ok) {
         toast.success("Pull request merged");
-        if (data.task)
-          store.getState().setTask({ ...task, ...data.task });
+        if (data.task) store.getState().setTask({ ...task, ...data.task });
       } else {
         toast.error(data.error ?? "Failed to merge PR");
       }
@@ -522,6 +545,34 @@ export function TaskDetailPanel({
       toast.error("Failed to delete task");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const saveTitle = async () => {
+    if (!task) return;
+    const trimmed = editTitle.trim();
+    // Allow clearing the title (empty string → null)
+    if (trimmed === (task.title ?? "")) return;
+    setSavingTitle(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed || null }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        store.getState().setTask({ ...task, ...data.task });
+        setEditTitle("");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to save title");
+      }
+    } catch {
+      toast.error("Failed to save title");
+    } finally {
+      setSavingTitle(false);
     }
   };
 
@@ -675,7 +726,13 @@ export function TaskDetailPanel({
       if (res.ok) {
         toast.success("Task moved to new project");
         store.getState().fetchAllTasks();
-        onClose();
+        if (variant === "page") {
+          // Stay on the task detail page but update the URL to reflect the new project
+          navigate(`/projects/${newProjectId}/tasks/${task.id}?from=tasks`, {
+            replace: true,
+          });
+        }
+        // Drawer variant: the panel stays open; the store refresh updates the task in place
       } else {
         const data = await res.json().catch(() => ({}));
         toast.error(data.error ?? "Failed to move task");
@@ -822,14 +879,20 @@ export function TaskDetailPanel({
   const projectSection = task && (
     <div className="flex items-center">
       <Small className="w-28 shrink-0">Project</Small>
-      <Popover open={projectPickerOpen} onOpenChange={setProjectPickerOpen}>
+      <Popover
+        open={task.status === "ready" ? projectPickerOpen : false}
+        onOpenChange={
+          task.status === "ready" ? setProjectPickerOpen : undefined
+        }
+      >
         <PopoverTrigger asChild>
           <Button
             variant="ghost"
             size="sm"
+            disabled={task.status !== "ready"}
             className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
           >
-            <VercelIcon />
+            <Box className="size-3.5 shrink-0" />
             {task.projectName}
           </Button>
         </PopoverTrigger>
@@ -958,6 +1021,43 @@ export function TaskDetailPanel({
     </div>
   );
 
+  const taskTitleInput = task && (
+    <div className="flex flex-col gap-1">
+      <input
+        ref={titleRef}
+        type="text"
+        value={
+          editTitle !== "" || document.activeElement === titleRef.current
+            ? editTitle
+            : (task.title ?? "")
+        }
+        placeholder="Add a title…"
+        disabled={savingTitle}
+        onChange={(e) => setEditTitle(e.target.value)}
+        onFocus={() => setEditTitle(task.title ?? "")}
+        onBlur={() => {
+          const trimmed = editTitle.trim();
+          if (trimmed !== (task.title ?? "")) {
+            saveTitle();
+          } else {
+            setEditTitle("");
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          }
+          if (e.key === "Escape") {
+            setEditTitle(task.title ?? "");
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        className="w-full border-0 bg-transparent px-0 text-xl font-semibold shadow-none leading-snug focus:outline-none focus-visible:outline-none placeholder:text-muted-foreground/40 placeholder:font-normal disabled:opacity-50"
+      />
+    </div>
+  );
+
   const taskDescriptionCard = task && (
     <Card>
       <CardHeader
@@ -1001,6 +1101,7 @@ export function TaskDetailPanel({
             <div className="flex flex-col gap-2">
               <Textarea
                 ref={promptRef}
+                placeholder="Add a prompt…"
                 value={editPrompt}
                 onChange={(e) => {
                   setEditPrompt(e.target.value);
@@ -1070,7 +1171,8 @@ export function TaskDetailPanel({
                 taskId={task.id}
                 attachments={task.attachments ?? []}
                 onChanged={(atts) => {
-                  if (task) store.getState().setTask({ ...task, attachments: atts });
+                  if (task)
+                    store.getState().setTask({ ...task, attachments: atts });
                 }}
                 readOnly={task.status !== "ready"}
               />
@@ -1081,6 +1183,304 @@ export function TaskDetailPanel({
     </Card>
   );
 
+  // ── Page-variant inline attachment uploader ref ──────────────────────────
+  const pageAttachmentInputRef = useRef<HTMLInputElement>(null);
+  const [pageUploading, setPageUploading] = useState(false);
+
+  const handlePageUpload = async (file: File) => {
+    if (!task) return;
+    setPageUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(
+        `/api/projects/${projectId}/tasks/${task.id}/attachments`,
+        { method: "POST", credentials: "include", body: form },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Upload failed");
+        return;
+      }
+      store.getState().setTask({
+        ...task,
+        attachments: [...(task.attachments ?? []), data.attachment],
+      });
+      toast.success(`Attached ${file.name}`);
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setPageUploading(false);
+      if (pageAttachmentInputRef.current)
+        pageAttachmentInputRef.current.value = "";
+    }
+  };
+
+  // ── Sandbox section (flat, matches mockup) ───────────────────────────────
+  const buildWorkspaces = workspaces.filter((ws) => ws.taskType !== "review");
+  const reviewWorkspaces = workspaces.filter((ws) => ws.taskType === "review");
+
+  const renderWorkspaceRows = (
+    wsList: typeof workspaces,
+    activeStatus: string,
+    title = "Sandbox",
+  ) =>
+    wsList.map((ws) => {
+      const { domain, token } = parseWsUrl(ws.url);
+      const splitUrl = `${domain}/via/iframe/t/${token}`;
+      const isProvisioning = ws.status === "provisioning";
+      const isActive = ws.status === "running";
+      const buttonsEnabled = isActive && task?.status === activeStatus;
+      const statusLabel = isProvisioning ? "Building" : "Built";
+      return (
+        <div key={ws.id} className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Badge className="bg-purple-500 hover:bg-purple-500 text-white text-xs">
+              {statusLabel}
+            </Badge>
+            <span className="text-base font-semibold">{title}</span>
+            <span className="text-sm text-muted-foreground">
+              {timeAgo(ws.createdAt)}
+            </span>
+            {isProvisioning && (
+              <Loader2 className="size-3 animate-spin text-muted-foreground" />
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  className="size-8 shadow-none"
+                  disabled={!buttonsEnabled}
+                  asChild={buttonsEnabled}
+                >
+                  {buttonsEnabled ? (
+                    <a
+                      href={splitUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Columns2 className="size-3.5" />
+                    </a>
+                  ) : (
+                    <Columns2 className="size-3.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Split view</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  className="size-8 shadow-none"
+                  disabled={!buttonsEnabled}
+                  onClick={() => {
+                    if (!buttonsEnabled) return;
+                    navigator.clipboard.writeText(ws.url);
+                    setCopiedWs(ws.id);
+                    setTimeout(() => setCopiedWs(null), 2000);
+                  }}
+                >
+                  {copiedWs === ws.id ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copy URL</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  className="size-8 shadow-none"
+                  disabled={!buttonsEnabled || stoppingWs === ws.id}
+                  onClick={() => {
+                    if (buttonsEnabled) handleStopWorkspace(ws.id);
+                  }}
+                >
+                  {stoppingWs === ws.id ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Square className="size-3.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Stop workspace</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      );
+    });
+
+  const sandboxSection = task && buildWorkspaces.length > 0 && (
+    <div className="flex flex-col gap-3">
+      <hr className="border-border" />
+      {renderWorkspaceRows(buildWorkspaces, "running")}
+    </div>
+  );
+
+  // ── Pull request section (flat, matches mockup) ───────────────────────────
+  const pullRequestSection = task && task.prUrl && (
+    <div className="flex flex-col gap-4">
+      <hr className="border-border" />
+
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <Badge className="bg-teal-500 hover:bg-teal-500 text-white text-xs shrink-0">
+          PR ready
+        </Badge>
+        <span className="text-base font-semibold">Pull request</span>
+      </div>
+
+      {/* PR result / description */}
+      {task.result && (
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {task.result}
+        </p>
+      )}
+
+      {/* Duration + Tokens rows */}
+      <div className="flex flex-col gap-1">
+        {task.durationMs != null && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground w-20 shrink-0">
+              Duration
+            </span>
+            <span className="flex items-center gap-1.5 text-sm">
+              <Timer className="size-3.5 text-muted-foreground" />
+              {formatDuration(task.durationMs)}
+            </span>
+          </div>
+        )}
+        {(task.inputTokens != null || task.outputTokens != null) && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground w-20 shrink-0">
+              Tokens
+            </span>
+            <span className="flex items-center gap-1.5 text-sm">
+              <Cpu className="size-3.5 text-muted-foreground" />
+              {formatTokens(task.inputTokens ?? 0)} in /{" "}
+              {formatTokens(task.outputTokens ?? 0)} out
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Action row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="shadow-none gap-1.5"
+            onClick={() => window.open(task.prUrl!, "_blank")}
+          >
+            <GitPullRequest className="size-3.5" />
+            View PR
+          </Button>
+          {task.status === "validating" && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="shadow-none gap-1.5"
+              disabled={reviewing}
+              onClick={handleReview}
+            >
+              {reviewing ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Reviewing…
+                </>
+              ) : (
+                "Review"
+              )}
+            </Button>
+          )}
+        </div>
+
+        {(task.status === "validating" ||
+          task.status === "running" ||
+          task.status === "timed_out") && (
+          <Button
+            size="default"
+            className="px-6"
+            disabled={merging || task.status === "running"}
+            onClick={handleMerge}
+          >
+            {merging ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Merging…
+              </>
+            ) : (
+              <>
+                <GitMerge className="size-4" />
+                Merge pull request
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+
+      {/* ── Review sandbox sub-section ───────────────────────────── */}
+      {reviewWorkspaces.length > 0 && (
+        <div className="ml-4 pl-4 border-l-2 border-border flex flex-col gap-3">
+          {renderWorkspaceRows(
+            reviewWorkspaces,
+            "validating",
+            "Review sandbox",
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const mergedSection = task && task.prUrl && task.status === "completed" && (
+    <div className="flex flex-col gap-4">
+      <hr className="border-border" />
+
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <Badge className="bg-indigo-500 hover:bg-indigo-500 text-white text-xs shrink-0">
+          Merged
+        </Badge>
+        <span className="text-base font-semibold">Merged</span>
+      </div>
+
+      {/* Merged timestamp */}
+      {task.completedAt && (
+        <p className="text-sm text-muted-foreground">
+          Pull request was merged{" "}
+          <span className="font-medium text-foreground">
+            {timeAgo(task.completedAt)}
+          </span>
+          .
+        </p>
+      )}
+
+      {/* View PR link */}
+      <div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="shadow-none gap-1.5"
+          onClick={() => window.open(task.prUrl!, "_blank")}
+        >
+          <GitMerge className="size-3.5" />
+          View merged PR
+        </Button>
+      </div>
+    </div>
+  );
+
+  // keep legacy card versions for drawer variant
   const previewCard = task && task.status !== "completed" && (
     <Card>
       <CardHeader
@@ -1114,9 +1514,7 @@ export function TaskDetailPanel({
               return (
                 <CardFooter key={ws.id} className="justify-between">
                   <div className="flex items-center gap-2">
-                    <Muted className="text-xs">
-                      {timeAgo(ws.createdAt)}
-                    </Muted>
+                    <Muted className="text-xs">{timeAgo(ws.createdAt)}</Muted>
                     {ws.taskType && (
                       <Badge variant="outline" className="text-xs capitalize">
                         {ws.taskType}
@@ -1194,7 +1592,7 @@ export function TaskDetailPanel({
                 </CardFooter>
               );
             })
-          ) : (
+          ) : task.status === "running" ? (
             <CardFooter className="justify-between">
               <Muted className="text-xs">
                 Launch a sandbox to preview changes.
@@ -1213,7 +1611,7 @@ export function TaskDetailPanel({
                 )}
               </Button>
             </CardFooter>
-          )}
+          ) : null}
         </>
       )}
     </Card>
@@ -1251,16 +1649,436 @@ export function TaskDetailPanel({
         <div
           className={cn(
             "flex flex-col gap-4 p-4 sm:p-6",
-            variant === "page" && "mx-auto w-full max-w-2xl",
+            variant === "page" && "mx-auto w-full max-w-2xl gap-6",
           )}
         >
           {loading || !task ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="size-5 animate-spin text-muted-foreground" />
             </div>
+          ) : isBacklog && variant === "page" ? (
+            <>
+              {/* ── Page variant: Linear-style backlog layout ───────── */}
+
+              {/* ── Attribute pills row ─────────────────────────────── */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Assignee pill */}
+                <Popover
+                  open={assigneePickerOpen}
+                  onOpenChange={(open) => {
+                    setAssigneePickerOpen(open);
+                    if (open) fetchTeamMembers();
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 shadow-none"
+                    >
+                      <Avatar size="sm" className="size-4">
+                        {task.creatorAvatarUrl ? (
+                          <AvatarImage
+                            src={task.creatorAvatarUrl}
+                            alt={task.creatorName ?? ""}
+                          />
+                        ) : null}
+                        <AvatarFallback className="text-[0.45rem]">
+                          {task.creatorName
+                            ? task.creatorName
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .toUpperCase()
+                                .slice(0, 2)
+                            : "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      {task.creatorName ?? "Unassigned"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[220px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Assign to..." />
+                      <CommandList>
+                        <CommandEmpty>
+                          {teamMembersLoading
+                            ? "Loading..."
+                            : "No members found."}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {teamMembers.map((member) => (
+                            <CommandItem
+                              key={member.id}
+                              value={member.name ?? member.email}
+                              onSelect={() => changeAssignee(member.id)}
+                            >
+                              <Avatar size="sm">
+                                {member.avatarUrl ? (
+                                  <AvatarImage
+                                    src={member.avatarUrl}
+                                    alt={member.name ?? ""}
+                                  />
+                                ) : null}
+                                <AvatarFallback className="text-[0.5rem]">
+                                  {member.name
+                                    ? member.name
+                                        .split(" ")
+                                        .map((n) => n[0])
+                                        .join("")
+                                        .toUpperCase()
+                                        .slice(0, 2)
+                                    : member.email.slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              {member.name ?? member.email}
+                              <Check
+                                className={cn(
+                                  "ml-auto size-3.5",
+                                  task.createdBy === member.id
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Project pill */}
+                <Popover
+                  open={projectPickerOpen}
+                  onOpenChange={setProjectPickerOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 shadow-none"
+                    >
+                      <Box className="size-3.5 shrink-0" />
+                      {task.projectName}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[220px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Move to project..." />
+                      <CommandList>
+                        <CommandEmpty>No projects found.</CommandEmpty>
+                        <CommandGroup>
+                          {[...projects]
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((p) => (
+                              <CommandItem
+                                key={p.id}
+                                value={p.name}
+                                onSelect={() => {
+                                  setProjectPickerOpen(false);
+                                  changeProject(p.id);
+                                }}
+                              >
+                                <Box className="size-3.5 shrink-0 text-muted-foreground" />
+                                {p.name}
+                                <Check
+                                  className={cn(
+                                    "ml-auto size-3.5",
+                                    task.projectId === p.id
+                                      ? "opacity-100"
+                                      : "opacity-0",
+                                  )}
+                                />
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Branch pill */}
+                {editingBranch ? (
+                  <div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1">
+                    <GitBranch className="size-3.5 text-muted-foreground shrink-0" />
+                    <Input
+                      value={editBranch}
+                      onChange={(e) => setEditBranch(e.target.value)}
+                      onBlur={saveBranch}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          (e.target as HTMLInputElement).blur();
+                        }
+                        if (e.key === "Escape") {
+                          setEditBranch("");
+                          setEditingBranch(false);
+                        }
+                      }}
+                      disabled={savingBranch}
+                      autoFocus
+                      className="h-auto border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 w-32"
+                    />
+                    {savingBranch && (
+                      <Loader2 className="size-3 animate-spin text-muted-foreground shrink-0" />
+                    )}
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 shadow-none"
+                    onClick={() => {
+                      setEditBranch(task.branch);
+                      setEditingBranch(true);
+                    }}
+                  >
+                    <GitBranch className="size-3.5" />
+                    {task.branch}
+                  </Button>
+                )}
+
+                {/* Model pill */}
+                {task.status === "ready" ? (
+                  <Select
+                    value={task.model}
+                    onValueChange={changeModel}
+                    disabled={savingModel}
+                  >
+                    <SelectTrigger className="h-8 w-auto gap-1.5 border bg-background px-3 text-sm font-medium shadow-none hover:bg-accent hover:text-accent-foreground focus:ring-0 dark:bg-input/30 dark:border-input dark:hover:bg-input/50 [&>svg]:size-3.5 [&>svg:last-child]:hidden">
+                      <AnthropicIcon className="size-3.5 shrink-0" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MODELS.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 shadow-none"
+                    disabled
+                  >
+                    <AnthropicIcon className="size-3.5" />
+                    {MODELS.find((m) => m.value === task.model)?.label ??
+                      task.model}
+                  </Button>
+                )}
+              </div>
+
+              {/* ── Task ID ──────────────────────────────────────────── */}
+              <p className="text-sm font-medium text-muted-foreground">
+                {shortTaskId(task.id, {
+                  prefix: task.taskPrefix,
+                  projectName: task.projectName,
+                  taskNumber: task.taskNumber,
+                })}
+              </p>
+
+              {/* ── Title ────────────────────────────────────────────── */}
+              {taskTitleInput}
+
+              {/* ── Prompt ───────────────────────────────────────────── */}
+              <Textarea
+                ref={promptRef}
+                placeholder="Add a prompt…"
+                value={
+                  editPrompt !== "" ? editPrompt : task.prompt || undefined
+                }
+                onChange={(e) => {
+                  setEditPrompt(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = e.target.scrollHeight + "px";
+                }}
+                onFocus={(e) => {
+                  setEditPrompt(task.prompt);
+                  e.target.style.height = "auto";
+                  e.target.style.height = e.target.scrollHeight + "px";
+                }}
+                onBlur={() => {
+                  if (editPrompt.trim() !== task.prompt.trim()) {
+                    savePrompt();
+                  } else {
+                    setEditPrompt("");
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setEditPrompt("");
+                    (e.target as HTMLTextAreaElement).blur();
+                  }
+                }}
+                disabled={saving}
+                className="resize-none overflow-hidden border-0 bg-transparent px-0 text-base font-normal shadow-none leading-normal focus-visible:ring-0 w-full placeholder:text-muted-foreground/40"
+              />
+
+              {/* ── Attachments row ──────────────────────────────────── */}
+              {(task.attachments?.length ?? 0) > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {(task.attachments ?? []).map((att) => (
+                    <a
+                      key={att.id}
+                      href={att.blobUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground hover:bg-muted transition-colors"
+                    >
+                      <svg
+                        className="size-4 shrink-0"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                        />
+                      </svg>
+                      {att.filename}
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Attach + Run task row ────────────────────────────── */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={pageAttachmentInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handlePageUpload(file);
+                    }}
+                  />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
+                        className="size-9 shadow-none"
+                        disabled={
+                          pageUploading || (task.attachments?.length ?? 0) >= 3
+                        }
+                        onClick={() => pageAttachmentInputRef.current?.click()}
+                      >
+                        {pageUploading ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Paperclip className="size-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Attach file ({task.attachments?.length ?? 0}/3)
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+
+                <Button
+                  onClick={handleLaunch}
+                  disabled={launching || workspaces.length > 0}
+                  size="default"
+                  className="px-6"
+                >
+                  {launching ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Launching…
+                    </>
+                  ) : (
+                    "Run task"
+                  )}
+                </Button>
+              </div>
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Active workspaces (if any spawned) */}
+              {sandboxSection}
+
+              {/* ── Divider ──────────────────────────────────────────── */}
+              <hr className="border-border" />
+
+              {/* ── Activity section ─────────────────────────────────── */}
+              <div className="flex flex-col gap-4">
+                <h2 className="text-base font-semibold">Activity</h2>
+                <div className="flex flex-col gap-0">
+                  {/* Created event */}
+                  <div className="flex items-start gap-3">
+                    <div className="flex flex-col items-center shrink-0">
+                      <Avatar size="sm" className="size-7 border border-border">
+                        {task.creatorAvatarUrl ? (
+                          <AvatarImage
+                            src={task.creatorAvatarUrl}
+                            alt={task.creatorName ?? ""}
+                          />
+                        ) : null}
+                        <AvatarFallback className="text-[0.5rem]">
+                          {task.creatorName
+                            ? task.creatorName
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .toUpperCase()
+                                .slice(0, 2)
+                            : "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="w-px flex-1 bg-border mt-1 min-h-[20px]" />
+                    </div>
+                    <p className="text-sm text-muted-foreground pb-4">
+                      <span className="font-medium text-foreground">
+                        {task.creatorName ?? "Someone"}
+                      </span>{" "}
+                      created the task{" "}
+                      <span className="text-muted-foreground">
+                        · {timeAgo(task.createdAt)}
+                      </span>
+                    </p>
+                  </div>
+
+                  {/* Branch event (shown when branch differs from default "feat") */}
+                  {task.branch && task.branch !== "feat" && (
+                    <div className="flex items-start gap-3">
+                      <div className="flex flex-col items-center shrink-0">
+                        <div className="size-7 flex items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                          <GitBranch className="size-3.5" />
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground pb-4">
+                        <span className="font-medium text-foreground">
+                          {task.creatorName ?? "Someone"}
+                        </span>{" "}
+                        set branch to{" "}
+                        <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">
+                          {task.branch}
+                        </span>{" "}
+                        <span className="text-muted-foreground">
+                          · {timeAgo(task.createdAt)}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
           ) : isBacklog ? (
             <>
-              {/* ── Backlog layout ─────────────────────────────────── */}
+              {/* ── Drawer / non-page backlog layout ───────────────── */}
 
               {/* Toolbar */}
               <div className="flex items-center justify-between">
@@ -1315,11 +2133,7 @@ export function TaskDetailPanel({
                     </Button>
                   )}
                   <Button variant="ghost" size="icon-sm" onClick={handleClose}>
-                    {variant === "page" ? (
-                      <ArrowLeft className="size-4" />
-                    ) : (
-                      <PanelRightClose className="size-4" />
-                    )}
+                    <PanelRightClose className="size-4" />
                   </Button>
                 </div>
               </div>
@@ -1359,6 +2173,9 @@ export function TaskDetailPanel({
                 </CardContent>
               </Card>
 
+              {/* Title */}
+              {taskTitleInput}
+
               {/* Task description — editable with pencil toggle, collapsible */}
               {taskDescriptionCard}
 
@@ -1381,9 +2198,420 @@ export function TaskDetailPanel({
                 </div>
               )}
             </>
+          ) : variant === "page" ? (
+            <>
+              {/* ── Page variant: in-progress / review / completed layout ── */}
+
+              {/* ── Attribute pills row ─────────────────────────────── */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Assignee pill */}
+                <Popover
+                  open={assigneePickerOpen}
+                  onOpenChange={(open) => {
+                    setAssigneePickerOpen(open);
+                    if (open) fetchTeamMembers();
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 shadow-none"
+                    >
+                      <Avatar size="sm" className="size-4">
+                        {task.creatorAvatarUrl ? (
+                          <AvatarImage
+                            src={task.creatorAvatarUrl}
+                            alt={task.creatorName ?? ""}
+                          />
+                        ) : null}
+                        <AvatarFallback className="text-[0.45rem]">
+                          {task.creatorName
+                            ? task.creatorName
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .toUpperCase()
+                                .slice(0, 2)
+                            : "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      {task.creatorName ?? "Unassigned"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[220px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Assign to..." />
+                      <CommandList>
+                        <CommandEmpty>
+                          {teamMembersLoading
+                            ? "Loading..."
+                            : "No members found."}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {teamMembers.map((member) => (
+                            <CommandItem
+                              key={member.id}
+                              value={member.name ?? member.email}
+                              onSelect={() => changeAssignee(member.id)}
+                            >
+                              <Avatar size="sm">
+                                {member.avatarUrl ? (
+                                  <AvatarImage
+                                    src={member.avatarUrl}
+                                    alt={member.name ?? ""}
+                                  />
+                                ) : null}
+                                <AvatarFallback className="text-[0.5rem]">
+                                  {member.name
+                                    ? member.name
+                                        .split(" ")
+                                        .map((n) => n[0])
+                                        .join("")
+                                        .toUpperCase()
+                                        .slice(0, 2)
+                                    : member.email.slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              {member.name ?? member.email}
+                              <Check
+                                className={cn(
+                                  "ml-auto size-3.5",
+                                  task.createdBy === member.id
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Project pill (readonly for in-progress / completed) */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 shadow-none"
+                  disabled
+                >
+                  <Box className="size-3.5 shrink-0" />
+                  {task.projectName}
+                </Button>
+
+                {/* Branch pill (readonly for in-progress) */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 shadow-none"
+                  disabled
+                >
+                  <GitBranch className="size-3.5" />
+                  {task.branch}
+                </Button>
+
+                {/* Model pill (readonly) */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 shadow-none"
+                  disabled
+                >
+                  <AnthropicIcon className="size-3.5" />
+                  {MODELS.find((m) => m.value === task.model)?.label ??
+                    task.model}
+                </Button>
+
+                {/* Status badge — hidden when "validating" (PR ready) or "completed" (Merged) since both have their own sections */}
+                {task.status !== "validating" &&
+                  task.status !== "completed" && (
+                    <Badge
+                      variant="outline"
+                      className={statusConfig.badgeClassName}
+                    >
+                      <StatusIcon
+                        className={cn(
+                          "size-3",
+                          statusConfig.className,
+                          task.status === "running" ? "animate-spin" : "",
+                        )}
+                      />
+                      {statusConfig.label}
+                    </Badge>
+                  )}
+
+                {/* PR review status badge */}
+                {task.prReviewStatus && (
+                  <Badge
+                    variant={
+                      task.prReviewStatus === "pass"
+                        ? "default"
+                        : task.prReviewStatus === "flag"
+                          ? "secondary"
+                          : "destructive"
+                    }
+                    className={
+                      task.prReviewStatus === "pass"
+                        ? "bg-green-600 text-white"
+                        : task.prReviewStatus === "flag"
+                          ? "bg-amber-500 text-white"
+                          : ""
+                    }
+                  >
+                    {task.prReviewStatus === "pass" && (
+                      <ShieldCheck className="size-3 mr-1" />
+                    )}
+                    {task.prReviewStatus === "flag" && (
+                      <ShieldAlert className="size-3 mr-1" />
+                    )}
+                    {task.prReviewStatus === "fail" && (
+                      <ShieldX className="size-3 mr-1" />
+                    )}
+                    {task.prReviewStatus}
+                  </Badge>
+                )}
+              </div>
+
+              {/* ── Task ID ──────────────────────────────────────────── */}
+              <p className="text-sm font-medium text-muted-foreground">
+                {shortTaskId(task.id, {
+                  prefix: task.taskPrefix,
+                  projectName: task.projectName,
+                  taskNumber: task.taskNumber,
+                })}
+              </p>
+
+              {/* ── Title ────────────────────────────────────────────── */}
+              {taskTitleInput}
+
+              {/* ── Prompt (read-only textarea) ──────────────────────── */}
+              <Textarea
+                ref={promptRef}
+                placeholder="Add a prompt…"
+                value={
+                  editPrompt !== "" ? editPrompt : task.prompt || undefined
+                }
+                onChange={(e) => {
+                  setEditPrompt(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = e.target.scrollHeight + "px";
+                }}
+                onFocus={(e) => {
+                  setEditPrompt(task.prompt);
+                  e.target.style.height = "auto";
+                  e.target.style.height = e.target.scrollHeight + "px";
+                }}
+                onBlur={() => {
+                  if (editPrompt.trim() !== task.prompt.trim()) {
+                    savePrompt();
+                  } else {
+                    setEditPrompt("");
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setEditPrompt("");
+                    (e.target as HTMLTextAreaElement).blur();
+                  }
+                }}
+                disabled={saving}
+                className="resize-none overflow-hidden border-0 bg-transparent px-0 text-base font-normal shadow-none leading-normal focus-visible:ring-0 w-full placeholder:text-muted-foreground/40"
+              />
+
+              {/* ── Attachments ──────────────────────────────────────── */}
+              {(task.attachments?.length ?? 0) > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {(task.attachments ?? []).map((att) => (
+                    <a
+                      key={att.id}
+                      href={att.blobUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground hover:bg-muted transition-colors"
+                    >
+                      <svg
+                        className="size-4 shrink-0"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                        />
+                      </svg>
+                      {att.filename}
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {sandboxSection}
+              {pullRequestSection}
+              {mergedSection}
+
+              {/* ── Divider ──────────────────────────────────────────── */}
+              <hr className="border-border" />
+
+              {/* ── Activity section ─────────────────────────────────── */}
+              <div className="flex flex-col gap-4">
+                <h2 className="text-base font-semibold">Activity</h2>
+                <div className="flex flex-col gap-0">
+                  {/* Created event */}
+                  <div className="flex items-start gap-3">
+                    <div className="flex flex-col items-center shrink-0">
+                      <Avatar size="sm" className="size-7 border border-border">
+                        {task.creatorAvatarUrl ? (
+                          <AvatarImage
+                            src={task.creatorAvatarUrl}
+                            alt={task.creatorName ?? ""}
+                          />
+                        ) : null}
+                        <AvatarFallback className="text-[0.5rem]">
+                          {task.creatorName
+                            ? task.creatorName
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .toUpperCase()
+                                .slice(0, 2)
+                            : "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="w-px flex-1 bg-border mt-1 min-h-[20px]" />
+                    </div>
+                    <p className="text-sm text-muted-foreground pb-4">
+                      <span className="font-medium text-foreground">
+                        {task.creatorName ?? "Someone"}
+                      </span>{" "}
+                      created the task{" "}
+                      <span className="text-muted-foreground">
+                        · {timeAgo(task.createdAt)}
+                      </span>
+                    </p>
+                  </div>
+
+                  {/* Started event */}
+                  {task.startedAt && (
+                    <div className="flex items-start gap-3">
+                      <div className="flex flex-col items-center shrink-0">
+                        <div className="size-7 flex items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                          <Play className="size-3.5" />
+                        </div>
+                        {(workspaces.length > 0 ||
+                          task.prUrl ||
+                          task.completedAt) && (
+                          <div className="w-px flex-1 bg-border mt-1 min-h-[20px]" />
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground pb-4">
+                        <span className="font-medium text-foreground">
+                          Task started
+                        </span>{" "}
+                        <span className="text-muted-foreground">
+                          · {timeAgo(task.startedAt)}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Sandbox built event */}
+                  {workspaces.length > 0 && (
+                    <div className="flex items-start gap-3">
+                      <div className="flex flex-col items-center shrink-0">
+                        <div className="size-7 flex items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                          <Columns2 className="size-3.5" />
+                        </div>
+                        {(task.prUrl || task.completedAt) && (
+                          <div className="w-px flex-1 bg-border mt-1 min-h-[20px]" />
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground pb-4">
+                        <span className="font-medium text-foreground">
+                          Sandbox{" "}
+                          {workspaces[0].status === "provisioning"
+                            ? "building"
+                            : "built"}
+                        </span>{" "}
+                        <span className="text-muted-foreground">
+                          · {timeAgo(workspaces[0].createdAt)}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* PR opened event */}
+                  {task.prUrl && (
+                    <div className="flex items-start gap-3">
+                      <div className="flex flex-col items-center shrink-0">
+                        <div className="size-7 flex items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                          <GitPullRequest className="size-3.5" />
+                        </div>
+                        {task.completedAt && (
+                          <div className="w-px flex-1 bg-border mt-1 min-h-[20px]" />
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground pb-4">
+                        <span className="font-medium text-foreground">
+                          Pull request opened
+                        </span>{" "}
+                        <a
+                          href={task.prUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-foreground transition-colors"
+                        >
+                          view PR
+                        </a>{" "}
+                        {task.startedAt && (
+                          <span className="text-muted-foreground">
+                            · {timeAgo(task.startedAt)}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Completed event */}
+                  {task.completedAt && (
+                    <div className="flex items-start gap-3">
+                      <div className="flex flex-col items-center shrink-0">
+                        <div className="size-7 flex items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                          <CheckCircle2 className="size-3.5" />
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground pb-4">
+                        <span className="font-medium text-foreground">
+                          Task completed
+                        </span>
+                        {task.durationMs != null && (
+                          <span className="text-muted-foreground">
+                            {" · "}
+                            {formatDuration(task.durationMs)}
+                          </span>
+                        )}{" "}
+                        <span className="text-muted-foreground">
+                          · {timeAgo(task.completedAt)}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
           ) : (
             <>
-              {/* ── Review / Completed / Other layout ── */}
+              {/* ── Review / Completed / Other layout (drawer) ── */}
 
               {/* Toolbar */}
               <div className="flex items-center justify-between">
@@ -1521,11 +2749,7 @@ export function TaskDetailPanel({
                     </Button>
                   )}
                   <Button variant="ghost" size="icon-sm" onClick={handleClose}>
-                    {variant === "page" ? (
-                      <ArrowLeft className="size-4" />
-                    ) : (
-                      <PanelRightClose className="size-4" />
-                    )}
+                    <PanelRightClose className="size-4" />
                   </Button>
                 </div>
               </div>
@@ -1592,6 +2816,9 @@ export function TaskDetailPanel({
 
               {previewCard}
               {resultsCard}
+
+              {/* Title */}
+              {taskTitleInput}
 
               {/* Task description — editable with pencil toggle, collapsible */}
               {taskDescriptionCard}

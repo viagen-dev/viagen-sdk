@@ -1,4 +1,5 @@
 import { eq, and, desc, inArray, sql } from "drizzle-orm";
+import { generateTaskTitle } from "~/lib/task-title.server";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, tasks, orgMembers, users } from "~/lib/db/schema";
@@ -112,7 +113,10 @@ export async function loader({
               taskId: row.id,
               taskPrompt: row.prompt,
             }).catch((err: unknown) =>
-              log.error({ email: member.email, taskId: row.id, err }, "task timeout email failed"),
+              log.error(
+                { email: member.email, taskId: row.id, err },
+                "task timeout email failed",
+              ),
             );
           }
         }
@@ -121,7 +125,10 @@ export async function loader({
           "task timeout emails dispatched",
         );
       } catch (err) {
-        log.error({ projectId, err }, "failed to send task timeout notifications");
+        log.error(
+          { projectId, err },
+          "failed to send task timeout notifications",
+        );
       }
     })();
   }
@@ -241,21 +248,28 @@ export async function action({
     return Response.json({ error: "Not authorized" }, { status: 403 });
   }
 
-  let body: { prompt?: string; branch?: string; model?: string; type?: string };
+  let body: {
+    prompt?: string;
+    branch?: string;
+    model?: string;
+    type?: string;
+    title?: string;
+  };
   try {
     body = await request.json();
   } catch {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const prompt = body.prompt?.trim();
-  if (!prompt) {
-    return Response.json({ error: "Prompt is required" }, { status: 400 });
-  }
+  const prompt = body.prompt?.trim() ?? "";
 
   const branch = body.branch?.trim() || "feat";
   const model = body.model?.trim() || "claude-sonnet-4-6";
 
+  const title =
+    body.title?.trim() ||
+    (prompt ? await generateTaskTitle(org.id, prompt) : null) ||
+    null;
   const validTypes = ["task", "plan"];
   const type = body.type?.trim() || "task";
   if (!validTypes.includes(type)) {
@@ -276,6 +290,7 @@ export async function action({
     .insert(tasks)
     .values({
       projectId,
+      title,
       prompt,
       branch,
       model,
@@ -287,14 +302,25 @@ export async function action({
     .returning();
 
   log.info(
-    { userId: user.id, projectId, taskId: task.id, taskNumber, branch, model, type },
+    {
+      userId: user.id,
+      projectId,
+      taskId: task.id,
+      taskNumber,
+      branch,
+      model,
+      type,
+    },
     "task created",
   );
-  return Response.json({
-    task: {
-      ...task,
-      creatorName: user.name ?? null,
-      creatorAvatarUrl: user.avatarUrl ?? null,
+  return Response.json(
+    {
+      task: {
+        ...task,
+        creatorName: user.name ?? null,
+        creatorAvatarUrl: user.avatarUrl ?? null,
+      },
     },
-  }, { status: 201 });
+    { status: 201 },
+  );
 }

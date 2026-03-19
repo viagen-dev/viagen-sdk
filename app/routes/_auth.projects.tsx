@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
 import {
   Link,
   useNavigate,
@@ -9,7 +15,6 @@ import {
 import { toast } from "sonner";
 import {
   ChevronDown,
-  ArrowDown,
   Loader2,
   GitBranch,
   Check,
@@ -25,7 +30,6 @@ import {
   Rocket,
   Database,
 } from "lucide-react";
-import { StagedAttachments } from "~/components/task-attachments";
 import {
   TaskDetailPanel,
   STATUS_CONFIG,
@@ -58,7 +62,6 @@ import {
 import { Badge } from "~/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 
-
 import {
   Popover,
   PopoverContent,
@@ -79,6 +82,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import {
   DropdownMenu,
@@ -89,7 +93,8 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { cn } from "~/lib/utils";
 
-const generateRandomBranch = () => `feat-${Math.random().toString(36).slice(2, 8)}`;
+const generateRandomBranch = () =>
+  `feat-${Math.random().toString(36).slice(2, 8)}`;
 
 // ── Loader ────────────────────────────────────────────────────────────────
 
@@ -406,187 +411,6 @@ function VercelProjectSelector({
 
 // ── TaskLauncher ──────────────────────────────────────────────────────────
 
-function DashboardTaskLauncher({
-  onTaskCreated,
-  integrations,
-  projects,
-  projectId,
-}: {
-  onTaskCreated: (task: FeedTask) => void;
-  integrations:
-    | { github: boolean; vercel: boolean; claude: boolean }
-    | undefined;
-  projects: Project[];
-  projectId: string | null;
-}) {
-  const [prompt, setPrompt] = useState("");
-  const [branch, setBranch] = useState(() => generateRandomBranch());
-  const [model, setModel] = useState("claude-sonnet-4-6");
-  const [creating, setCreating] = useState(false);
-  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const project = projectId
-    ? (projects.find((p) => p.id === projectId) ?? null)
-    : null;
-
-  const needsClaude = !integrations?.claude;
-  const canSubmit =
-    project !== null && !needsClaude && !creating && prompt.trim().length > 0;
-
-  const handleSubmit = async () => {
-    if (!canSubmit || !project) return;
-    setCreating(true);
-
-    try {
-      const res = await fetch(`/api/projects/${project.id}/tasks`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: prompt.trim(),
-          branch: branch.trim(),
-          model,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        toast.error(data.error ?? "Failed to create task");
-        return;
-      }
-
-      // Augment with project context for the feed
-      const task = data.task as FeedTask;
-      if (!task.projectName) {
-        task.projectId = project.id;
-        task.projectName = project.name;
-        task.githubRepo = project.githubRepo;
-        task.vercelProjectId = project.vercelProjectId;
-        task.vercelProjectName = project.vercelProjectName;
-      }
-
-      // Upload staged attachments (fire-and-forget, non-blocking)
-      if (stagedFiles.length > 0) {
-        for (const file of stagedFiles) {
-          const form = new FormData();
-          form.append("file", file);
-          fetch(`/api/projects/${project.id}/tasks/${task.id}/attachments`, {
-            method: "POST",
-            credentials: "include",
-            body: form,
-          }).catch(() => {});
-        }
-      }
-
-      onTaskCreated(task);
-      setPrompt("");
-      setStagedFiles([]);
-      setBranch(generateRandomBranch());
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
-      }
-      toast.success("Task created");
-    } catch {
-      toast.error("Failed to create task");
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  return (
-    <Card className="mb-8">
-      {needsClaude && (
-        <CardHeader className="pb-0">
-          <CardDescription className="text-xs">
-            Connect{" "}
-            <Link to="/settings?tab=settings" className="underline font-medium">
-              Claude API key
-            </Link>{" "}
-            to get started.
-          </CardDescription>
-        </CardHeader>
-      )}
-      <CardContent className={needsClaude ? "pt-3" : ""}>
-        <Textarea
-          ref={textareaRef}
-          placeholder={
-            !project
-              ? "Select a project to start creating tasks..."
-              : needsClaude
-                ? "Connect your Claude API key to start creating tasks..."
-                : `Describe a task for ${project.name}...`
-          }
-          value={prompt}
-          disabled={!project || needsClaude}
-          onChange={(e) => {
-            setPrompt(e.target.value);
-            e.target.style.height = "auto";
-            e.target.style.height = e.target.scrollHeight + "px";
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit();
-            }
-          }}
-          rows={2}
-          className="resize-none overflow-hidden border-0 shadow-none focus-visible:ring-0"
-        />
-      </CardContent>
-      <CardFooter className="border-t justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <GitBranch className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              placeholder="feat-abc123"
-              className="h-7 w-40 pl-7 text-xs bg-background"
-            />
-          </div>
-          <Select value={model} onValueChange={setModel}>
-            <SelectTrigger
-              size="sm"
-              className="h-7 w-auto gap-1.5 text-xs bg-background"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="claude-sonnet-4-6">
-                Claude Sonnet 4.6
-              </SelectItem>
-              <SelectItem value="claude-opus-4-6">Claude Opus 4.6</SelectItem>
-              <SelectItem value="claude-haiku-4-5-20251001">
-                Claude Haiku 4.5
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <StagedAttachments
-            files={stagedFiles}
-            onFilesChanged={setStagedFiles}
-          />
-        </div>
-        <Button
-          size="icon-sm"
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-          className="size-7 rounded-lg"
-        >
-          {creating ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <ArrowDown className="size-3.5" />
-          )}
-        </Button>
-      </CardFooter>
-    </Card>
-  );
-}
-
-
 function TaskFeedItem({
   task,
   onOpen,
@@ -638,7 +462,11 @@ function TaskFeedItem({
             {task.creatorName ?? "Unknown"}
           </span>
           <span className="text-xs text-muted-foreground font-mono">
-            {shortTaskId(task.id, { prefix: task.taskPrefix, projectName: task.projectName, taskNumber: task.taskNumber })}
+            {shortTaskId(task.id, {
+              prefix: task.taskPrefix,
+              projectName: task.projectName,
+              taskNumber: task.taskNumber,
+            })}
           </span>
           <span className="text-xs text-muted-foreground">
             {timeAgo(task.createdAt)}
@@ -646,12 +474,21 @@ function TaskFeedItem({
 
           {/* Meta badges — right-aligned */}
           <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
-            <Badge variant="outline" className={isLaunching ? STATUS_CONFIG.running.badgeClassName : config.badgeClassName}>
+            <Badge
+              variant="outline"
+              className={
+                isLaunching
+                  ? STATUS_CONFIG.running.badgeClassName
+                  : config.badgeClassName
+              }
+            >
               <StatusIcon
                 className={cn(
                   "size-3",
                   isLaunching ? "text-blue-500 animate-spin" : config.className,
-                  !isLaunching && task.status === "running" ? "animate-spin" : "",
+                  !isLaunching && task.status === "running"
+                    ? "animate-spin"
+                    : "",
                 )}
               />
               {isLaunching ? "Launching..." : config.label}
@@ -689,6 +526,7 @@ export default function Dashboard({
 }: {
   loaderData: { projects: Project[] };
 }) {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const revalidator = useRevalidator();
   const parentData = useRouteLoaderData("routes/_auth") as
@@ -697,11 +535,11 @@ export default function Dashboard({
   const integrations = parentData?.integrations;
 
   // Panel state — local for instant response, synced to URL for deep-linking
-  const [panelTaskId, setPanelTaskId] = useState<string | null>(
-    () => searchParams.get("task"),
+  const [panelTaskId, setPanelTaskId] = useState<string | null>(() =>
+    searchParams.get("task"),
   );
-  const [panelProjectId, setPanelProjectId] = useState<string | null>(
-    () => searchParams.get("project"),
+  const [panelProjectId, setPanelProjectId] = useState<string | null>(() =>
+    searchParams.get("project"),
   );
   const panelOpen = !!(panelTaskId && panelProjectId);
 
@@ -791,7 +629,8 @@ export default function Dashboard({
   // Project filter state — always has a value (also used by the launcher)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     () => {
-      if (typeof window === "undefined") return loaderData.projects[0]?.id ?? null;
+      if (typeof window === "undefined")
+        return loaderData.projects[0]?.id ?? null;
       const saved = localStorage.getItem("viagen-filter-project");
       if (saved && loaderData.projects.some((p) => p.id === saved))
         return saved;
@@ -816,7 +655,9 @@ export default function Dashboard({
     taskId: string | null;
     createdAt: string;
   }
-  const [standaloneWs, setStandaloneWs] = useState<StandaloneWorkspace | null>(null);
+  const [standaloneWs, setStandaloneWs] = useState<StandaloneWorkspace | null>(
+    null,
+  );
   const [stoppingWs, setStoppingWs] = useState(false);
   const [launchingWs, setLaunchingWs] = useState(false);
 
@@ -841,8 +682,14 @@ export default function Dashboard({
     };
     check();
     // Poll faster while provisioning, slower once running
-    const interval = setInterval(check, standaloneWs?.status === "provisioning" ? 3_000 : 15_000);
-    return () => { cancelled = true; clearInterval(interval); };
+    const interval = setInterval(
+      check,
+      standaloneWs?.status === "provisioning" ? 3_000 : 15_000,
+    );
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [selectedProjectId, standaloneWs?.status]);
 
   const parseWsUrl = (url: string) => {
@@ -917,19 +764,46 @@ export default function Dashboard({
     return useTaskStore.getState().startPolling();
   }, []);
 
-  // Handle new task created from the launcher
-  const handleTaskCreated = useCallback((task: FeedTask) => {
-    useTaskStore.getState().setTask(task);
+  // Create a blank task and navigate to its detail page
+  const [creatingTask, setCreatingTask] = useState(false);
 
-    // Auto-switch to new task and highlight it
-    // If we're on review or completed tab, switch to backlog since new tasks have status "ready"
-    if (statusFilter === "review" || statusFilter === "completed") {
-      switchStatusFilter("backlog");
+  const handleCreateTask = useCallback(async () => {
+    const project = selectedProjectId
+      ? loaderData.projects.find((p) => p.id === selectedProjectId)
+      : loaderData.projects[0];
+    if (!project) {
+      toast.error("No project available");
+      return;
     }
-
-    // Always open the newly created task in the detail panel to highlight it
-    openTaskPanel(task);
-  }, [statusFilter, switchStatusFilter, openTaskPanel]);
+    setCreatingTask(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/tasks`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: "",
+          branch: `feat-${Math.random().toString(36).slice(2, 8)}`,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Failed to create task");
+        return;
+      }
+      const task = data.task as FeedTask;
+      task.projectName = project.name;
+      task.githubRepo = project.githubRepo;
+      task.vercelProjectId = project.vercelProjectId;
+      task.vercelProjectName = project.vercelProjectName;
+      useTaskStore.getState().setTask(task);
+      navigate(`/projects/${task.projectId}/tasks/${task.id}?from=dashboard`);
+    } catch {
+      toast.error("Failed to create task");
+    } finally {
+      setCreatingTask(false);
+    }
+  }, [selectedProjectId, loaderData.projects, navigate]);
 
   // Project-scoped tasks
   const projectTasks = useMemo(
@@ -958,231 +832,264 @@ export default function Dashboard({
   return (
     <div className="flex gap-0">
       {/* Main content */}
-      <div
-        className="min-w-0 flex-1 mx-auto max-w-[1200px]"
-      >
+      <div className="min-w-0 flex-1 mx-auto max-w-[1200px]">
         {/* Task Launcher */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="text-lg font-semibold flex items-center gap-1.5">
               <span>Create task in</span>
               {loaderData.projects.length > 1 ? (
-              <Popover open={projectPickerOpen} onOpenChange={setProjectPickerOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    role="combobox"
-                    aria-expanded={projectPickerOpen}
-                    className="inline-flex items-center gap-1 font-semibold underline decoration-dotted underline-offset-4 hover:opacity-70 transition-opacity cursor-pointer"
-                  >
-                    {selectedProject ? selectedProject.name : "Select project"}
-                    <ChevronDown className="size-4 opacity-50" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[240px] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search projects..." />
-                    <CommandList>
-                      <CommandEmpty>No projects found.</CommandEmpty>
-                      <CommandGroup>
-                        {loaderData.projects.map((p) => (
-                          <CommandItem
-                            key={p.id}
-                            value={p.name}
-                            onSelect={() => {
-                              updateFilterProject(p.id);
-                              setProjectPickerOpen(false);
-                            }}
-                          >
-                            {p.name}
-                            <Check
-                              className={cn(
-                                "ml-auto size-3.5",
-                                selectedProjectId === p.id
-                                  ? "opacity-100"
-                                  : "opacity-0",
-                              )}
-                            />
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                <Popover
+                  open={projectPickerOpen}
+                  onOpenChange={setProjectPickerOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <button
+                      role="combobox"
+                      aria-expanded={projectPickerOpen}
+                      className="inline-flex items-center gap-1 font-semibold underline decoration-dotted underline-offset-4 hover:opacity-70 transition-opacity cursor-pointer"
+                    >
+                      {selectedProject
+                        ? selectedProject.name
+                        : "Select project"}
+                      <ChevronDown className="size-4 opacity-50" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[240px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search projects..." />
+                      <CommandList>
+                        <CommandEmpty>No projects found.</CommandEmpty>
+                        <CommandGroup>
+                          {loaderData.projects.map((p) => (
+                            <CommandItem
+                              key={p.id}
+                              value={p.name}
+                              onSelect={() => {
+                                updateFilterProject(p.id);
+                                setProjectPickerOpen(false);
+                              }}
+                            >
+                              {p.name}
+                              <Check
+                                className={cn(
+                                  "ml-auto size-3.5",
+                                  selectedProjectId === p.id
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               ) : (
-                <span>{selectedProject ? selectedProject.name : "Select project"}</span>
+                <span>
+                  {selectedProject ? selectedProject.name : "Select project"}
+                </span>
               )}
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-          {launchingWs && !standaloneWs && (
-            <div className="flex items-center gap-1.5">
-              <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Launching…</span>
-            </div>
-          )}
-          {standaloneWs && (() => {
-            const isProvisioning = standaloneWs.status === "provisioning";
-            if (isProvisioning) {
-              return (
-                <div className="flex items-center gap-1.5">
-                  <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Launching…</span>
-                </div>
-              );
-            }
-            const { domain, token } = parseWsUrl(standaloneWs.url);
-            const splitUrl = `${domain}/via/iframe/t/${token}`;
-            return (
-              <div className="flex items-center gap-1">
-                <Button
-                  size="icon-sm"
-                  variant="outline"
-                  asChild
-                  title="Open workspace"
-                >
-                  <a href={standaloneWs.url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="size-3.5" />
-                  </a>
-                </Button>
-                <Button
-                  size="icon-sm"
-                  variant="outline"
-                  asChild
-                  title="Split view"
-                >
-                  <a href={splitUrl} target="_blank" rel="noopener noreferrer">
-                    <Columns2 className="size-3.5" />
-                  </a>
-                </Button>
-                <Button
-                  size="icon-sm"
-                  variant="outline"
-                  className="text-destructive hover:bg-destructive/10"
-                  disabled={stoppingWs}
-                  onClick={handleStopStandaloneWs}
-                  title="Stop workspace"
-                >
-                  {stoppingWs ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <Square className="size-3.5" />
-                  )}
-                </Button>
+            {launchingWs && !standaloneWs && (
+              <div className="flex items-center gap-1.5">
+                <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">
+                  Launching…
+                </span>
               </div>
-            );
-          })()}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon-sm">
-                <Ellipsis className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {!standaloneWs && !launchingWs && (
-                <>
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      const pid = selectedProjectId ?? loaderData.projects[0]?.id;
-                      if (!pid) {
-                        toast.error("No project selected");
-                        return;
-                      }
-                      const branch = `sandbox-${Math.random().toString(36).slice(2, 8)}`;
-                      setLaunchingWs(true);
-                      try {
-                        const res = await fetch(`/api/projects/${pid}/sandbox`, {
-                          method: "POST",
-                          credentials: "include",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ branch }),
-                        });
-                        const data = await res.json();
-                        if (res.ok && data.workspace) {
-                          toast.success("Workspace launched");
-                          setStandaloneWs(data.workspace);
-                          window.open(data.workspace.url, "_blank");
-                        } else {
-                          toast.error(data.error ?? "Failed to launch workspace");
+            )}
+            {standaloneWs &&
+              (() => {
+                const isProvisioning = standaloneWs.status === "provisioning";
+                if (isProvisioning) {
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        Launching…
+                      </span>
+                    </div>
+                  );
+                }
+                const { domain, token } = parseWsUrl(standaloneWs.url);
+                const splitUrl = `${domain}/via/iframe/t/${token}`;
+                return (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="icon-sm"
+                      variant="outline"
+                      asChild
+                      title="Open workspace"
+                    >
+                      <a
+                        href={standaloneWs.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="size-3.5" />
+                      </a>
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="outline"
+                      asChild
+                      title="Split view"
+                    >
+                      <a
+                        href={splitUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Columns2 className="size-3.5" />
+                      </a>
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="outline"
+                      className="text-destructive hover:bg-destructive/10"
+                      disabled={stoppingWs}
+                      onClick={handleStopStandaloneWs}
+                      title="Stop workspace"
+                    >
+                      {stoppingWs ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Square className="size-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                );
+              })()}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon-sm">
+                  <Ellipsis className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {!standaloneWs && !launchingWs && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        const pid =
+                          selectedProjectId ?? loaderData.projects[0]?.id;
+                        if (!pid) {
+                          toast.error("No project selected");
+                          return;
                         }
-                      } catch {
-                        toast.error("Failed to launch workspace");
-                      } finally {
-                        setLaunchingWs(false);
-                      }
-                    }}
-                  >
-                    <Terminal className="size-3.5" />
-                    Launch Workspace
+                        const branch = `sandbox-${Math.random().toString(36).slice(2, 8)}`;
+                        setLaunchingWs(true);
+                        try {
+                          const res = await fetch(
+                            `/api/projects/${pid}/sandbox`,
+                            {
+                              method: "POST",
+                              credentials: "include",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ branch }),
+                            },
+                          );
+                          const data = await res.json();
+                          if (res.ok && data.workspace) {
+                            toast.success("Workspace launched");
+                            setStandaloneWs(data.workspace);
+                            window.open(data.workspace.url, "_blank");
+                          } else {
+                            toast.error(
+                              data.error ?? "Failed to launch workspace",
+                            );
+                          }
+                        } catch {
+                          toast.error("Failed to launch workspace");
+                        } finally {
+                          setLaunchingWs(false);
+                        }
+                      }}
+                    >
+                      <Terminal className="size-3.5" />
+                      Launch Workspace
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link to="/projects/new">
+                    <Plus className="size-3.5" />
+                    New Project
+                  </Link>
+                </DropdownMenuItem>
+                {selectedProjectId && (
+                  <DropdownMenuItem asChild>
+                    <Link to={`/projects/${selectedProjectId}/deploys`}>
+                      <Rocket className="size-3.5" />
+                      Deployments
+                    </Link>
                   </DropdownMenuItem>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link to="/data">
+                    <Database className="size-3.5" />
+                    Data Sources
+                  </Link>
+                </DropdownMenuItem>
+                {selectedProjectId && (
+                  <DropdownMenuItem asChild>
+                    <Link to={`/projects/${selectedProjectId}/settings`}>
+                      <Settings className="size-3.5" />
+                      Project Settings
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {(selectedProject?.githubRepo ||
+                  selectedProject?.vercelProjectId) && (
                   <DropdownMenuSeparator />
-                </>
-              )}
-              <DropdownMenuItem asChild>
-                <Link to="/projects/new">
-                  <Plus className="size-3.5" />
-                  New Project
-                </Link>
-              </DropdownMenuItem>
-              {selectedProjectId && (
-                <DropdownMenuItem asChild>
-                  <Link to={`/projects/${selectedProjectId}/deploys`}>
-                    <Rocket className="size-3.5" />
-                    Deployments
-                  </Link>
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem asChild>
-                <Link to="/data">
-                  <Database className="size-3.5" />
-                  Data Sources
-                </Link>
-              </DropdownMenuItem>
-              {selectedProjectId && (
-                <DropdownMenuItem asChild>
-                  <Link to={`/projects/${selectedProjectId}/settings`}>
-                    <Settings className="size-3.5" />
-                    Project Settings
-                  </Link>
-                </DropdownMenuItem>
-              )}
-              {(selectedProject?.githubRepo || selectedProject?.vercelProjectId) && (
-                <DropdownMenuSeparator />
-              )}
-              {selectedProject?.githubRepo && (
-                <DropdownMenuItem asChild>
-                  <a
-                    href={`https://github.com/${selectedProject.githubRepo}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <GitHubIcon size={14} />
-                    GitHub Repository
-                  </a>
-                </DropdownMenuItem>
-              )}
-              {selectedProject?.vercelProjectId && (
-                <DropdownMenuItem asChild>
-                  <a
-                    href={`https://vercel.com/${selectedProject.vercelProjectName ?? selectedProject.vercelProjectId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <VercelIcon />
-                    Vercel Project
-                  </a>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                )}
+                {selectedProject?.githubRepo && (
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={`https://github.com/${selectedProject.githubRepo}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <GitHubIcon size={14} />
+                      GitHub Repository
+                    </a>
+                  </DropdownMenuItem>
+                )}
+                {selectedProject?.vercelProjectId && (
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={`https://vercel.com/${selectedProject.vercelProjectName ?? selectedProject.vercelProjectId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <VercelIcon />
+                      Vercel Project
+                    </a>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-        <DashboardTaskLauncher
-          onTaskCreated={handleTaskCreated}
-          integrations={integrations}
-          projects={loaderData.projects}
-          projectId={selectedProjectId}
-        />
+        <div className="mb-6">
+          <Button
+            onClick={handleCreateTask}
+            disabled={creatingTask || loaderData.projects.length === 0}
+            size="sm"
+          >
+            {creatingTask ? (
+              <Loader2 className="size-3.5 animate-spin mr-1.5" />
+            ) : (
+              <Plus className="size-3.5 mr-1.5" />
+            )}
+            Create task
+          </Button>
+        </div>
 
         {/* Feed tabs */}
         <Tabs
@@ -1313,28 +1220,34 @@ function DrawerPanel({
   const startX = useRef(0);
   const startWidth = useRef(DEFAULT_WIDTH);
 
-  const onMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isDragging.current = true;
-    startX.current = e.clientX;
-    startWidth.current = width;
+  const onMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isDragging.current = true;
+      startX.current = e.clientX;
+      startWidth.current = width;
 
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!isDragging.current) return;
-      const delta = startX.current - ev.clientX;
-      const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
-      setWidth(next);
-    };
+      const onMouseMove = (ev: MouseEvent) => {
+        if (!isDragging.current) return;
+        const delta = startX.current - ev.clientX;
+        const next = Math.min(
+          MAX_WIDTH,
+          Math.max(MIN_WIDTH, startWidth.current + delta),
+        );
+        setWidth(next);
+      };
 
-    const onMouseUp = () => {
-      isDragging.current = false;
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
+      const onMouseUp = () => {
+        isDragging.current = false;
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+      };
 
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-  }, [width]);
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    },
+    [width],
+  );
 
   return (
     <div

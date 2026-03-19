@@ -3,7 +3,7 @@ import { Sandbox } from "@vercel/sandbox";
 import { requireAuth, isAdminRole } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, workspaces, tasks, taskAttachments } from "~/lib/db/schema";
-import { eq, and, gt, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { resolveAllSecrets, flattenSecrets } from "~/lib/infisical.server";
 import { log } from "~/lib/logger.server";
 
@@ -273,7 +273,11 @@ export async function action({
   }
 
   // ── Fetch task attachments ─────────────────────────
-  let attachmentRows: { filename: string; blobUrl: string; contentType: string }[] = [];
+  let attachmentRows: {
+    filename: string;
+    blobUrl: string;
+    contentType: string;
+  }[] = [];
   if (taskId) {
     attachmentRows = await db
       .select({
@@ -286,7 +290,11 @@ export async function action({
 
     if (attachmentRows.length > 0) {
       log.info(
-        { taskId, count: attachmentRows.length, filenames: attachmentRows.map((a) => a.filename) },
+        {
+          taskId,
+          count: attachmentRows.length,
+          filenames: attachmentRows.map((a) => a.filename),
+        },
         "sandbox: task has attachments to inject",
       );
     }
@@ -342,7 +350,11 @@ export async function action({
       .returning();
 
     log.info(
-      { projectId: id, workspaceId: workspace.id, sandboxId: sandbox.sandboxId },
+      {
+        projectId: id,
+        workspaceId: workspace.id,
+        sandboxId: sandbox.sandboxId,
+      },
       "sandbox: workspace record created (provisioning)",
     );
 
@@ -424,7 +436,11 @@ export async function action({
 
         // Look up task details for type and review mode
         const [taskRow] = await db
-          .select({ type: tasks.type, prompt: tasks.prompt, prUrl: tasks.prUrl })
+          .select({
+            type: tasks.type,
+            prompt: tasks.prompt,
+            prUrl: tasks.prUrl,
+          })
           .from(tasks)
           .where(eq(tasks.id, taskId));
         if (taskRow?.type) {
@@ -464,7 +480,8 @@ fetch(process.env.VIAGEN_CALLBACK_URL, {
   }),
 });`;
 
-          envMap["VIAGEN_PROMPT"] = `You are a lightweight PR reviewer. Your job is to review a pull request — NOT write code.
+          envMap["VIAGEN_PROMPT"] =
+            `You are a lightweight PR reviewer. Your job is to review a pull request — NOT write code.
 
 ## Original Task
 ${taskRow.prompt}
@@ -596,7 +613,7 @@ GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (th
       const supervisorScript = [
         "#!/bin/bash",
         "while true; do",
-        '  npm run dev -- --host 0.0.0.0',
+        "  npm run dev -- --host 0.0.0.0",
         '  echo "[supervisor] dev server exited, restarting in 1s..."',
         "  sleep 1",
         "done",
