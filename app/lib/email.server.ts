@@ -60,15 +60,15 @@ export async function sendOrgInviteEmail({
 
 export async function sendTaskReadyEmail({
   to,
-  projectName,
-  projectId,
+  appName,
+  environmentId,
   taskId,
   taskPrompt,
   prUrl,
 }: {
   to: string;
-  projectName: string;
-  projectId: string;
+  appName: string;
+  environmentId: string;
   taskId: string;
   taskPrompt: string;
   prUrl?: string;
@@ -85,7 +85,7 @@ export async function sendTaskReadyEmail({
   const { error } = await resend.emails.send({
     from: FROM,
     to,
-    subject: `Task ready: ${projectName}`,
+    subject: `Task ready: ${appName}`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -93,42 +93,42 @@ export async function sendTaskReadyEmail({
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px; color: #1a1a1a;">
   <h2 style="margin: 0 0 16px;">Task Complete</h2>
   <p style="line-height: 1.6; margin: 0 0 12px;">
-    A task in <strong>${projectName}</strong> has finished:
+    A task in <strong>${appName}</strong> has finished:
   </p>
   <blockquote style="border-left: 3px solid #d4d4d8; margin: 0 0 24px; padding: 8px 16px; color: #52525b;">
     ${taskPrompt}
   </blockquote>
   ${prLink}
   <p style="margin-top: 24px;">
-    <a href="${APP_URL}/projects/${projectId}/tasks/${taskId}"
+    <a href="${APP_URL}/environments/${environmentId}/tasks/${taskId}"
        style="color: #18181b; text-decoration: underline; font-weight: 500;">
       View task details
     </a>
   </p>
   <p style="margin-top: 32px; font-size: 13px; color: #71717a;">
-    You're receiving this because you're a member of this project's organization.
+    You're receiving this because you're a member of this app's organization.
   </p>
 </body>
 </html>`.trim(),
   });
 
   if (error) {
-    log.error({ to, projectName, taskId, error }, "failed to send task ready email");
+    log.error({ to, appName, taskId, error }, "failed to send task ready email");
   } else {
-    log.info({ to, projectName, taskId }, "task ready email sent");
+    log.info({ to, appName, taskId }, "task ready email sent");
   }
 }
 
 export async function sendTaskTimeoutEmail({
   to,
-  projectName,
-  projectId,
+  appName,
+  environmentId,
   taskId,
   taskPrompt,
 }: {
   to: string;
-  projectName: string;
-  projectId: string;
+  appName: string;
+  environmentId: string;
   taskId: string;
   taskPrompt: string;
 }) {
@@ -140,7 +140,7 @@ export async function sendTaskTimeoutEmail({
   const { error } = await resend.emails.send({
     from: FROM,
     to,
-    subject: `Task timed out: ${projectName}`,
+    subject: `Task timed out: ${appName}`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -148,27 +148,27 @@ export async function sendTaskTimeoutEmail({
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px; color: #1a1a1a;">
   <h2 style="margin: 0 0 16px;">Task Timed Out</h2>
   <p style="line-height: 1.6; margin: 0 0 12px;">
-    A task in <strong>${projectName}</strong> timed out after 40 minutes without an agent response:
+    A task in <strong>${appName}</strong> timed out after 40 minutes without an agent response:
   </p>
   <blockquote style="border-left: 3px solid #ef4444; margin: 0 0 24px; padding: 8px 16px; color: #52525b;">
     ${taskPrompt}
   </blockquote>
   <p style="margin-top: 24px;">
-    <a href="${APP_URL}/projects/${projectId}/tasks/${taskId}"
+    <a href="${APP_URL}/environments/${environmentId}/tasks/${taskId}"
        style="color: #18181b; text-decoration: underline; font-weight: 500;">
       View task details
     </a>
   </p>
   <p style="margin-top: 32px; font-size: 13px; color: #71717a;">
-    You're receiving this because you're a member of this project's organization.
+    You're receiving this because you're a member of this app's organization.
   </p>
 </body>
 </html>`.trim(),
   });
 
   if (error) {
-    log.error({ to, projectName, taskId, error }, "failed to send task timeout email");
+    log.error({ to, appName, taskId, error }, "failed to send task timeout email");
   } else {
-    log.info({ to, projectName, taskId }, "task timeout email sent");
+    log.info({ to, appName, taskId }, "task timeout email sent");
   }
 }

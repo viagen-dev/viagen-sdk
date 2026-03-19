@@ -67,7 +67,7 @@ export default function Onboarding({
             Create your team
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Unlock collaboration and organize projects.
+            Unlock collaboration and organize apps.
           </p>
         </div>
 

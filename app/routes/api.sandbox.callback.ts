@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "~/lib/db/index.server";
-import { tasks, projects, orgMembers, users } from "~/lib/db/schema";
+import { tasks, environments, orgMembers, users } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
 import { sendTaskReadyEmail } from "~/lib/email.server";
 
@@ -62,25 +62,25 @@ export async function action({ request }: { request: Request }) {
       return Response.json({ error: "projectId is required" }, { status: 400 });
     }
 
-    // Auth: find any task in the project with a matching callback token
-    const projectTasks = await db
+    // Auth: find any task in the app with a matching callback token
+    const appTasks = await db
       .select()
       .from(tasks)
-      .where(eq(tasks.projectId, body.projectId));
+      .where(eq(tasks.environmentId, body.projectId));
 
-    const authTask = projectTasks.find(
+    const authTask = appTasks.find(
       (t) => t.callbackTokenHash === tokenHash,
     );
     if (!authTask) {
       log.warn(
-        { projectId: body.projectId, action: crudAction },
-        "sandbox callback: no matching token for project",
+        { environmentId: body.projectId, action: crudAction },
+        "sandbox callback: no matching token for app",
       );
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (crudAction === "list_tasks") {
-      const sorted = [...projectTasks].sort(
+      const sorted = [...appTasks].sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
@@ -88,7 +88,7 @@ export async function action({ request }: { request: Request }) {
         ? sorted.filter((t) => t.status === body.status)
         : sorted;
       log.debug(
-        { projectId: body.projectId, count: filtered.length },
+        { environmentId: body.projectId, count: filtered.length },
         "sandbox callback: tasks listed",
       );
       return Response.json({ tasks: filtered });
@@ -98,10 +98,10 @@ export async function action({ request }: { request: Request }) {
       if (!body.taskId) {
         return Response.json({ error: "taskId is required" }, { status: 400 });
       }
-      const task = projectTasks.find((t) => t.id === body.taskId);
+      const task = appTasks.find((t) => t.id === body.taskId);
       if (!task) {
         log.warn(
-          { projectId: body.projectId, taskId: body.taskId },
+          { environmentId: body.projectId, taskId: body.taskId },
           "sandbox callback: task not found",
         );
         return Response.json({ error: "Task not found" }, { status: 404 });
@@ -125,14 +125,14 @@ export async function action({ request }: { request: Request }) {
 
       const maxTaskNumber = Math.max(
         0,
-        ...projectTasks.map((t) => t.taskNumber ?? 0),
+        ...appTasks.map((t) => t.taskNumber ?? 0),
       );
       const taskNumber = maxTaskNumber + 1;
 
       const [task] = await db
         .insert(tasks)
         .values({
-          projectId: body.projectId,
+          environmentId: body.projectId,
           prompt,
           branch,
           type,
@@ -144,7 +144,7 @@ export async function action({ request }: { request: Request }) {
         .returning();
 
       log.info(
-        { projectId: body.projectId, taskId: task.id, taskNumber },
+        { environmentId: body.projectId, taskId: task.id, taskNumber },
         "sandbox callback: task created",
       );
       return Response.json({ task }, { status: 201 });
@@ -243,7 +243,7 @@ export async function action({ request }: { request: Request }) {
   log.info(
     {
       taskId: body.taskId,
-      projectId: task.projectId,
+      environmentId: task.environmentId,
       status: body.status,
       prUrl: body.prUrl ?? null,
     },
@@ -254,24 +254,24 @@ export async function action({ request }: { request: Request }) {
   if (body.status === "validating") {
     (async () => {
       try {
-        const [project] = await db
-          .select({ name: projects.name, organizationId: projects.organizationId })
-          .from(projects)
-          .where(eq(projects.id, task.projectId));
+        const [app] = await db
+          .select({ name: environments.name, organizationId: environments.organizationId })
+          .from(environments)
+          .where(eq(environments.id, task.environmentId));
 
-        if (!project) return;
+        if (!app) return;
 
         const members = await db
           .select({ email: users.email })
           .from(orgMembers)
           .innerJoin(users, eq(orgMembers.userId, users.id))
-          .where(eq(orgMembers.organizationId, project.organizationId));
+          .where(eq(orgMembers.organizationId, app.organizationId));
 
         for (const member of members) {
           sendTaskReadyEmail({
             to: member.email,
-            projectName: project.name,
-            projectId: task.projectId,
+            appName: app.name,
+            environmentId: task.environmentId,
             taskId: updated.id,
             taskPrompt: task.prompt,
             prUrl: body.prUrl,

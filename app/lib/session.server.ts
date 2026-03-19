@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { redirect } from "react-router";
 import { validateSession, validateApiToken } from "./auth.server";
 import { db } from "./db/index.server";
-import { orgMembers, organizations, tasks, projects, users } from "./db/schema";
+import { orgMembers, organizations, tasks, environments, users } from "./db/schema";
 import { eq } from "drizzle-orm";
 import type { User } from "./db/schema";
 import { log } from "./logger.server";

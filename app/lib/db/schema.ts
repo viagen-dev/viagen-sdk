@@ -58,7 +58,7 @@ export const orgMembers = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.organizationId] })],
 );
 
-export const projects = pgTable("projects", {
+export const environments = pgTable("environments", {
   id: uuid("id").defaultRandom().primaryKey(),
   organizationId: uuid("organization_id")
     .notNull()
@@ -68,6 +68,8 @@ export const projects = pgTable("projects", {
   vercelProjectName: varchar("vercel_project_name", { length: 255 }),
   vercelOrgId: varchar("vercel_org_id", { length: 255 }),
   githubRepo: varchar("github_repo", { length: 255 }),
+  kind: varchar("kind", { length: 64 }).notNull().default("app"),
+  domain: varchar("domain", { length: 255 }),
   templateId: varchar("template_id", { length: 64 }),
   taskPrefix: varchar("task_prefix", { length: 10 }),
   vercelEnvSync: jsonb("vercel_env_sync").$type<Record<string, boolean>>(),
@@ -82,9 +84,9 @@ export const projects = pgTable("projects", {
 
 export const workspaces = pgTable("workspaces", {
   id: uuid("id").defaultRandom().primaryKey(),
-  projectId: uuid("project_id")
+  environmentId: uuid("environment_id")
     .notNull()
-    .references(() => projects.id, { onDelete: "cascade" }),
+    .references(() => environments.id, { onDelete: "cascade" }),
   sandboxId: varchar("sandbox_id", { length: 255 }).notNull(),
   url: varchar("url", { length: 2048 }).notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -144,9 +146,9 @@ export const apiTokens = pgTable("api_tokens", {
 
 export const tasks = pgTable("tasks", {
   id: uuid("id").defaultRandom().primaryKey(),
-  projectId: uuid("project_id")
+  environmentId: uuid("environment_id")
     .notNull()
-    .references(() => projects.id, { onDelete: "cascade" }),
+    .references(() => environments.id, { onDelete: "cascade" }),
   prompt: text("prompt").notNull(),
   model: varchar("model", { length: 100 })
     .notNull()
@@ -181,7 +183,7 @@ export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Organization = typeof organizations.$inferSelect;
 export type OrgMember = typeof orgMembers.$inferSelect;
-export type Project = typeof projects.$inferSelect;
+export type Environment = typeof environments.$inferSelect;
 export type Workspace = typeof workspaces.$inferSelect;
 export type Database = typeof databases.$inferSelect;
 export type ApiToken = typeof apiTokens.$inferSelect;

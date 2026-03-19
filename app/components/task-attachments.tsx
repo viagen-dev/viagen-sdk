@@ -29,13 +29,13 @@ function formatSize(bytes: number): string {
 
 /** Compact attachment chip list with add/remove for ready tasks */
 export function TaskAttachments({
-  projectId,
+  environmentId,
   taskId,
   attachments,
   onChanged,
   readOnly = false,
 }: {
-  projectId: string;
+  environmentId: string;
   taskId: string;
   attachments: Attachment[];
   onChanged: (attachments: Attachment[]) => void;
@@ -51,7 +51,7 @@ export function TaskAttachments({
       const form = new FormData();
       form.append("file", file);
       const res = await fetch(
-        `/api/projects/${projectId}/tasks/${taskId}/attachments`,
+        `/api/environments/${environmentId}/tasks/${taskId}/attachments`,
         { method: "POST", credentials: "include", body: form },
       );
       const data = await res.json();
@@ -73,7 +73,7 @@ export function TaskAttachments({
     setDeletingId(att.id);
     try {
       const res = await fetch(
-        `/api/projects/${projectId}/tasks/${taskId}/attachments`,
+        `/api/environments/${environmentId}/tasks/${taskId}/attachments`,
         {
           method: "DELETE",
           credentials: "include",

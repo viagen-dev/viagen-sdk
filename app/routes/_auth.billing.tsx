@@ -86,7 +86,7 @@ export default function Billing() {
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-md border p-4">
-              <Muted>Projects</Muted>
+              <Muted>Apps</Muted>
               <Large>—</Large>
             </div>
             <div className="rounded-md border p-4">

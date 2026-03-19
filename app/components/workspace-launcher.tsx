@@ -16,12 +16,12 @@ interface Workspace {
 const generateRandomBranch = () => `feat-${Math.random().toString(36).slice(2, 8)}`;
 
 export function WorkspaceLauncher({
-  projectId,
+  environmentId,
   allReady,
   onCreated,
   onError,
 }: {
-  projectId: string;
+  environmentId: string;
   allReady: boolean;
   onCreated: (workspace: Workspace) => void;
   onError: (message: string) => void;
@@ -49,7 +49,7 @@ export function WorkspaceLauncher({
     if (launching) return;
     setLaunching(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/sandbox`, {
+      const res = await fetch(`/api/environments/${environmentId}/sandbox`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

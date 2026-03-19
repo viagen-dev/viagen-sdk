@@ -1,6 +1,6 @@
 export interface Task {
   id: string
-  projectId: string
+  environmentId: string
   prompt: string
   /** One of: "ready", "running", "validating", "completed", "timed_out" */
   status: string
@@ -31,7 +31,7 @@ export interface CreateTaskInput {
 export interface UpdateTaskInput {
   status?: string
   prompt?: string
-  projectId?: string
+  environmentId?: string
   result?: string | null
   error?: string | null
   prUrl?: string | null
@@ -49,7 +49,7 @@ export interface MergeResult {
 }
 
 export interface TeamTask extends Task {
-  projectName: string
+  environmentName: string
   githubRepo: string | null
   vercelProjectId: string | null
   vercelProjectName: string | null
@@ -68,7 +68,7 @@ export interface CreateTeamTaskInput {
 
 export interface CreateTeamTaskResult {
   task: TeamTask
-  projectId: string
+  environmentId: string
 }
 
 export interface ListTeamOptions {
@@ -92,23 +92,23 @@ export interface TaskAttachment {
 }
 
 export interface TasksClient {
-  /** List tasks for a project, optionally filtered by status. */
-  list(projectId: string, status?: string): Promise<Task[]>
+  /** List tasks for an environment, optionally filtered by status. */
+  list(environmentId: string, status?: string): Promise<Task[]>
   /** Get a single task by ID. */
-  get(projectId: string, taskId: string): Promise<Task>
+  get(environmentId: string, taskId: string): Promise<Task>
   /** Create a new task. */
-  create(projectId: string, input: CreateTaskInput): Promise<Task>
+  create(environmentId: string, input: CreateTaskInput): Promise<Task>
   /** Update a task (status, result, error, prUrl, workspaceId). */
-  update(projectId: string, taskId: string, input: UpdateTaskInput): Promise<Task>
+  update(environmentId: string, taskId: string, input: UpdateTaskInput): Promise<Task>
   /** Merge the PR for a task and mark it completed. */
-  merge(projectId: string, taskId: string): Promise<MergeResult>
+  merge(environmentId: string, taskId: string): Promise<MergeResult>
   /** Cancel a task: stop sandbox, optionally close PR, reset to ready. */
-  cancel(projectId: string, taskId: string, input?: CancelTaskInput): Promise<Task>
+  cancel(environmentId: string, taskId: string, input?: CancelTaskInput): Promise<Task>
   /** Upload a file attachment to a task. Task must be in 'ready' status. */
-  addAttachment(projectId: string, taskId: string, file: File | Blob, filename: string): Promise<TaskAttachment>
-  /** List tasks across all projects in the org. */
+  addAttachment(environmentId: string, taskId: string, file: File | Blob, filename: string): Promise<TaskAttachment>
+  /** List tasks across all environments in the org. */
   listTeam(options?: ListTeamOptions): Promise<TeamTask[]>
-  /** Create a task with auto project creation (find-or-create by repo + Vercel project). */
+  /** Create a task with auto environment creation (find-or-create by repo + Vercel project). */
   createTeam(input: CreateTeamTaskInput): Promise<CreateTeamTaskResult>
 }
 
@@ -116,51 +116,51 @@ export type RequestFn = <T>(path: string, options?: RequestInit) => Promise<T>
 
 export function createTasksClient(_baseUrl: string, request: RequestFn): TasksClient {
   return {
-    async list(projectId, status) {
+    async list(environmentId, status) {
       const qs = status ? `?status=${encodeURIComponent(status)}` : ''
-      const data = await request<{ tasks: Task[] }>(`/api/projects/${projectId}/tasks${qs}`)
+      const data = await request<{ tasks: Task[] }>(`/api/environments/${environmentId}/tasks${qs}`)
       return data.tasks
     },
 
-    async get(projectId, taskId) {
-      const data = await request<{ task: Task }>(`/api/projects/${projectId}/tasks/${taskId}`)
+    async get(environmentId, taskId) {
+      const data = await request<{ task: Task }>(`/api/environments/${environmentId}/tasks/${taskId}`)
       return data.task
     },
 
-    async create(projectId, input) {
-      const data = await request<{ task: Task }>(`/api/projects/${projectId}/tasks`, {
+    async create(environmentId, input) {
+      const data = await request<{ task: Task }>(`/api/environments/${environmentId}/tasks`, {
         method: 'POST',
         body: JSON.stringify(input),
       })
       return data.task
     },
 
-    async update(projectId, taskId, input) {
-      const data = await request<{ task: Task }>(`/api/projects/${projectId}/tasks/${taskId}`, {
+    async update(environmentId, taskId, input) {
+      const data = await request<{ task: Task }>(`/api/environments/${environmentId}/tasks/${taskId}`, {
         method: 'PATCH',
         body: JSON.stringify(input),
       })
       return data.task
     },
 
-    async merge(projectId, taskId) {
-      return request<MergeResult>(`/api/projects/${projectId}/tasks/${taskId}/merge`, {
+    async merge(environmentId, taskId) {
+      return request<MergeResult>(`/api/environments/${environmentId}/tasks/${taskId}/merge`, {
         method: 'POST',
       })
     },
 
-    async addAttachment(projectId, taskId, file, filename) {
+    async addAttachment(environmentId, taskId, file, filename) {
       const form = new FormData()
       form.append('file', file, filename)
       const data = await request<{ attachment: TaskAttachment }>(
-        `/api/projects/${projectId}/tasks/${taskId}/attachments`,
+        `/api/environments/${environmentId}/tasks/${taskId}/attachments`,
         { method: 'POST', body: form },
       )
       return data.attachment
     },
 
-    async cancel(projectId, taskId, input = {}) {
-      const data = await request<{ task: Task }>(`/api/projects/${projectId}/tasks/${taskId}/cancel`, {
+    async cancel(environmentId, taskId, input = {}) {
+      const data = await request<{ task: Task }>(`/api/environments/${environmentId}/tasks/${taskId}/cancel`, {
         method: 'POST',
         body: JSON.stringify(input),
       })

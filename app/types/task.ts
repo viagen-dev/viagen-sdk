@@ -1,6 +1,6 @@
 import type { Attachment } from "~/components/task-attachments";
 
-export interface Project {
+export interface Environment {
   id: string;
   name: string;
   templateId: string | null;
@@ -8,6 +8,8 @@ export interface Project {
   vercelProjectId: string | null;
   vercelProjectName: string | null;
   githubRepo: string | null;
+  kind: string;
+  domain: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,7 +23,7 @@ export type TaskStatus =
 
 export interface FeedTask {
   id: string;
-  projectId: string;
+  environmentId: string;
   prompt: string;
   model: string;
   status: TaskStatus;
@@ -40,7 +42,7 @@ export interface FeedTask {
   durationMs: number | null;
   inputTokens: number | null;
   outputTokens: number | null;
-  projectName: string;
+  environmentName: string;
   taskPrefix: string | null;
   githubRepo: string | null;
   vercelProjectId: string | null;

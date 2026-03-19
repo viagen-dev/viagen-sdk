@@ -725,7 +725,7 @@ export default function Settings() {
                       Vercel
                     </CardTitle>
                     <CardDescription>
-                      Connect Vercel to deploy projects for {currentOrg.name}.
+                      Connect Vercel to deploy environments for {currentOrg.name}.
                     </CardDescription>
                   </CardHeader>
                   <CardFooter className="border-t justify-between">
@@ -768,8 +768,8 @@ export default function Settings() {
                   <CardHeader>
                     <CardTitle>Claude Key</CardTitle>
                     <CardDescription>
-                      Shared Anthropic API key for all projects in{" "}
-                      {currentOrg.name}. Projects can override with their own
+                      Shared Anthropic API key for all apps in{" "}
+                      {currentOrg.name}. Apps can override with their own
                       key.
                     </CardDescription>
                   </CardHeader>
@@ -960,7 +960,7 @@ export default function Settings() {
                                         <DialogDescription>
                                           Are you sure you want to leave{" "}
                                           {currentOrg.name}? You will lose
-                                          access to all projects and will need
+                                          access to all apps and will need
                                           to be re-invited to rejoin.
                                         </DialogDescription>
                                       </DialogHeader>
@@ -1007,7 +1007,7 @@ export default function Settings() {
                                         <DialogDescription>
                                           Remove {member.name ?? member.email}{" "}
                                           from {currentOrg.name}? They will lose
-                                          access to all projects.
+                                          access to all apps.
                                         </DialogDescription>
                                       </DialogHeader>
                                       <DialogFooter>
@@ -1048,7 +1048,7 @@ export default function Settings() {
                       <CardTitle>Delete Team</CardTitle>
                       <CardDescription>
                         Permanently delete {currentOrg.name} and all of its
-                        projects, workspaces, and data. This action is not
+                        apps, workspaces, and data. This action is not
                         reversible — please continue with caution.
                       </CardDescription>
                     </CardHeader>
@@ -1065,7 +1065,7 @@ export default function Settings() {
                             <AlertDialogDescription>
                               This will permanently delete{" "}
                               <strong>{currentOrg.name}</strong> and all of its
-                              projects, workspaces, members, and data sources.
+                              apps, workspaces, members, and data sources.
                               This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>

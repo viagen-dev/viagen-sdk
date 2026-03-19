@@ -1,6 +1,6 @@
 import { createAuthClient, type AuthClient } from "./auth.js";
 import { createOrgsClient, type OrgsClient } from "./orgs.js";
-import { createProjectsClient, type ProjectsClient } from "./projects.js";
+import { createEnvironmentsClient, type EnvironmentsClient } from "./environments.js";
 import { createVercelClient, type VercelClient } from "./vercel.js";
 import { createGitHubClient, type GitHubClient } from "./github.js";
 import { createTasksClient, type TasksClient } from "./tasks.js";
@@ -14,16 +14,16 @@ export type {
 } from "./auth.js";
 export type { OrgMembership, Org, OrgsClient } from "./orgs.js";
 export type {
-  Project,
-  CreateProjectInput,
-  UpdateProjectInput,
-  SyncProjectInput,
+  Environment,
+  CreateEnvironmentInput,
+  UpdateEnvironmentInput,
+  SyncEnvironmentInput,
   SyncResult,
-  ProjectSecret,
-  ProjectDatabase,
+  EnvironmentSecret,
+  EnvironmentDatabase,
   ProvisionDatabaseInput,
-  ProjectsClient,
-} from "./projects.js";
+  EnvironmentsClient,
+} from "./environments.js";
 export type {
   VercelProject,
   VercelListProjectsParams,
@@ -66,7 +66,7 @@ export interface ViagenConfig {
 export interface ViagenClient {
   auth: AuthClient;
   orgs: OrgsClient;
-  projects: ProjectsClient;
+  environments: EnvironmentsClient;
   tasks: TasksClient;
   vercel: VercelClient;
   github: GitHubClient;
@@ -125,7 +125,7 @@ export function createViagen(config: ViagenConfig): ViagenClient {
   return {
     auth: createAuthClient(baseUrl, request),
     orgs: createOrgsClient(baseUrl, request),
-    projects: createProjectsClient(baseUrl, request),
+    environments: createEnvironmentsClient(baseUrl, request),
     tasks: createTasksClient(baseUrl, request),
     vercel: createVercelClient(baseUrl, request),
     github: createGitHubClient(baseUrl, request),

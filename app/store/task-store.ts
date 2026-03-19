@@ -14,9 +14,9 @@ interface TaskState {
   /** Fetch all tasks for the org (GET /api/tasks). Merges into the map. */
   fetchAllTasks: () => Promise<void>;
   /** Fetch a single task by ID. Merges into the map. */
-  fetchTask: (projectId: string, taskId: string) => Promise<void>;
+  fetchTask: (environmentId: string, taskId: string) => Promise<void>;
   /** Fetch workspaces for a task. */
-  fetchWorkspaces: (projectId: string, taskId: string) => Promise<void>;
+  fetchWorkspaces: (environmentId: string, taskId: string) => Promise<void>;
   /** Optimistically set / update a task in the store. */
   setTask: (task: FeedTask) => void;
   /** Remove a task from the store. */
@@ -35,7 +35,7 @@ interface TaskState {
    * Returns a cleanup function.
    */
   startDetailPolling: (
-    projectId: string,
+    environmentId: string,
     taskId: string,
   ) => () => void;
 }
@@ -75,10 +75,10 @@ export const useTaskStore = create<TaskState>()(
         }
       },
 
-      fetchTask: async (projectId, taskId) => {
+      fetchTask: async (environmentId, taskId) => {
         try {
           const res = await fetch(
-            `/api/projects/${projectId}/tasks/${taskId}`,
+            `/api/environments/${environmentId}/tasks/${taskId}`,
             { credentials: "include" },
           );
           if (!res.ok) return;
@@ -97,9 +97,9 @@ export const useTaskStore = create<TaskState>()(
         }
       },
 
-      fetchWorkspaces: async (projectId, taskId) => {
+      fetchWorkspaces: async (environmentId, taskId) => {
         try {
-          const res = await fetch(`/api/projects/${projectId}/sandbox`, {
+          const res = await fetch(`/api/environments/${environmentId}/sandbox`, {
             credentials: "include",
           });
           if (!res.ok) return;
@@ -161,11 +161,11 @@ export const useTaskStore = create<TaskState>()(
         };
       },
 
-      startDetailPolling: (projectId, taskId) => {
+      startDetailPolling: (environmentId, taskId) => {
         const { fetchTask, fetchWorkspaces } = get();
         // Initial fetch
-        fetchTask(projectId, taskId);
-        fetchWorkspaces(projectId, taskId);
+        fetchTask(environmentId, taskId);
+        fetchWorkspaces(environmentId, taskId);
 
         const timer = setInterval(() => {
           const task = get().tasks[taskId];
@@ -176,8 +176,8 @@ export const useTaskStore = create<TaskState>()(
           ) {
             return; // skip polling for inactive tasks but keep timer alive
           }
-          fetchTask(projectId, taskId);
-          fetchWorkspaces(projectId, taskId);
+          fetchTask(environmentId, taskId);
+          fetchWorkspaces(environmentId, taskId);
         }, 5_000);
 
         return () => clearInterval(timer);

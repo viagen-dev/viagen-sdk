@@ -1,7 +1,7 @@
 import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { projects, tasks, orgMembers, users } from "~/lib/db/schema";
+import { environments, tasks, orgMembers, users } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
 import { getSecret } from "~/lib/infisical.server";
 import { parsePrUrl, isPrMerged } from "~/lib/github.server";
@@ -17,16 +17,16 @@ export async function loader({ request }: { request: Request }) {
     "team tasks list: fetching all tasks for org",
   );
 
-  // Get all project IDs belonging to this org
-  const orgProjects = await db
-    .select({ id: projects.id })
-    .from(projects)
-    .where(eq(projects.organizationId, org.id));
+  // Get all app IDs belonging to this org
+  const orgApps = await db
+    .select({ id: environments.id })
+    .from(environments)
+    .where(eq(environments.organizationId, org.id));
 
-  const projectIds = orgProjects.map((p) => p.id);
+  const appIds = orgApps.map((p) => p.id);
 
-  if (projectIds.length === 0) {
-    log.debug({ orgId: org.id }, "team tasks list: no projects in org, returning empty");
+  if (appIds.length === 0) {
+    log.debug({ orgId: org.id }, "team tasks list: no environments in org, returning empty");
     return Response.json({ tasks: [] });
   }
 
@@ -36,22 +36,22 @@ export async function loader({ request }: { request: Request }) {
   const limitParam = url.searchParams.get("limit");
   const limit = limitParam ? Math.min(Number(limitParam), 100) : 50;
 
-  // Join tasks with users (creator) and projects (for context)
+  // Join tasks with users (creator) and environments (for context)
   const rowsWithContext = await db
     .select({
       task: tasks,
       creatorName: users.name,
       creatorAvatarUrl: users.avatarUrl,
-      projectName: projects.name,
-      taskPrefix: projects.taskPrefix,
-      githubRepo: projects.githubRepo,
-      vercelProjectId: projects.vercelProjectId,
-      vercelProjectName: projects.vercelProjectName,
+      appName: environments.name,
+      taskPrefix: environments.taskPrefix,
+      githubRepo: environments.githubRepo,
+      vercelProjectId: environments.vercelProjectId,
+      vercelProjectName: environments.vercelProjectName,
     })
     .from(tasks)
     .leftJoin(users, eq(tasks.createdBy, users.id))
-    .innerJoin(projects, eq(tasks.projectId, projects.id))
-    .where(inArray(tasks.projectId, projectIds))
+    .innerJoin(environments, eq(tasks.environmentId, environments.id))
+    .where(inArray(tasks.environmentId, appIds))
     .orderBy(desc(tasks.createdAt))
     .limit(limit);
 
@@ -60,7 +60,7 @@ export async function loader({ request }: { request: Request }) {
     ...r.task,
     creatorName: r.creatorName ?? null,
     creatorAvatarUrl: r.creatorAvatarUrl ?? null,
-    projectName: r.projectName,
+    appName: r.appName,
     taskPrefix: r.taskPrefix ?? null,
     githubRepo: r.githubRepo,
     vercelProjectId: r.vercelProjectId,
@@ -118,8 +118,8 @@ export async function loader({ request }: { request: Request }) {
           for (const member of members) {
             sendTaskTimeoutEmail({
               to: member.email,
-              projectName: row.projectName,
-              projectId: row.projectId,
+              appName: row.appName,
+              environmentId: row.environmentId,
               taskId: row.id,
               taskPrompt: row.prompt,
             }).catch((err: unknown) =>
@@ -206,7 +206,7 @@ export async function loader({ request }: { request: Request }) {
   return Response.json({ tasks: filtered });
 }
 
-// ── POST /api/tasks — Create a task with find-or-create project logic ─────
+// ── POST /api/tasks — Create a task with find-or-create app logic ─────
 
 export async function action({ request }: { request: Request }) {
   if (request.method !== "POST") {
@@ -286,7 +286,7 @@ export async function action({ request }: { request: Request }) {
   const branch = body.branch?.trim() || `feat-${Math.random().toString(36).slice(2, 8)}`;
   const model = body.model?.trim() || "claude-sonnet-4-6";
 
-  // ── Find or create a project for this repo + Vercel project combo ──
+  // ── Find or create an app for this repo + Vercel project combo ──
 
   log.info(
     {
@@ -295,79 +295,79 @@ export async function action({ request }: { request: Request }) {
       githubRepo,
       vercelProjectId,
     },
-    "team task create: looking up project for repo+vercel combo",
+    "team task create: looking up app for repo+vercel combo",
   );
 
-  let projectId: string;
+  let environmentId: string;
 
-  const [existingProject] = await db
+  const [existingApp] = await db
     .select()
-    .from(projects)
+    .from(environments)
     .where(
       and(
-        eq(projects.organizationId, org.id),
-        eq(projects.githubRepo, githubRepo),
-        eq(projects.vercelProjectId, vercelProjectId),
+        eq(environments.organizationId, org.id),
+        eq(environments.githubRepo, githubRepo),
+        eq(environments.vercelProjectId, vercelProjectId),
       ),
     )
     .limit(1);
 
-  if (existingProject) {
-    projectId = existingProject.id;
+  if (existingApp) {
+    environmentId = existingApp.id;
     log.info(
       {
         userId: user.id,
-        projectId,
-        projectName: existingProject.name,
+        environmentId,
+        appName: existingApp.name,
       },
-      "team task create: found existing project",
+      "team task create: found existing app",
     );
   } else {
-    // Auto-create a project named after the repo
+    // Auto-create an app named after the repo
     // e.g. "owner/repo-name" -> "repo-name"
     const repoShortName = githubRepo.includes("/")
       ? githubRepo.split("/").pop()!
       : githubRepo;
 
-    const projectName = repoShortName;
+    const appName = repoShortName;
 
-    const [newProject] = await db
-      .insert(projects)
+    const [newApp] = await db
+      .insert(environments)
       .values({
         organizationId: org.id,
-        name: projectName,
+        name: appName,
         githubRepo,
         vercelProjectId,
         vercelProjectName: vercelProjectName ?? null,
       })
       .returning();
 
-    projectId = newProject.id;
+    environmentId = newApp.id;
     log.info(
       {
         userId: user.id,
-        projectId,
-        projectName,
+        environmentId,
+        appName,
         githubRepo,
         vercelProjectId,
       },
-      "team task create: auto-created project for repo+vercel combo",
+      "team task create: auto-created app for repo+vercel combo",
     );
   }
 
   // ── Create the task ──
 
-  // Get next task number for this project
+  // Get next task number for this app
   const [{ max: maxNum }] = await db
     .select({ max: sql<number>`coalesce(max(${tasks.taskNumber}), 0)` })
     .from(tasks)
-    .where(eq(tasks.projectId, projectId));
+    .where(eq(tasks.environmentId, environmentId));
   const taskNumber = (maxNum ?? 0) + 1;
 
   const [task] = await db
     .insert(tasks)
     .values({
-      projectId,
+      environmentId: environmentId,
       prompt,
       branch,
       model,
@@ -381,7 +381,7 @@ export async function action({ request }: { request: Request }) {
     {
       userId: user.id,
       orgId: org.id,
-      projectId,
+      environmentId,
       taskId: task.id,
       branch,
       model,
@@ -391,19 +391,19 @@ export async function action({ request }: { request: Request }) {
     "team task created",
   );
 
-  // Return the task with project context so the UI can update immediately
+  // Return the task with app context so the UI can update immediately
   return Response.json(
     {
       task: {
         ...task,
-        projectName: existingProject?.name ?? (githubRepo.includes("/") ? githubRepo.split("/").pop()! : githubRepo),
+        appName: existingApp?.name ?? (githubRepo.includes("/") ? githubRepo.split("/").pop()! : githubRepo),
         githubRepo,
         vercelProjectId,
-        vercelProjectName: vercelProjectName ?? existingProject?.vercelProjectName ?? null,
+        vercelProjectName: vercelProjectName ?? existingApp?.vercelProjectName ?? null,
         creatorName: user.name ?? null,
         creatorAvatarUrl: user.avatarUrl ?? null,
       },
-      projectId,
+      environmentId,
     },
     { status: 201 },
   );

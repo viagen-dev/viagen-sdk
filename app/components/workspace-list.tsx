@@ -50,11 +50,11 @@ function parseWsUrl(url: string) {
 }
 
 export function WorkspaceList({
-  projectId,
+  environmentId,
   workspaces,
   onStopped,
 }: {
-  projectId: string;
+  environmentId: string;
   workspaces: Workspace[];
   onStopped: (id: string) => void;
 }) {
@@ -64,7 +64,7 @@ export function WorkspaceList({
   const handleStop = async (workspaceId: string) => {
     setStoppingId(workspaceId);
     try {
-      const res = await fetch(`/api/projects/${projectId}/sandbox`, {
+      const res = await fetch(`/api/environments/${environmentId}/sandbox`, {
         method: "DELETE",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

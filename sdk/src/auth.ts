@@ -1,4 +1,4 @@
-import type { RequestFn } from './projects.js'
+import type { RequestFn } from './environments.js'
 
 export interface ViagenUser {
   id: string

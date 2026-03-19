@@ -6,20 +6,20 @@ const TOKEN = process.env.VIAGEN_TEST_TOKEN
 const CALLBACK_TOKEN = process.env.VIAGEN_TEST_CALLBACK_TOKEN
 
 describe.skipIf(!TOKEN)('sandbox callback', () => {
-  let projectId: string
+  let environmentId: string
   let taskId: string
 
   beforeAll(async () => {
     // Find the seeded project
-    const projRes = await fetch(`${BASE_URL}/api/projects`, {
+    const projRes = await fetch(`${BASE_URL}/api/environments`, {
       headers: { Authorization: `Bearer ${TOKEN}` },
     })
     const projData = await projRes.json()
-    const seeded = projData.projects.find((p: any) => p.name === 'Test Project')
-    projectId = seeded.id
+    const seeded = projData.environments.find((p: any) => p.name === 'Test Environment')
+    environmentId = seeded.id
 
     // Create a task for negative tests
-    const taskRes = await fetch(`${BASE_URL}/api/projects/${projectId}/tasks`, {
+    const taskRes = await fetch(`${BASE_URL}/api/environments/${environmentId}/tasks`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -109,7 +109,7 @@ describe.skipIf(!TOKEN)('sandbox callback', () => {
 
     beforeAll(async () => {
       // Find the seeded running task with callback token
-      const res = await fetch(`${BASE_URL}/api/projects/${projectId}/tasks?status=running`, {
+      const res = await fetch(`${BASE_URL}/api/environments/${environmentId}/tasks?status=running`, {
         headers: { Authorization: `Bearer ${TOKEN}` },
       })
       const data = await res.json()

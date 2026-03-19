@@ -1,6 +1,6 @@
 import { requireAuth } from '~/lib/session.server'
 import { db } from '~/lib/db/index.server'
-import { databases, projects } from '~/lib/db/schema'
+import { databases, environments } from '~/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { getSecret, setSecret, deleteSecret, listProjectSecrets, listOrgSecrets } from '~/lib/infisical.server'
 import { createNeonProject, deleteNeonProject } from '~/lib/neon.server'
@@ -49,11 +49,11 @@ export async function loader({ request }: { request: Request }) {
     return Response.json({ databases: rows })
   }
 
-  // Scan Infisical secrets for DB URL patterns across org + all projects
-  const orgProjects = await db
-    .select({ id: projects.id, name: projects.name })
-    .from(projects)
-    .where(eq(projects.organizationId, org.id))
+  // Scan Infisical secrets for DB URL patterns across org + all environments
+  const orgEnvironments = await db
+    .select({ id: environments.id, name: environments.name })
+    .from(environments)
+    .where(eq(environments.organizationId, org.id))
 
   const discovered: { projectId: string | null; projectName: string | null; key: string; maskedValue: string }[] = []
 
@@ -69,8 +69,8 @@ export async function loader({ request }: { request: Request }) {
     log.warn({ orgId: org.id, err }, 'database scan: failed to list org secrets')
   }
 
-  // Scan per-project secrets in parallel
-  const projectScans = orgProjects.map(async (p) => {
+  // Scan per-app secrets in parallel
+  const appScans = orgEnvironments.map(async (p) => {
     try {
       const secrets = await listProjectSecrets(org.id, p.id)
       for (const s of secrets) {
@@ -79,13 +79,13 @@ export async function loader({ request }: { request: Request }) {
         }
       }
     } catch (err) {
-      log.warn({ orgId: org.id, projectId: p.id, err }, 'database scan: failed to list project secrets')
+      log.warn({ orgId: org.id, environmentId: p.id, err }, 'database scan: failed to list app secrets')
     }
   })
-  await Promise.all(projectScans)
+  await Promise.all(appScans)
 
   log.info({ orgId: org.id, dbCount: rows.length, discoveredCount: discovered.length }, 'databases list with scan')
-  return Response.json({ databases: rows, discovered, projects: orgProjects })
+  return Response.json({ databases: rows, discovered, environments: orgEnvironments })
 }
 
 export async function action({ request }: { request: Request }) {

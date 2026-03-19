@@ -95,8 +95,8 @@ import { WorkspaceList } from "~/components/workspace-list";
 import { TaskAttachments, type Attachment } from "~/components/task-attachments";
 
 // ── Types (re-exported from ~/types/task) ─────────────────────────────────
-export type { Project, TaskStatus, FeedTask, Workspace } from "~/types/task";
-import type { Project, FeedTask, TaskStatus } from "~/types/task";
+export type { Environment, TaskStatus, FeedTask, Workspace } from "~/types/task";
+import type { Environment, FeedTask, TaskStatus } from "~/types/task";
 
 // ── Status config ─────────────────────────────────────────────────────────
 
@@ -165,7 +165,7 @@ export function timeAgo(dateStr: string): string {
   return `${years}y ago`;
 }
 
-/** Infer a short prefix from a project name, e.g. "My Cool App" → "MCA", "viagen-sdk" → "VGS" */
+/** Infer a short prefix from a project name, e.g. "My Cool Environment" → "MCA", "viagen-sdk" → "VGS" */
 export function inferPrefix(name: string): string {
   // If it has spaces or mixed case, use initials
   const words = name.split(/[\s\-_]+/).filter(Boolean);
@@ -189,13 +189,13 @@ export function shortTaskId(
   id: string,
   opts?: {
     prefix?: string | null;
-    projectName?: string | null;
+    environmentName?: string | null;
     taskNumber?: number | null;
   },
 ): string {
   const prefix =
     opts?.prefix ||
-    (opts?.projectName ? inferPrefix(opts.projectName) : null) ||
+    (opts?.environmentName ? inferPrefix(opts.environmentName) : null) ||
     "VI";
   const num = opts?.taskNumber;
   if (num != null) {
@@ -248,20 +248,20 @@ export function GitHubIcon({ size = 12 }: { size?: number }) {
 // ── TaskDetailPanel ───────────────────────────────────────────────────────
 
 export function TaskDetailPanel({
-  projectId,
+  environmentId,
   taskId,
   open,
   onClose,
   onStatusFilterChange,
-  projects,
+  environments,
   variant = "drawer",
 }: {
-  projectId: string;
+  environmentId: string;
   taskId: string;
   open: boolean;
   onClose: () => void;
   onStatusFilterChange?: (filter: string) => void;
-  projects: Project[];
+  environments: Environment[];
   variant?: "drawer" | "page";
 }) {
   const navigate = useNavigate();
@@ -320,7 +320,7 @@ export function TaskDetailPanel({
   const [resultsOpen, setResultsOpen] = useState(true);
 
   // Change project state
-  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [appPickerOpen, setAppPickerOpen] = useState(false);
 
   // Assignee state
   interface TeamMember {
@@ -337,12 +337,12 @@ export function TaskDetailPanel({
 
   // Store fetch helpers
   const refreshTask = useCallback(() => {
-    store.getState().fetchTask(projectId, taskId);
-  }, [projectId, taskId]);
+    store.getState().fetchTask(environmentId, taskId);
+  }, [environmentId, taskId]);
 
   const refreshWorkspaces = useCallback(() => {
-    store.getState().fetchWorkspaces(projectId, taskId);
-  }, [projectId, taskId]);
+    store.getState().fetchWorkspaces(environmentId, taskId);
+  }, [environmentId, taskId]);
 
   // Reset local UI state when switching tasks
   useEffect(() => {
@@ -352,16 +352,16 @@ export function TaskDetailPanel({
     setEditingBranch(false);
     setEditBranch("");
     setAssigneePickerOpen(false);
-    setProjectPickerOpen(false);
+    setAppPickerOpen(false);
     setCancelOpen(false);
     setDeleteOpen(false);
-  }, [projectId, taskId]);
+  }, [environmentId, taskId]);
 
   // Detail polling: fetches this task + workspaces every 5 s while active
   useEffect(() => {
     if (!open) return;
-    return store.getState().startDetailPolling(projectId, taskId);
-  }, [open, projectId, taskId]);
+    return store.getState().startDetailPolling(environmentId, taskId);
+  }, [open, environmentId, taskId]);
 
   // Launch workspace
   const handleLaunch = async () => {
@@ -371,7 +371,7 @@ export function TaskDetailPanel({
     setError(null);
 
     try {
-      const res = await fetch(`/api/projects/${projectId}/sandbox`, {
+      const res = await fetch(`/api/environments/${environmentId}/sandbox`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -408,7 +408,7 @@ export function TaskDetailPanel({
     setMerging(true);
     try {
       const res = await fetch(
-        `/api/projects/${projectId}/tasks/${task.id}/merge`,
+        `/api/environments/${environmentId}/tasks/${task.id}/merge`,
         { method: "POST", credentials: "include" },
       );
       const data = await res.json();
@@ -432,7 +432,7 @@ export function TaskDetailPanel({
     setReviewing(true);
     setError(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/sandbox`, {
+      const res = await fetch(`/api/environments/${environmentId}/sandbox`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -470,7 +470,7 @@ export function TaskDetailPanel({
     setCancelling(true);
     try {
       const res = await fetch(
-        `/api/projects/${projectId}/tasks/${task.id}/cancel`,
+        `/api/environments/${environmentId}/tasks/${task.id}/cancel`,
         {
           method: "POST",
           credentials: "include",
@@ -502,7 +502,7 @@ export function TaskDetailPanel({
     setDeleting(true);
     try {
       const res = await fetch(
-        `/api/projects/${projectId}/tasks/${task.id}/delete`,
+        `/api/environments/${environmentId}/tasks/${task.id}/delete`,
         {
           method: "POST",
           credentials: "include",
@@ -529,7 +529,7 @@ export function TaskDetailPanel({
     if (!task || !editPrompt.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+      const res = await fetch(`/api/environments/${environmentId}/tasks/${task.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -559,7 +559,7 @@ export function TaskDetailPanel({
     }
     setSavingBranch(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+      const res = await fetch(`/api/environments/${environmentId}/tasks/${task.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -591,7 +591,7 @@ export function TaskDetailPanel({
     if (!task || newModel === task.model) return;
     setSavingModel(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+      const res = await fetch(`/api/environments/${environmentId}/tasks/${task.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -635,7 +635,7 @@ export function TaskDetailPanel({
       return;
     }
     try {
-      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+      const res = await fetch(`/api/environments/${environmentId}/tasks/${task.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -663,17 +663,17 @@ export function TaskDetailPanel({
     }
   };
 
-  const changeProject = async (newProjectId: string) => {
-    if (!task || newProjectId === task.projectId) return;
+  const changeApp = async (newAppId: string) => {
+    if (!task || newAppId === task.environmentId) return;
     try {
-      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+      const res = await fetch(`/api/environments/${environmentId}/tasks/${task.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: newProjectId }),
+        body: JSON.stringify({ projectId: newAppId }),
       });
       if (res.ok) {
-        toast.success("Task moved to new project");
+        toast.success("Task moved to new app");
         store.getState().fetchAllTasks();
         onClose();
       } else {
@@ -688,7 +688,7 @@ export function TaskDetailPanel({
   const handleStopWorkspace = async (workspaceId: string) => {
     setStoppingWs(workspaceId);
     try {
-      const res = await fetch(`/api/projects/${projectId}/sandbox`, {
+      const res = await fetch(`/api/environments/${environmentId}/sandbox`, {
         method: "DELETE",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -696,7 +696,7 @@ export function TaskDetailPanel({
       });
       if (res.ok) {
         // Update workspaces in store
-        store.getState().fetchWorkspaces(projectId, taskId);
+        store.getState().fetchWorkspaces(environmentId, taskId);
         refreshTask();
       }
     } catch {
@@ -819,10 +819,10 @@ export function TaskDetailPanel({
     </div>
   );
 
-  const projectSection = task && (
+  const appSection = task && (
     <div className="flex items-center">
-      <Small className="w-28 shrink-0">Project</Small>
-      <Popover open={projectPickerOpen} onOpenChange={setProjectPickerOpen}>
+      <Small className="w-28 shrink-0">Environment</Small>
+      <Popover open={appPickerOpen} onOpenChange={setAppPickerOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="ghost"
@@ -830,29 +830,29 @@ export function TaskDetailPanel({
             className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <VercelIcon />
-            {task.projectName}
+            {task.environmentName}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[220px] p-0" align="start">
           <Command>
-            <CommandInput placeholder="Move to project..." />
+            <CommandInput placeholder="Move to app..." />
             <CommandList>
-              <CommandEmpty>No projects found.</CommandEmpty>
+              <CommandEmpty>No environments found.</CommandEmpty>
               <CommandGroup>
-                {projects.map((p) => (
+                {environments.map((p) => (
                   <CommandItem
                     key={p.id}
                     value={p.name}
                     onSelect={() => {
-                      setProjectPickerOpen(false);
-                      changeProject(p.id);
+                      setAppPickerOpen(false);
+                      changeApp(p.id);
                     }}
                   >
                     {p.name}
                     <Check
                       className={cn(
                         "ml-auto size-3.5",
-                        task.projectId === p.id ? "opacity-100" : "opacity-0",
+                        task.environmentId === p.id ? "opacity-100" : "opacity-0",
                       )}
                     />
                   </CommandItem>
@@ -1066,7 +1066,7 @@ export function TaskDetailPanel({
           {(task.attachments?.length || task.status === "ready") && (
             <div className="mt-3 pt-3 border-t">
               <TaskAttachments
-                projectId={projectId}
+                environmentId={environmentId}
                 taskId={task.id}
                 attachments={task.attachments ?? []}
                 onChanged={(atts) => {
@@ -1306,7 +1306,7 @@ export function TaskDetailPanel({
                       size="icon-sm"
                       onClick={() =>
                         window.open(
-                          `/projects/${projectId}/tasks/${taskId}`,
+                          `/environments/${environmentId}/tasks/${taskId}`,
                           "_blank",
                         )
                       }
@@ -1331,7 +1331,7 @@ export function TaskDetailPanel({
                     <CardTitle className="text-base">
                       {shortTaskId(task.id, {
                         prefix: task.taskPrefix,
-                        projectName: task.projectName,
+                        environmentName: task.environmentName,
                         taskNumber: task.taskNumber,
                       })}
                     </CardTitle>
@@ -1353,7 +1353,7 @@ export function TaskDetailPanel({
                 </CardHeader>
                 <CardContent className="flex flex-col gap-1">
                   {assigneeSection}
-                  {projectSection}
+                  {appSection}
                   {branchSectionEditable}
                   {modelSection}
                 </CardContent>
@@ -1372,10 +1372,10 @@ export function TaskDetailPanel({
               {workspaces.length > 0 && (
                 <div>
                   <WorkspaceList
-                    projectId={projectId}
+                    environmentId={environmentId}
                     workspaces={workspaces}
                     onStopped={() =>
-                      store.getState().fetchWorkspaces(projectId, taskId)
+                      store.getState().fetchWorkspaces(environmentId, taskId)
                     }
                   />
                 </div>
@@ -1512,7 +1512,7 @@ export function TaskDetailPanel({
                       size="icon-sm"
                       onClick={() =>
                         window.open(
-                          `/projects/${projectId}/tasks/${taskId}`,
+                          `/environments/${environmentId}/tasks/${taskId}`,
                           "_blank",
                         )
                       }
@@ -1537,7 +1537,7 @@ export function TaskDetailPanel({
                     <CardTitle className="text-base">
                       {shortTaskId(task.id, {
                         prefix: task.taskPrefix,
-                        projectName: task.projectName,
+                        environmentName: task.environmentName,
                         taskNumber: task.taskNumber,
                       })}
                     </CardTitle>
@@ -1559,7 +1559,7 @@ export function TaskDetailPanel({
                 </CardHeader>
                 <CardContent className="flex flex-col gap-1">
                   {assigneeSection}
-                  {projectSection}
+                  {appSection}
                   {branchSectionReadonly}
                   {modelSection}
 
