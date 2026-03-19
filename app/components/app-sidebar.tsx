@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Plus,
   Box,
+  FolderKanban,
   ChevronDown,
   ChevronRight,
   GitBranch,
@@ -27,6 +28,7 @@ import { ThemeToggle } from "~/components/theme-toggle";
 
 interface AppSidebarProps {
   environments: Array<{ id: string; name: string }>;
+  projects: Array<{ id: string; name: string; taskPrefix: string | null }>;
   currentOrgName: string;
   orgPickerTrigger: React.ReactNode;
   selectedEnvironmentId?: string | null;
@@ -41,6 +43,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({
   environments,
+  projects,
   currentOrgName,
   orgPickerTrigger,
   selectedEnvironmentId,
@@ -49,8 +52,12 @@ export function AppSidebar({
   onLogout,
 }: AppSidebarProps) {
   const location = useLocation();
-  const [environmentsExpanded, setEnvironmentsExpanded] = useState(true);
-  const [reposExpanded, setReposExpanded] = useState(false);
+  const [projectsExpanded, setProjectsExpanded] = useState(true);
+  const [environmentsExpanded, setEnvironmentsExpanded] = useState(false);
+
+  const sortedProjects = [...projects].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
 
   const sortedEnvironments = [...environments].sort((a, b) =>
     a.name.localeCompare(b.name),
@@ -95,6 +102,48 @@ export function AppSidebar({
       <div className="flex flex-col gap-1">
         <button
           type="button"
+          onClick={() => setProjectsExpanded((prev) => !prev)}
+          className="flex w-full items-center gap-1 px-2 py-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          {projectsExpanded ? (
+            <ChevronDown className="size-3.5" />
+          ) : (
+            <ChevronRight className="size-3.5" />
+          )}
+          <span>Projects</span>
+        </button>
+
+        {projectsExpanded && (
+          <div className="flex flex-col gap-0.5">
+            {sortedProjects.map((proj) => (
+              <Button
+                key={proj.id}
+                variant="ghost"
+                size="sm"
+                asChild
+                className={cn(
+                  "w-full justify-start gap-2",
+                  location.pathname === `/projects/${proj.id}` &&
+                    "bg-accent text-accent-foreground",
+                )}
+              >
+                <Link to={`/projects/${proj.id}`}>
+                  <FolderKanban className="size-4" />
+                  <span className="truncate">{proj.name}</span>
+                </Link>
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="my-3 border-t border-border" />
+
+      {/* Environments section */}
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
           onClick={() => setEnvironmentsExpanded((prev) => !prev)}
           className="flex w-full items-center gap-1 px-2 py-1 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
@@ -103,7 +152,7 @@ export function AppSidebar({
           ) : (
             <ChevronRight className="size-3.5" />
           )}
-          <span>Projects</span>
+          <span>Environments</span>
         </button>
 
         {environmentsExpanded && (
@@ -116,7 +165,7 @@ export function AppSidebar({
             >
               <Link to="/environments/new">
                 <Plus className="size-4" />
-                <span>New app</span>
+                <span>New environment</span>
               </Link>
             </Button>
 
@@ -136,31 +185,6 @@ export function AppSidebar({
                 <span className="truncate">{env.name}</span>
               </Button>
             ))}
-          </div>
-        )}
-      </div>
-
-      {/* Divider */}
-      <div className="my-3 border-t border-border" />
-
-      {/* Repos section (placeholder) */}
-      <div className="flex flex-col gap-1">
-        <button
-          type="button"
-          onClick={() => setReposExpanded((prev) => !prev)}
-          className="flex w-full items-center gap-1 px-2 py-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          {reposExpanded ? (
-            <ChevronDown className="size-3.5" />
-          ) : (
-            <ChevronRight className="size-3.5" />
-          )}
-          <span>Repos</span>
-        </button>
-
-        {reposExpanded && (
-          <div className="px-2 py-2">
-            <p className="text-xs text-muted-foreground">No repos connected</p>
           </div>
         )}
       </div>

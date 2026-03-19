@@ -82,6 +82,22 @@ export const environments = pgTable("environments", {
     .$onUpdate(() => new Date()),
 });
 
+export const projects = pgTable("projects", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  taskPrefix: varchar("task_prefix", { length: 10 }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
+
 export const workspaces = pgTable("workspaces", {
   id: uuid("id").defaultRandom().primaryKey(),
   environmentId: uuid("environment_id")
@@ -149,6 +165,9 @@ export const tasks = pgTable("tasks", {
   environmentId: uuid("environment_id")
     .notNull()
     .references(() => environments.id, { onDelete: "cascade" }),
+  projectId: uuid("project_id").references(() => projects.id, {
+    onDelete: "set null",
+  }),
   title: varchar("title", { length: 255 }),
   prompt: text("prompt").notNull(),
   model: varchar("model", { length: 100 })
@@ -185,6 +204,7 @@ export type Session = typeof sessions.$inferSelect;
 export type Organization = typeof organizations.$inferSelect;
 export type OrgMember = typeof orgMembers.$inferSelect;
 export type Environment = typeof environments.$inferSelect;
+export type Project = typeof projects.$inferSelect;
 export type Workspace = typeof workspaces.$inferSelect;
 export type Database = typeof databases.$inferSelect;
 export type ApiToken = typeof apiTokens.$inferSelect;

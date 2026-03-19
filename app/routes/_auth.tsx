@@ -31,7 +31,7 @@ import {
 } from "~/components/ui/command";
 
 import { db } from "~/lib/db/index.server";
-import { environments as environmentsTable } from "~/lib/db/schema";
+import { environments as environmentsTable, projects as projectsTable } from "~/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function loader({ request }: { request: Request }) {
@@ -68,11 +68,16 @@ export async function loader({ request }: { request: Request }) {
     "integration status loaded",
   );
 
-  // Fetch environments for the sidebar
+  // Fetch environments and projects for the sidebar
   const orgEnvironments = await db
     .select({ id: environmentsTable.id, name: environmentsTable.name })
     .from(environmentsTable)
     .where(eq(environmentsTable.organizationId, auth.org.id));
+
+  const orgProjects = await db
+    .select({ id: projectsTable.id, name: projectsTable.name, taskPrefix: projectsTable.taskPrefix })
+    .from(projectsTable)
+    .where(eq(projectsTable.organizationId, auth.org.id));
 
   return {
     user: {
@@ -89,6 +94,7 @@ export async function loader({ request }: { request: Request }) {
     })),
     integrations: { github, vercel, claude },
     environments: orgEnvironments,
+    projects: orgProjects,
   };
 }
 
@@ -103,10 +109,11 @@ interface LoaderData {
   organizations: { id: string; name: string; role: string }[];
   integrations: { github: boolean; vercel: boolean; claude: boolean };
   environments: { id: string; name: string }[];
+  projects: { id: string; name: string; taskPrefix: string | null }[];
 }
 
 export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
-  const { user, currentOrg, organizations, integrations, environments } =
+  const { user, currentOrg, organizations, integrations, environments, projects } =
     loaderData;
   const location = useLocation();
   const navigate = useNavigate();
@@ -156,9 +163,10 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
   const isTaskDetailPage = /^\/environments\/[^/]+\/tasks\/[^/]+/.test(
     location.pathname,
   );
+  const isProjectDetailPage = /^\/projects\/[^/]+/.test(location.pathname);
 
   // Pages that show the sidebar
-  const showSidebar = isProjectsIndex || isTasksPage || isTaskDetailPage;
+  const showSidebar = isProjectsIndex || isTasksPage || isTaskDetailPage || isProjectDetailPage;
 
   // The org picker trigger rendered inside the sidebar
   const orgPickerTrigger = (
@@ -291,6 +299,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
           >
             <AppSidebar
               environments={environments}
+              projects={projects}
               currentOrgName={currentOrg.name}
               orgPickerTrigger={orgPickerTrigger}
               user={user}
@@ -322,7 +331,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
               <Outlet />
             </div>
           ) : /* /dashboard — full-width with padding */
-          isProjectsIndex ? (
+          isProjectsIndex || isProjectDetailPage ? (
             <div className="w-full px-6 py-8">
               <Outlet />
             </div>

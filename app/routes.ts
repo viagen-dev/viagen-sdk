@@ -31,6 +31,7 @@ export default [
     route("data", "routes/_auth.data.tsx"),
     route("billing", "routes/_auth.billing.tsx"),
     route("tasks", "routes/_auth.tasks.tsx"),
+    route("projects/:id", "routes/_auth.projects.$id.tsx"),
   ]),
 
   // Resource routes (REST API for SDK)
@@ -43,6 +44,7 @@ export default [
   route("api/auth/tokens", "routes/api.auth.tokens.ts"),
   route("api/orgs", "routes/api.orgs.ts"),
   route("api/orgs/members", "routes/api.orgs.members.ts"),
+  route("api/projects", "routes/api.projects.ts"),
   route("api/environments", "routes/api.environments.ts"),
   route("api/environments/sync", "routes/api.environments.sync.ts"),
   route("api/environments/:id", "routes/api.environments.$id.ts"),
