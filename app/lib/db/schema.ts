@@ -149,6 +149,7 @@ export const tasks = pgTable("tasks", {
   environmentId: uuid("environment_id")
     .notNull()
     .references(() => environments.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 255 }),
   prompt: text("prompt").notNull(),
   model: varchar("model", { length: 100 })
     .notNull()

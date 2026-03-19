@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { create } from "zustand";
-import { devtools } from "zustand/middleware";
+import { devtools, persist } from "zustand/middleware";
 import type { FeedTask, Workspace } from "~/types/task";
 
 interface TaskState {
@@ -9,10 +9,16 @@ interface TaskState {
   workspaces: Record<string, Workspace[]>;
   tasksLoaded: boolean;
   launchingTaskIds: Record<string, true>;
+  /** Persisted collapse state for the My Tasks table. Keys are "project:{id}" or "status:{projectId}:{group}" */
+  collapsed: Record<string, boolean>;
 
   // ── Actions ───────────────────────────────────────────────────────────
   /** Fetch all tasks for the org (GET /api/tasks). Merges into the map. */
   fetchAllTasks: () => Promise<void>;
+  /** Toggle a collapse key in the My Tasks table. */
+  toggleCollapsed: (key: string) => void;
+  /** Seed collapsed defaults for keys that have never been explicitly set. */
+  seedCollapsed: (defaults: Record<string, boolean>) => void;
   /** Fetch a single task by ID. Merges into the map. */
   fetchTask: (environmentId: string, taskId: string) => Promise<void>;
   /** Fetch workspaces for a task. */
@@ -42,147 +48,194 @@ interface TaskState {
 
 export const useTaskStore = create<TaskState>()(
   devtools(
-    (set, get) => ({
-      // ── Initial state ───────────────────────────────────────────────────
-      tasks: {},
-      workspaces: {},
-      tasksLoaded: false,
-      launchingTaskIds: {},
+    persist(
+      (set, get) => ({
+        // ── Initial state ─────────────────────────────────────────────────
+        tasks: {},
+        workspaces: {},
+        tasksLoaded: false,
+        launchingTaskIds: {},
+        collapsed: {},
 
-      // ── Actions ─────────────────────────────────────────────────────────
+        // ── Actions ───────────────────────────────────────────────────────
 
-      fetchAllTasks: async () => {
-        try {
-          const res = await fetch("/api/tasks", { credentials: "include" });
-          if (!res.ok) return;
-          const data = await res.json();
-          const incoming = (data.tasks ?? []) as FeedTask[];
-          const current = get().tasks;
-          // Build next map, skip update if nothing changed
-          let changed = !get().tasksLoaded;
-          const next = { ...current };
-          for (const t of incoming) {
-            if (!changed && JSON.stringify(current[t.id]) !== JSON.stringify(t)) {
-              changed = true;
+        toggleCollapsed: (key) =>
+          set((s) => ({
+            collapsed: { ...s.collapsed, [key]: !s.collapsed[key] },
+          })),
+
+        seedCollapsed: (defaults) =>
+          set((s) => {
+            const next = { ...s.collapsed };
+            let changed = false;
+            for (const [key, value] of Object.entries(defaults)) {
+              if (!(key in next)) {
+                next[key] = value;
+                changed = true;
+              }
             }
-            next[t.id] = t;
-          }
-          if (changed) {
-            set({ tasks: next, tasksLoaded: true });
-          }
-        } catch {
-          // silently fail — tasks stay as-is
-        }
-      },
+            return changed ? { collapsed: next } : s;
+          }),
 
-      fetchTask: async (environmentId, taskId) => {
-        try {
-          const res = await fetch(
-            `/api/environments/${environmentId}/tasks/${taskId}`,
-            { credentials: "include" },
-          );
-          if (!res.ok) return;
-          const data = await res.json();
-          if (data.task) {
-            const existing = get().tasks[taskId];
-            // Skip update if data is identical to avoid unnecessary re-renders
-            const merged = { ...existing, ...data.task };
-            if (existing && JSON.stringify(existing) === JSON.stringify(merged)) return;
-            set((s) => ({
-              tasks: { ...s.tasks, [taskId]: { ...s.tasks[taskId], ...data.task } },
-            }));
+        fetchAllTasks: async () => {
+          try {
+            const res = await fetch("/api/tasks", { credentials: "include" });
+            if (!res.ok) return;
+            const data = await res.json();
+            const incoming = (data.tasks ?? []) as FeedTask[];
+            const current = get().tasks;
+            // Build next map, skip update if nothing changed
+            let changed = !get().tasksLoaded;
+            const next = { ...current };
+            for (const t of incoming) {
+              // Preserve attachments loaded via fetchTask — the list endpoint doesn't include them
+              const merged: FeedTask = current[t.id]?.attachments
+                ? { ...t, attachments: current[t.id].attachments }
+                : t;
+              if (
+                !changed &&
+                JSON.stringify(current[t.id]) !== JSON.stringify(merged)
+              ) {
+                changed = true;
+              }
+              next[t.id] = merged;
+            }
+            if (changed) {
+              set({ tasks: next, tasksLoaded: true });
+            }
+          } catch {
+            // silently fail — tasks stay as-is
           }
-        } catch {
-          // silently fail
-        }
-      },
+        },
 
-      fetchWorkspaces: async (environmentId, taskId) => {
-        try {
-          const res = await fetch(`/api/environments/${environmentId}/sandbox`, {
-            credentials: "include",
-          });
-          if (!res.ok) return;
-          const data = await res.json();
-          if (data.workspaces) {
-            const linked = (data.workspaces as Workspace[]).filter(
-              (w) => w.taskId === taskId,
+        fetchTask: async (environmentId, taskId) => {
+          try {
+            const res = await fetch(
+              `/api/environments/${environmentId}/tasks/${taskId}`,
+              { credentials: "include" },
             );
-            set((s) => ({
-              workspaces: { ...s.workspaces, [taskId]: linked },
-            }));
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.task) {
+              const existing = get().tasks[taskId];
+              // Skip update if data is identical to avoid unnecessary re-renders
+              const merged = { ...existing, ...data.task };
+              if (
+                existing &&
+                JSON.stringify(existing) === JSON.stringify(merged)
+              )
+                return;
+              set((s) => ({
+                tasks: {
+                  ...s.tasks,
+                  [taskId]: { ...s.tasks[taskId], ...data.task },
+                },
+              }));
+            }
+          } catch {
+            // silently fail
           }
-        } catch {
-          // silently fail
-        }
-      },
+        },
 
-      setTask: (task) =>
-        set((s) => ({ tasks: { ...s.tasks, [task.id]: task } })),
-
-      removeTask: (taskId) =>
-        set((s) => {
-          const { [taskId]: _, ...rest } = s.tasks;
-          const { [taskId]: __, ...restWs } = s.workspaces;
-          const { [taskId]: ___, ...restLaunching } = s.launchingTaskIds;
-          return { tasks: rest, workspaces: restWs, launchingTaskIds: restLaunching };
-        }),
-
-      setLaunching: (taskId, v) =>
-        set((s) => {
-          if (v) {
-            return { launchingTaskIds: { ...s.launchingTaskIds, [taskId]: true } };
+        fetchWorkspaces: async (environmentId, taskId) => {
+          try {
+            const res = await fetch(`/api/environments/${environmentId}/sandbox`, {
+              credentials: "include",
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.workspaces) {
+              const linked = (data.workspaces as Workspace[]).filter(
+                (w) => w.taskId === taskId,
+              );
+              set((s) => ({
+                workspaces: { ...s.workspaces, [taskId]: linked },
+              }));
+            }
+          } catch {
+            // silently fail
           }
-          const { [taskId]: _, ...rest } = s.launchingTaskIds;
-          return { launchingTaskIds: rest };
-        }),
+        },
 
-      startPolling: () => {
-        const { fetchAllTasks } = get();
-        // Initial fetch
-        fetchAllTasks();
+        setTask: (task) =>
+          set((s) => ({ tasks: { ...s.tasks, [task.id]: task } })),
 
-        let timer: ReturnType<typeof setInterval> | null = null;
+        removeTask: (taskId) =>
+          set((s) => {
+            const { [taskId]: _, ...rest } = s.tasks;
+            const { [taskId]: __, ...restWs } = s.workspaces;
+            const { [taskId]: ___, ...restLaunching } = s.launchingTaskIds;
+            return {
+              tasks: rest,
+              workspaces: restWs,
+              launchingTaskIds: restLaunching,
+            };
+          }),
 
-        const schedule = () => {
-          if (timer) clearInterval(timer);
-          const hasActive = Object.values(get().tasks).some(
-            (t) => t.status === "running" || t.status === "validating",
-          );
-          const interval = hasActive ? 8_000 : 30_000;
-          timer = setInterval(() => {
-            fetchAllTasks().then(schedule);
-          }, interval);
-        };
+        setLaunching: (taskId, v) =>
+          set((s) => {
+            if (v) {
+              return {
+                launchingTaskIds: { ...s.launchingTaskIds, [taskId]: true },
+              };
+            }
+            const { [taskId]: _, ...rest } = s.launchingTaskIds;
+            return { launchingTaskIds: rest };
+          }),
 
-        schedule();
-        return () => {
-          if (timer) clearInterval(timer);
-        };
-      },
+        startPolling: () => {
+          const { fetchAllTasks } = get();
+          // Initial fetch
+          fetchAllTasks();
 
-      startDetailPolling: (environmentId, taskId) => {
-        const { fetchTask, fetchWorkspaces } = get();
-        // Initial fetch
-        fetchTask(environmentId, taskId);
-        fetchWorkspaces(environmentId, taskId);
+          let timer: ReturnType<typeof setInterval> | null = null;
 
-        const timer = setInterval(() => {
-          const task = get().tasks[taskId];
-          if (
-            task &&
-            task.status !== "running" &&
-            task.status !== "validating"
-          ) {
-            return; // skip polling for inactive tasks but keep timer alive
-          }
+          const schedule = () => {
+            if (timer) clearInterval(timer);
+            const hasActive = Object.values(get().tasks).some(
+              (t) => t.status === "running" || t.status === "validating",
+            );
+            const interval = hasActive ? 8_000 : 30_000;
+            timer = setInterval(() => {
+              fetchAllTasks().then(schedule);
+            }, interval);
+          };
+
+          schedule();
+          return () => {
+            if (timer) clearInterval(timer);
+          };
+        },
+
+        startDetailPolling: (environmentId, taskId) => {
+          const { fetchTask, fetchWorkspaces } = get();
+          // Initial fetch
           fetchTask(environmentId, taskId);
           fetchWorkspaces(environmentId, taskId);
-        }, 5_000);
 
-        return () => clearInterval(timer);
+          const timer = setInterval(() => {
+            const task = get().tasks[taskId];
+            if (
+              task &&
+              task.status !== "running" &&
+              task.status !== "validating"
+            ) {
+              return; // skip polling for inactive tasks but keep timer alive
+            }
+            fetchTask(environmentId, taskId);
+            fetchWorkspaces(environmentId, taskId);
+          }, 5_000);
+
+          return () => clearInterval(timer);
+        },
+      }),
+      {
+        name: "viagen-task-collapsed",
+        // Only persist the collapse state — tasks/workspaces are always
+        // re-fetched from the server so there's no need to hydrate them.
+        partialize: (state) => ({ collapsed: state.collapsed }),
       },
-    }),
+    ),
     { name: "task-store" },
   ),
 );
@@ -203,7 +256,9 @@ export function useTaskList(): FeedTask[] {
 }
 
 /** Single task by ID (or undefined). */
-export function useTask(taskId: string | null | undefined): FeedTask | undefined {
+export function useTask(
+  taskId: string | null | undefined,
+): FeedTask | undefined {
   return useTaskStore((s) => (taskId ? s.tasks[taskId] : undefined));
 }
 
@@ -212,7 +267,7 @@ const EMPTY_WORKSPACES: Workspace[] = [];
 /** Workspaces for a given task. */
 export function useWorkspaces(taskId: string | null | undefined): Workspace[] {
   return useTaskStore((s) =>
-    taskId ? s.workspaces[taskId] ?? EMPTY_WORKSPACES : EMPTY_WORKSPACES,
+    taskId ? (s.workspaces[taskId] ?? EMPTY_WORKSPACES) : EMPTY_WORKSPACES,
   );
 }
 

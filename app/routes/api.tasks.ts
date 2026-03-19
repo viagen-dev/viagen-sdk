@@ -1,4 +1,5 @@
 import { eq, and, desc, inArray, sql } from "drizzle-orm";
+import { generateTaskTitle } from "~/lib/task-title.server";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { environments, tasks, orgMembers, users } from "~/lib/db/schema";
@@ -14,7 +15,7 @@ export async function loader({ request }: { request: Request }) {
 
   log.debug(
     { userId: user.id, orgId: org.id },
-    "team tasks list: fetching all tasks for org",
+    "my tasks list: fetching tasks assigned to current user",
   );
 
   // Get all app IDs belonging to this org
@@ -26,7 +27,10 @@ export async function loader({ request }: { request: Request }) {
   const appIds = orgApps.map((p) => p.id);
 
   if (appIds.length === 0) {
-    log.debug({ orgId: org.id }, "team tasks list: no environments in org, returning empty");
+    log.debug(
+      { orgId: org.id },
+      "team tasks list: no environments in org, returning empty",
+    );
     return Response.json({ tasks: [] });
   }
 
@@ -37,6 +41,7 @@ export async function loader({ request }: { request: Request }) {
   const limit = limitParam ? Math.min(Number(limitParam), 100) : 50;
 
   // Join tasks with users (creator) and environments (for context)
+  // Only return tasks created by (assigned to) the current user
   const rowsWithContext = await db
     .select({
       task: tasks,
@@ -51,7 +56,9 @@ export async function loader({ request }: { request: Request }) {
     .from(tasks)
     .leftJoin(users, eq(tasks.createdBy, users.id))
     .innerJoin(environments, eq(tasks.environmentId, environments.id))
-    .where(inArray(tasks.environmentId, appIds))
+    .where(
+      and(inArray(tasks.environmentId, appIds), eq(tasks.createdBy, user.id)),
+    )
     .orderBy(desc(tasks.createdAt))
     .limit(limit);
 
@@ -123,7 +130,10 @@ export async function loader({ request }: { request: Request }) {
               taskId: row.id,
               taskPrompt: row.prompt,
             }).catch((err: unknown) =>
-              log.error({ email: member.email, taskId: row.id, err }, "task timeout email failed"),
+              log.error(
+                { email: member.email, taskId: row.id, err },
+                "task timeout email failed",
+              ),
             );
           }
         }
@@ -132,7 +142,10 @@ export async function loader({ request }: { request: Request }) {
           "task timeout emails dispatched",
         );
       } catch (err) {
-        log.error({ orgId: org.id, err }, "failed to send task timeout notifications");
+        log.error(
+          { orgId: org.id, err },
+          "failed to send task timeout notifications",
+        );
       }
     })();
   }
@@ -188,7 +201,10 @@ export async function loader({ request }: { request: Request }) {
       }
     } catch (err) {
       log.warn(
-        { orgId: org.id, error: err instanceof Error ? err.message : "unknown" },
+        {
+          orgId: org.id,
+          error: err instanceof Error ? err.message : "unknown",
+        },
         "team tasks list: failed to check PR merge status (non-fatal)",
       );
     }
@@ -200,8 +216,8 @@ export async function loader({ request }: { request: Request }) {
     : rows;
 
   log.debug(
-    { orgId: org.id, count: filtered.length, statusFilter },
-    "team tasks listed",
+    { userId: user.id, orgId: org.id, count: filtered.length, statusFilter },
+    "my tasks listed",
   );
   return Response.json({ tasks: filtered });
 }
@@ -236,6 +252,7 @@ export async function action({ request }: { request: Request }) {
 
   let body: {
     prompt?: string;
+    title?: string;
     branch?: string;
     model?: string;
     githubRepo?: string;
@@ -283,8 +300,11 @@ export async function action({ request }: { request: Request }) {
     );
   }
 
-  const branch = body.branch?.trim() || `feat-${Math.random().toString(36).slice(2, 8)}`;
+  const branch =
+    body.branch?.trim() || `feat-${Math.random().toString(36).slice(2, 8)}`;
   const model = body.model?.trim() || "claude-sonnet-4-6";
+  const title =
+    body.title?.trim() || (await generateTaskTitle(org.id, prompt)) || null;
 
   // ── Find or create an app for this repo + Vercel project combo ──
 
@@ -368,6 +388,7 @@ export async function action({ request }: { request: Request }) {
     .insert(tasks)
     .values({
       environmentId: environmentId,
+      title,
       prompt,
       branch,
       model,
@@ -396,10 +417,15 @@ export async function action({ request }: { request: Request }) {
     {
       task: {
         ...task,
-        appName: existingApp?.name ?? (githubRepo.includes("/") ? githubRepo.split("/").pop()! : githubRepo),
+        appName:
+          existingApp?.name ??
+          (githubRepo.includes("/")
+            ? githubRepo.split("/").pop()!
+            : githubRepo),
         githubRepo,
         vercelProjectId,
-        vercelProjectName: vercelProjectName ?? existingApp?.vercelProjectName ?? null,
+        vercelProjectName:
+          vercelProjectName ?? existingApp?.vercelProjectName ?? null,
         creatorName: user.name ?? null,
         creatorAvatarUrl: user.avatarUrl ?? null,
       },

@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
+import { SidebarProvider } from "~/lib/sidebar-context";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
-import { redirect } from "react-router";
 import { requireAuth } from "~/lib/session.server";
 import { listOrgSecrets } from "~/lib/infisical.server";
 import { log } from "~/lib/logger.server";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
-import { ViagenLogo } from "~/components/icons/viagen-logo";
-import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
-import { Badge } from "~/components/ui/badge";
-import { Separator } from "~/components/ui/separator";
-import { Plus, Check, ChevronsUpDown, ArrowLeft } from "lucide-react";
-import { ThemeToggle } from "~/components/theme-toggle";
+
+import {
+  Plus,
+  Check,
+  ChevronsUpDown,
+  ArrowLeft,
+  ChevronDown,
+} from "lucide-react";
+import { AppSidebar } from "~/components/app-sidebar";
 import {
   Popover,
   PopoverContent,
@@ -26,13 +29,10 @@ import {
   CommandList,
   CommandSeparator,
 } from "~/components/ui/command";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
+
+import { db } from "~/lib/db/index.server";
+import { environments as environmentsTable } from "~/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function loader({ request }: { request: Request }) {
   const auth = await requireAuth(request);
@@ -68,6 +68,12 @@ export async function loader({ request }: { request: Request }) {
     "integration status loaded",
   );
 
+  // Fetch environments for the sidebar
+  const orgEnvironments = await db
+    .select({ id: environmentsTable.id, name: environmentsTable.name })
+    .from(environmentsTable)
+    .where(eq(environmentsTable.organizationId, auth.org.id));
+
   return {
     user: {
       id: auth.user.id,
@@ -82,6 +88,7 @@ export async function loader({ request }: { request: Request }) {
       role: m.role,
     })),
     integrations: { github, vercel, claude },
+    environments: orgEnvironments,
   };
 }
 
@@ -95,14 +102,18 @@ interface LoaderData {
   currentOrg: { id: string; name: string };
   organizations: { id: string; name: string; role: string }[];
   integrations: { github: boolean; vercel: boolean; claude: boolean };
+  environments: { id: string; name: string }[];
 }
 
 export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
-  const { user, currentOrg, organizations, integrations } = loaderData;
+  const { user, currentOrg, organizations, integrations, environments } =
+    loaderData;
   const location = useLocation();
   const navigate = useNavigate();
 
   const [teamOpen, setTeamOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const toggleSidebar = () => setSidebarOpen((v) => !v);
 
   // Auto-switch org when ?org= is in the URL (e.g. from invite emails)
   useEffect(() => {
@@ -141,131 +152,191 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
   };
 
   const isProjectsIndex = location.pathname === "/dashboard";
+  const isTasksPage = location.pathname === "/tasks";
+  const isTaskDetailPage = /^\/environments\/[^/]+\/tasks\/[^/]+/.test(
+    location.pathname,
+  );
 
-  const userInitials = user.name
-    ? user.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
-    : user.email[0].toUpperCase();
+  // Pages that show the sidebar
+  const showSidebar = isProjectsIndex || isTasksPage || isTaskDetailPage;
+
+  // The org picker trigger rendered inside the sidebar
+  const orgPickerTrigger = (
+    <Popover open={teamOpen} onOpenChange={setTeamOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          role="combobox"
+          aria-expanded={teamOpen}
+          className="w-full justify-start gap-1.5 font-medium"
+        >
+          <span className="truncate">{currentOrg.name}</span>
+          <ChevronDown className="ml-auto size-3.5 opacity-50 shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search teams..." />
+          <CommandList>
+            <CommandEmpty>No teams found.</CommandEmpty>
+            <CommandGroup>
+              {organizations.map((org) => (
+                <CommandItem
+                  key={org.id}
+                  value={org.name}
+                  onSelect={() => handleOrgSwitch(org.id)}
+                >
+                  {org.name}
+                  <Check
+                    className={cn(
+                      "ml-auto size-3.5",
+                      currentOrg.id === org.id ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup>
+              <CommandItem
+                value="Create team"
+                onSelect={() => handleOrgSwitch("__add_team__")}
+              >
+                <Plus className="size-3.5" />
+                Create team
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+
+  // Non-sidebar pages: show a minimal top bar with back button + org switcher
+  const nonSidebarTopBar = !showSidebar && (
+    <header className="fixed top-0 right-0 left-0 z-50 border-b border-border bg-background">
+      <div className="flex h-[52px] items-center px-4 gap-3">
+        <Button variant="ghost" size="icon-sm" onClick={() => navigate(-1)}>
+          <ArrowLeft className="size-4" />
+        </Button>
+
+        <Popover open={teamOpen} onOpenChange={setTeamOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              role="combobox"
+              aria-expanded={teamOpen}
+              className="gap-1.5 font-medium"
+            >
+              {currentOrg.name}
+              <ChevronsUpDown className="size-3.5 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[200px] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search teams..." />
+              <CommandList>
+                <CommandEmpty>No teams found.</CommandEmpty>
+                <CommandGroup>
+                  {organizations.map((org) => (
+                    <CommandItem
+                      key={org.id}
+                      value={org.name}
+                      onSelect={() => handleOrgSwitch(org.id)}
+                    >
+                      {org.name}
+                      <Check
+                        className={cn(
+                          "ml-auto size-3.5",
+                          currentOrg.id === org.id
+                            ? "opacity-100"
+                            : "opacity-0",
+                        )}
+                      />
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem
+                    value="Create team"
+                    onSelect={() => handleOrgSwitch("__add_team__")}
+                  >
+                    <Plus className="size-3.5" />
+                    Create team
+                  </CommandItem>
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
+    </header>
+  );
 
   return (
-    <div className="flex min-h-svh flex-col">
-      <header className="fixed top-0 right-0 left-0 z-50 border-b border-border bg-background">
-        <div className="grid h-[60px] grid-cols-3 items-center px-6">
-          <div className="flex items-center">
-            {isProjectsIndex ? (
-              <Link to="/dashboard" className="no-underline">
-                <ViagenLogo className="size-8" />
-              </Link>
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => navigate("/dashboard")}
-              >
-                <ArrowLeft className="size-4" />
-              </Button>
-            )}
-          </div>
-          <div className="flex items-center justify-center">
-            <Popover open={teamOpen} onOpenChange={setTeamOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  role="combobox"
-                  aria-expanded={teamOpen}
-                  className="gap-1.5 font-medium"
-                >
-                  {currentOrg.name}
-                  <ChevronsUpDown className="size-3.5 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0" align="center">
-                <Command>
-                  <CommandInput placeholder="Search teams..." />
-                  <CommandList>
-                    <CommandEmpty>No teams found.</CommandEmpty>
-                    <CommandGroup>
-                      {organizations.map((org) => (
-                        <CommandItem
-                          key={org.id}
-                          value={org.name}
-                          onSelect={() => handleOrgSwitch(org.id)}
-                        >
-                          {org.name}
-                          <Check
-                            className={cn(
-                              "ml-auto size-3.5",
-                              currentOrg.id === org.id
-                                ? "opacity-100"
-                                : "opacity-0",
-                            )}
-                          />
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                    <CommandSeparator />
-                    <CommandGroup>
-                      <CommandItem
-                        value="Create team"
-                        onSelect={() => handleOrgSwitch("__add_team__")}
-                      >
-                        <Plus className="size-3.5" />
-                        Create team
-                      </CommandItem>
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="flex items-center justify-end gap-2">
-            <ThemeToggle />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar>
-                    {user.avatarUrl ? (
-                      <AvatarImage src={user.avatarUrl} alt={user.name ?? ""} />
-                    ) : null}
-                    <AvatarFallback>{userInitials}</AvatarFallback>
-                  </Avatar>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link to="/settings">Settings</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/billing">Billing</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onClick={handleLogout}>
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </header>
+    <SidebarProvider value={{ sidebarOpen, toggleSidebar }}>
+      <div className="flex min-h-svh overflow-hidden">
+        {nonSidebarTopBar}
 
-      <main className="mt-[60px] flex-1 bg-muted/30">
-        {location.pathname === "/settings" ? (
-          <Outlet />
-        ) : location.pathname === "/dashboard" ? (
-          <div className="w-full px-6 py-8">
-            <Outlet />
-          </div>
-        ) : (
-          <div className="mx-auto w-full max-w-[1200px] px-6 py-8">
-            <Outlet />
+        {/* Left sidebar — only on dashboard and tasks pages */}
+        {showSidebar && (
+          <div
+            className={cn(
+              "fixed top-0 left-0 h-svh z-40 transition-transform duration-200",
+              sidebarOpen ? "translate-x-0" : "-translate-x-full",
+            )}
+          >
+            <AppSidebar
+              environments={environments}
+              currentOrgName={currentOrg.name}
+              orgPickerTrigger={orgPickerTrigger}
+              user={user}
+              onLogout={handleLogout}
+              onEnvironmentSelect={(environmentId: string) => {
+                navigate(`/dashboard?filterApp=${environmentId}`);
+              }}
+            />
           </div>
         )}
-      </main>
-    </div>
+
+        {/* Main content area */}
+        <main
+          className={cn(
+            "flex-1 min-w-0 overflow-hidden bg-muted/30 transition-[margin] duration-200",
+            showSidebar && sidebarOpen && "ml-[217px]",
+            showSidebar && !sidebarOpen && "ml-0",
+            !showSidebar && "mt-[52px]",
+          )}
+        >
+          {/* /tasks — full-bleed, no padding (page manages its own layout) */}
+          {isTasksPage ? (
+            <div className="h-svh flex flex-col min-w-0 overflow-hidden">
+              <Outlet />
+            </div>
+          ) : /* task detail page — full bleed, page manages its own layout */
+          isTaskDetailPage ? (
+            <div className="h-svh flex flex-col min-w-0 overflow-hidden">
+              <Outlet />
+            </div>
+          ) : /* /dashboard — full-width with padding */
+          isProjectsIndex ? (
+            <div className="w-full px-6 py-8">
+              <Outlet />
+            </div>
+          ) : /* /settings — full-width, no max constraint */
+          location.pathname === "/settings" ? (
+            <Outlet />
+          ) : (
+            /* All other auth pages — centered with max-width */
+            <div className="mx-auto w-full max-w-[1200px] px-6 py-8">
+              <Outlet />
+            </div>
+          )}
+        </main>
+      </div>
+    </SidebarProvider>
   );
 }

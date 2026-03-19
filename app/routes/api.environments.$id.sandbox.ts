@@ -27,12 +27,18 @@ export async function loader({
     return Response.json({ error: "App not found" }, { status: 404 });
   }
 
-  // Return all active workspaces (not expired)
+  // Return only running workspaces (not expired, not still provisioning).
+  // Provisioning workspaces have url="" which causes the frontend to construct
+  // an invalid split-view URL with no token, resulting in a 404.
   const activeWorkspaces = await db
     .select()
     .from(workspaces)
     .where(
-      and(eq(workspaces.environmentId, id), gt(workspaces.expiresAt, new Date())),
+      and(
+        eq(workspaces.environmentId, id),
+        gt(workspaces.expiresAt, new Date()),
+        eq(workspaces.status, "running"),
+      ),
     )
     .orderBy(desc(workspaces.createdAt));
 
@@ -267,7 +273,11 @@ export async function action({
   }
 
   // ── Fetch task attachments ─────────────────────────
-  let attachmentRows: { filename: string; blobUrl: string; contentType: string }[] = [];
+  let attachmentRows: {
+    filename: string;
+    blobUrl: string;
+    contentType: string;
+  }[] = [];
   if (taskId) {
     attachmentRows = await db
       .select({
@@ -280,7 +290,11 @@ export async function action({
 
     if (attachmentRows.length > 0) {
       log.info(
-        { taskId, count: attachmentRows.length, filenames: attachmentRows.map((a) => a.filename) },
+        {
+          taskId,
+          count: attachmentRows.length,
+          filenames: attachmentRows.map((a) => a.filename),
+        },
         "sandbox: task has attachments to inject",
       );
     }
@@ -336,7 +350,11 @@ export async function action({
       .returning();
 
     log.info(
-      { environmentId: id, workspaceId: workspace.id, sandboxId: sandbox.sandboxId },
+      {
+        environmentId: id,
+        workspaceId: workspace.id,
+        sandboxId: sandbox.sandboxId,
+      },
       "sandbox: workspace record created (provisioning)",
     );
 
@@ -418,7 +436,11 @@ export async function action({
 
         // Look up task details for type and review mode
         const [taskRow] = await db
-          .select({ type: tasks.type, prompt: tasks.prompt, prUrl: tasks.prUrl })
+          .select({
+            type: tasks.type,
+            prompt: tasks.prompt,
+            prUrl: tasks.prUrl,
+          })
           .from(tasks)
           .where(eq(tasks.id, taskId));
         if (taskRow?.type) {
@@ -458,7 +480,8 @@ fetch(process.env.VIAGEN_CALLBACK_URL, {
   }),
 });`;
 
-          envMap["VIAGEN_PROMPT"] = `You are a lightweight PR reviewer. Your job is to review a pull request — NOT write code.
+          envMap["VIAGEN_PROMPT"] =
+            `You are a lightweight PR reviewer. Your job is to review a pull request — NOT write code.
 
 ## Original Task
 ${taskRow.prompt}
@@ -590,7 +613,7 @@ GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (th
       const supervisorScript = [
         "#!/bin/bash",
         "while true; do",
-        '  npm run dev -- --host 0.0.0.0',
+        "  npm run dev -- --host 0.0.0.0",
         '  echo "[supervisor] dev server exited, restarting in 1s..."',
         "  sleep 1",
         "done",

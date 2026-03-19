@@ -30,6 +30,7 @@ export default [
     route("settings", "routes/_auth.settings.tsx"),
     route("data", "routes/_auth.data.tsx"),
     route("billing", "routes/_auth.billing.tsx"),
+    route("tasks", "routes/_auth.tasks.tsx"),
   ]),
 
   // Resource routes (REST API for SDK)
