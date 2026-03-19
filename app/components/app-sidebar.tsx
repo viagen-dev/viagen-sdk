@@ -109,10 +109,10 @@ export function AppSidebar({
         {projectsExpanded && (
           <div className="flex flex-col gap-0.5">
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               asChild
-              className="w-full justify-start gap-2 text-muted-foreground"
+              className="w-full justify-start gap-2 shadow-none"
             >
               <Link to="/projects/new">
                 <Plus className="size-4" />

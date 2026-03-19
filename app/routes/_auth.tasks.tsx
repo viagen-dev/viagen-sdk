@@ -444,6 +444,7 @@ export default function MyTasksPage({
           <Button
             variant="outline"
             size="sm"
+            className="shadow-none"
             onClick={handleQuickWorkspace}
             disabled={launchingWs || loaderData.projects.length === 0}
           >

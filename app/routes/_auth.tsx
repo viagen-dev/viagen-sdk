@@ -6,7 +6,7 @@ import { listOrgSecrets } from "~/lib/infisical.server";
 import { log } from "~/lib/logger.server";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
-import { ViagenLogo } from "~/components/icons/viagen-logo";
+
 import {
   Plus,
   Check,
@@ -171,7 +171,6 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
           aria-expanded={teamOpen}
           className="w-full justify-start gap-1.5 font-medium"
         >
-          <ViagenLogo className="size-5 shrink-0" />
           <span className="truncate">{currentOrg.name}</span>
           <ChevronDown className="ml-auto size-3.5 opacity-50 shrink-0" />
         </Button>
