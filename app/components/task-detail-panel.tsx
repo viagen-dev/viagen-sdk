@@ -743,7 +743,10 @@ export function TaskDetailPanel({
   };
 
   const changeApp = async (newAppId: string) => {
-    if (!task || newAppId === task.environmentId) return;
+    if (!task || newAppId === task.environmentId) {
+      setAppPickerOpen(false);
+      return;
+    }
     try {
       const res = await fetch(
         `/api/environments/${environmentId}/tasks/${task.id}`,
@@ -751,25 +754,35 @@ export function TaskDetailPanel({
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId: newAppId }),
+          body: JSON.stringify({ environmentId: newAppId }),
         },
       );
       if (res.ok) {
-        toast.success("Task moved to new app");
+        const data = await res.json().catch(() => ({}));
+        const newEnv = environments.find((e) => e.id === newAppId);
+        if (data.task && newEnv) {
+          store.getState().setTask({
+            ...task,
+            ...data.task,
+            environmentId: newAppId,
+            environmentName: newEnv.name,
+          });
+        }
+        toast.success("Task moved to new environment");
         store.getState().fetchAllTasks();
         if (variant === "page") {
-          // Stay on the task detail page but update the URL to reflect the new project
           navigate(`/environments/${newAppId}/tasks/${task.id}?from=tasks`, {
             replace: true,
           });
         }
-        // Drawer variant: the panel stays open; the store refresh updates the task in place
       } else {
         const data = await res.json().catch(() => ({}));
         toast.error(data.error ?? "Failed to move task");
       }
     } catch {
       toast.error("Failed to move task");
+    } finally {
+      setAppPickerOpen(false);
     }
   };
 

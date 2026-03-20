@@ -191,6 +191,7 @@ export async function action({
     prompt?: string;
     branch?: string;
     model?: string;
+    environmentId?: string;
     projectId?: string;
     createdBy?: string;
     result?: string | null;
@@ -236,6 +237,32 @@ export async function action({
     );
   }
 
+  // Validate environmentId if provided — must belong to the same org, task must be ready
+  if (body.environmentId !== undefined) {
+    if (existing.status !== "ready") {
+      return Response.json(
+        { error: "Environment can only be changed for tasks in ready status" },
+        { status: 400 },
+      );
+    }
+    const [newEnv] = await db
+      .select()
+      .from(environments)
+      .where(
+        and(
+          eq(environments.id, body.environmentId),
+          eq(environments.organizationId, org.id),
+        ),
+      );
+    if (!newEnv) {
+      log.warn(
+        { userId: user.id, environmentId: body.environmentId },
+        "task update: new environment not found or not in org",
+      );
+      return Response.json({ error: "Environment not found" }, { status: 404 });
+    }
+  }
+
   // Validate projectId if provided — must belong to the same org
   if (body.projectId !== undefined) {
     const [proj] = await db
@@ -262,6 +289,7 @@ export async function action({
   if (body.title !== undefined) updates.title = body.title?.trim() || null;
   if (body.prompt !== undefined) updates.prompt = body.prompt.trim();
   if (body.model !== undefined) updates.model = body.model;
+  if (body.environmentId !== undefined) updates.environmentId = body.environmentId;
   if (body.branch !== undefined) {
     const trimmed = body.branch.trim();
     if (!trimmed) {
@@ -355,6 +383,8 @@ export async function action({
       assigneeChanged:
         body.createdBy !== undefined ? body.createdBy : undefined,
       projectChanged: body.projectId !== undefined ? body.projectId : undefined,
+      environmentChanged:
+        body.environmentId !== undefined ? body.environmentId : undefined,
     },
     "task updated",
   );

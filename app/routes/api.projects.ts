@@ -1,6 +1,6 @@
 import { requireAuth, isAdminRole } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { projects } from "~/lib/db/schema";
+import { projects, environments } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { log } from "~/lib/logger.server";
 
@@ -30,7 +30,12 @@ export async function action({ request }: { request: Request }) {
 async function handleUpdate(request: Request) {
   const { org } = await requireAuth(request);
 
-  let body: { id?: string; name?: string; description?: string } = {};
+  let body: {
+    id?: string;
+    name?: string;
+    description?: string;
+    defaultEnvironmentId?: string | null;
+  } = {};
   try {
     body = await request.json();
   } catch {
@@ -52,6 +57,25 @@ async function handleUpdate(request: Request) {
     );
   }
 
+  // Validate defaultEnvironmentId if provided (null clears it)
+  if (body.defaultEnvironmentId !== undefined && body.defaultEnvironmentId !== null) {
+    const [env] = await db
+      .select()
+      .from(environments)
+      .where(
+        and(
+          eq(environments.id, body.defaultEnvironmentId),
+          eq(environments.organizationId, org.id),
+        ),
+      );
+    if (!env) {
+      return Response.json(
+        { error: "Environment not found" },
+        { status: 404 },
+      );
+    }
+  }
+
   const [existing] = await db
     .select()
     .from(projects)
@@ -66,6 +90,8 @@ async function handleUpdate(request: Request) {
   if (body.name !== undefined) updates.name = body.name.trim();
   if (body.description !== undefined)
     updates.description = body.description ?? null;
+  if (body.defaultEnvironmentId !== undefined)
+    updates.defaultEnvironmentId = body.defaultEnvironmentId ?? null;
 
   if (Object.keys(updates).length === 0) {
     log.debug(
@@ -110,6 +136,25 @@ async function handleCreate(request: Request) {
     );
   }
 
+  // Validate defaultEnvironmentId if provided
+  if (body.defaultEnvironmentId) {
+    const [env] = await db
+      .select()
+      .from(environments)
+      .where(
+        and(
+          eq(environments.id, body.defaultEnvironmentId),
+          eq(environments.organizationId, org.id),
+        ),
+      );
+    if (!env) {
+      return Response.json(
+        { error: "Environment not found" },
+        { status: 404 },
+      );
+    }
+  }
+
   const [project] = await db
     .insert(projects)
     .values({
@@ -121,6 +166,7 @@ async function handleCreate(request: Request) {
       vercelProjectName: body.vercelProjectName?.trim() ?? null,
       vercelOrgId: body.vercelOrgId?.trim() ?? null,
       isDefault: false,
+      defaultEnvironmentId: body.defaultEnvironmentId ?? null,
     })
     .returning();
 

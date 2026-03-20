@@ -97,6 +97,10 @@ export const projects = pgTable("projects", {
   vercelProjectName: varchar("vercel_project_name", { length: 255 }),
   vercelOrgId: varchar("vercel_org_id", { length: 255 }),
   isDefault: boolean("is_default").notNull().default(false),
+  defaultEnvironmentId: uuid("default_environment_id").references(
+    () => environments.id,
+    { onDelete: "set null" },
+  ),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
