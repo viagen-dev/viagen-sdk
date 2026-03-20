@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { useState, useCallback, useMemo, useRef } from "react";
+import { Link, useNavigate, useRevalidator, useSearchParams } from "react-router";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 import {
   Ellipsis,
@@ -15,9 +15,12 @@ import {
   CircleDashed,
   LoaderCircle,
   Check,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { SidebarToggle } from "~/components/sidebar-toggle";
 import { Badge } from "~/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
@@ -205,12 +208,19 @@ export default function ProjectDetail({
 }) {
   const { project, tasks, firstEnvironmentId } = loaderData;
   const navigate = useNavigate();
+  const revalidator = useRevalidator();
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get("tab") ?? "overview";
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [launchingWs, setLaunchingWs] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
+
+  // Settings state
+  const [editName, setEditName] = useState(project.name);
+  const [savingName, setSavingName] = useState(false);
+  const [editPrefix, setEditPrefix] = useState(project.taskPrefix ?? "");
+  const [savingPrefix, setSavingPrefix] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => ({
     "status:Completed": true,
   }));
@@ -314,6 +324,54 @@ export default function ProjectDetail({
     }
   }, [project.id, firstEnvironmentId, navigate]);
 
+  async function handleSaveName() {
+    if (!editName.trim() || savingName) return;
+    setSavingName(true);
+    try {
+      const res = await fetch("/api/projects", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: project.id, name: editName.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error ?? "Failed to update name");
+        return;
+      }
+      toast.success("Project name updated");
+      revalidator.revalidate();
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setSavingName(false);
+    }
+  }
+
+  async function handleSavePrefix() {
+    if (savingPrefix) return;
+    setSavingPrefix(true);
+    try {
+      const res = await fetch("/api/projects", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: project.id, taskPrefix: editPrefix.trim() || null }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error ?? "Failed to update task prefix");
+        return;
+      }
+      toast.success("Task prefix updated");
+      revalidator.revalidate();
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setSavingPrefix(false);
+    }
+  }
+
   async function handleDelete() {
     setDeleting(true);
     try {
@@ -359,6 +417,12 @@ export default function ProjectDetail({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
+                  <DropdownMenuItem
+                    onSelect={() => navigate(`?tab=settings`)}
+                  >
+                    <Settings className="size-3.5" />
+                    Edit project
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     variant="destructive"
                     onSelect={() => setDeleteOpen(true)}
@@ -436,6 +500,7 @@ export default function ProjectDetail({
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="sessions">Sessions</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
         </div>
 
@@ -620,6 +685,78 @@ export default function ProjectDetail({
                   );
                 })}
               </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Settings tab */}
+        <TabsContent value="settings" className="flex-1 mt-0 overflow-y-auto">
+          <div className="max-w-xl mx-auto py-8 px-4 flex flex-col gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Project name</CardTitle>
+                <CardDescription>The display name for this project.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+                    placeholder="Project name"
+                    disabled={savingName}
+                    className="flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSaveName}
+                    disabled={savingName || !editName.trim() || editName.trim() === project.name}
+                  >
+                    {savingName ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Task prefix</CardTitle>
+                <CardDescription>Short prefix shown before task numbers (e.g. "APP").</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <Input
+                    value={editPrefix}
+                    onChange={(e) => setEditPrefix(e.target.value.toUpperCase().slice(0, 10))}
+                    onKeyDown={(e) => e.key === "Enter" && handleSavePrefix()}
+                    placeholder="e.g. APP"
+                    disabled={savingPrefix}
+                    className="flex-1 font-mono"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSavePrefix}
+                    disabled={savingPrefix || editPrefix.trim() === (project.taskPrefix ?? "")}
+                  >
+                    {savingPrefix ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {!project.isDefault && (
+              <Card className="border-destructive/40">
+                <CardHeader>
+                  <CardTitle className="text-destructive">Danger zone</CardTitle>
+                  <CardDescription>Permanently delete this project and all its tasks.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+                    <Trash2 className="size-3.5" />
+                    Delete project
+                  </Button>
+                </CardContent>
+              </Card>
             )}
           </div>
         </TabsContent>

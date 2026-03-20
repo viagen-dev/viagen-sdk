@@ -21,6 +21,7 @@ export async function action({ request }: { request: Request }) {
   const method = request.method;
 
   if (method === "POST") return handleCreate(request);
+  if (method === "PATCH") return handleUpdate(request);
   if (method === "DELETE") return handleDelete(request);
 
   return Response.json({ error: "Method not allowed" }, { status: 405 });
@@ -67,6 +68,56 @@ async function handleCreate(request: Request) {
     "project created",
   );
   return Response.json({ project }, { status: 201 });
+}
+
+async function handleUpdate(request: Request) {
+  const { role, org } = await requireAuth(request);
+  if (!isAdminRole(role)) {
+    return Response.json({ error: "Admin role required" }, { status: 403 });
+  }
+
+  const body = await request.json();
+
+  if (!body.id) {
+    return Response.json({ error: "Project id is required" }, { status: 400 });
+  }
+
+  const [existing] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, body.id), eq(projects.organizationId, org.id)));
+
+  if (!existing) {
+    return Response.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  const updates: Partial<typeof existing> = {
+    updatedAt: new Date(),
+  };
+
+  if (body.name !== undefined) {
+    if (typeof body.name !== "string" || body.name.trim().length === 0) {
+      return Response.json({ error: "Project name cannot be empty" }, { status: 400 });
+    }
+    updates.name = body.name.trim();
+  }
+
+  if (body.taskPrefix !== undefined) {
+    updates.taskPrefix = body.taskPrefix?.trim() || null;
+  }
+
+  if (body.githubRepo !== undefined) {
+    updates.githubRepo = body.githubRepo?.trim() || null;
+  }
+
+  const [project] = await db
+    .update(projects)
+    .set(updates)
+    .where(eq(projects.id, existing.id))
+    .returning();
+
+  log.info({ orgId: org.id, projectId: project.id }, "project updated");
+  return Response.json({ project });
 }
 
 async function handleDelete(request: Request) {
