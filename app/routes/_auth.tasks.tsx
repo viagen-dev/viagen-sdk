@@ -370,12 +370,26 @@ export default function MyTasksPage({
     // Prefer the default project; fall back to first project
     const defaultProject =
       loaderData.projects.find((p) => p.isDefault) ?? loaderData.projects[0];
-    const firstEnv = loaderData.environments[0];
 
-    if (!defaultProject || !firstEnv) {
+    if (!defaultProject) {
       toast.error("No project available");
       return;
     }
+
+    // Resolve which environment to use: prefer project's defaultEnvironmentId,
+    // otherwise fall back to the first environment in the org.
+    const resolvedEnv =
+      (defaultProject.defaultEnvironmentId
+        ? loaderData.environments.find(
+            (e) => e.id === defaultProject.defaultEnvironmentId,
+          )
+        : null) ?? loaderData.environments[0];
+
+    if (!resolvedEnv) {
+      toast.error("No environment available");
+      return;
+    }
+
     setCreatingTask(true);
     try {
       const res = await fetch(`/api/projects/${defaultProject.id}/tasks`, {
@@ -385,7 +399,7 @@ export default function MyTasksPage({
         body: JSON.stringify({
           prompt: "",
           branch: `feat-${Math.random().toString(36).slice(2, 8)}`,
-          environmentId: firstEnv.id,
+          environmentId: resolvedEnv.id,
         }),
       });
       const data = await res.json();
@@ -396,10 +410,10 @@ export default function MyTasksPage({
       const task = data.task as FeedTask;
       task.projectId = defaultProject.id;
       task.projectName = defaultProject.name;
-      task.environmentName = firstEnv.name;
-      task.githubRepo = firstEnv.githubRepo;
-      task.vercelProjectId = firstEnv.vercelProjectId;
-      task.vercelProjectName = firstEnv.vercelProjectName;
+      task.environmentName = resolvedEnv.name;
+      task.githubRepo = resolvedEnv.githubRepo;
+      task.vercelProjectId = resolvedEnv.vercelProjectId;
+      task.vercelProjectName = resolvedEnv.vercelProjectName;
       useTaskStore.getState().setTask(task);
       navigate(
         `/environments/${task.environmentId}/tasks/${task.id}?from=tasks`,

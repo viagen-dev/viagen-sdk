@@ -8,6 +8,7 @@ export interface Project {
   vercelProjectId: string | null;
   vercelProjectName: string | null;
   isDefault: boolean;
+  defaultEnvironmentId: string | null;
   createdAt: string;
   updatedAt: string;
 }

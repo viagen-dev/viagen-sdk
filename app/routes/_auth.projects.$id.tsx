@@ -19,6 +19,7 @@ import {
   Paperclip,
   ExternalLink,
   Square,
+  Box,
 } from "lucide-react";
 
 const NO_PROJECT_DESCRIPTION =
@@ -29,6 +30,19 @@ import { Button } from "~/components/ui/button";
 import { SidebarToggle } from "~/components/sidebar-toggle";
 import { Badge } from "~/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "~/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "~/components/ui/command";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -180,12 +194,30 @@ export async function loader({
     "project detail loaded",
   );
 
-  // Fetch first environment in the org for sandbox / task creation
-  const [firstEnv] = await db
-    .select({ id: environments.id, name: environments.name })
-    .from(environments)
-    .where(eq(environments.organizationId, org.id))
-    .limit(1);
+  // Resolve the effective environment for sandbox / task creation.
+  // Prefer the project's defaultEnvironmentId if set, otherwise fall back to
+  // the first environment in the org.
+  let resolvedEnvId: string | null = null;
+  if (project.defaultEnvironmentId) {
+    const [defaultEnv] = await db
+      .select({ id: environments.id })
+      .from(environments)
+      .where(
+        and(
+          eq(environments.id, project.defaultEnvironmentId),
+          eq(environments.organizationId, org.id),
+        ),
+      );
+    if (defaultEnv) resolvedEnvId = defaultEnv.id;
+  }
+  if (!resolvedEnvId) {
+    const [firstEnv] = await db
+      .select({ id: environments.id })
+      .from(environments)
+      .where(eq(environments.organizationId, org.id))
+      .limit(1);
+    resolvedEnvId = firstEnv?.id ?? null;
+  }
 
   // Fetch all environments for the org (for session lookup)
   const orgEnvs = await db
@@ -237,10 +269,11 @@ export async function loader({
       description: project.description ?? null,
       taskPrefix: project.taskPrefix,
       isDefault: project.isDefault,
+      defaultEnvironmentId: project.defaultEnvironmentId ?? null,
     },
     tasks: projectTasks,
     attachments: attachmentRows,
-    firstEnvironmentId: firstEnv?.id ?? null,
+    firstEnvironmentId: resolvedEnvId,
     orgEnvs,
     sessions: projectSessions.map((s) => ({
       ...s,
@@ -301,6 +334,7 @@ export default function ProjectDetail({
       description: string | null;
       taskPrefix: string | null;
       isDefault: boolean;
+      defaultEnvironmentId: string | null;
     };
     tasks: TaskRow[];
     attachments: AttachmentRow[];
@@ -328,6 +362,11 @@ export default function ProjectDetail({
   );
   const [savingTitle, setSavingTitle] = useState(false);
   const [savingDescription, setSavingDescription] = useState(false);
+  const [defaultEnvId, setDefaultEnvId] = useState<string | null>(
+    project.defaultEnvironmentId,
+  );
+  const [savingDefaultEnv, setSavingDefaultEnv] = useState(false);
+  const [envPickerOpen, setEnvPickerOpen] = useState(false);
   const [attachments, setAttachments] = useState<AttachmentRow[]>(
     loaderData.attachments,
   );
@@ -340,6 +379,7 @@ export default function ProjectDetail({
   useEffect(() => {
     setEditTitle(project.name);
     setEditDescription(project.description ?? "");
+    setDefaultEnvId(project.defaultEnvironmentId);
     setAttachments(loaderData.attachments);
     setSessions(loaderData.sessions ?? []);
   }, [project.id]);
@@ -484,6 +524,45 @@ export default function ProjectDetail({
       setSavingDescription(false);
     }
   }, [editDescription, project.id, project.description]);
+
+  // ── Save default environment ──────────────────────────────────────────
+  const saveDefaultEnvironment = useCallback(
+    async (envId: string | null) => {
+      if (envId === project.defaultEnvironmentId) {
+        setEnvPickerOpen(false);
+        return;
+      }
+      setSavingDefaultEnv(true);
+      setEnvPickerOpen(false);
+      try {
+        const res = await fetch("/api/projects", {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: project.id,
+            defaultEnvironmentId: envId,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          toast.error(data.error ?? "Failed to update default environment");
+          setDefaultEnvId(project.defaultEnvironmentId);
+        } else {
+          setDefaultEnvId(envId);
+          toast.success(
+            envId ? "Default environment updated" : "Default environment cleared",
+          );
+        }
+      } catch {
+        toast.error("Failed to update default environment");
+        setDefaultEnvId(project.defaultEnvironmentId);
+      } finally {
+        setSavingDefaultEnv(false);
+      }
+    },
+    [project.id, project.defaultEnvironmentId],
+  );
 
   // ── Upload attachment ─────────────────────────────────────────────────
   const handleAttachmentUpload = useCallback(
@@ -854,6 +933,76 @@ export default function ProjectDetail({
                 {savingDescription && (
                   <Loader2 className="absolute right-0 top-1 size-3.5 animate-spin text-muted-foreground" />
                 )}
+              </div>
+            )}
+
+            {/* Default environment picker — only when environments exist */}
+            {loaderData.orgEnvs.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-36 shrink-0">
+                  Default environment
+                </span>
+                <Popover open={envPickerOpen} onOpenChange={setEnvPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                      disabled={savingDefaultEnv}
+                    >
+                      {savingDefaultEnv ? (
+                        <Loader2 className="size-3.5 animate-spin shrink-0" />
+                      ) : (
+                        <Box className="size-3.5 shrink-0" />
+                      )}
+                      {defaultEnvId
+                        ? (loaderData.orgEnvs.find(
+                            (e) => e.id === defaultEnvId,
+                          )?.name ?? "Unknown")
+                        : "None"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[220px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Select environment…" />
+                      <CommandList>
+                        <CommandEmpty>No environments found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="none"
+                            onSelect={() => saveDefaultEnvironment(null)}
+                          >
+                            <span className="text-muted-foreground">None</span>
+                            <Check
+                              className={cn(
+                                "ml-auto size-3.5",
+                                !defaultEnvId ? "opacity-100" : "opacity-0",
+                              )}
+                            />
+                          </CommandItem>
+                          {loaderData.orgEnvs.map((env) => (
+                            <CommandItem
+                              key={env.id}
+                              value={env.name}
+                              onSelect={() => saveDefaultEnvironment(env.id)}
+                            >
+                              <Box className="size-3.5 shrink-0 text-muted-foreground" />
+                              {env.name}
+                              <Check
+                                className={cn(
+                                  "ml-auto size-3.5",
+                                  defaultEnvId === env.id
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
 
