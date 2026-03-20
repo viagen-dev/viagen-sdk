@@ -42,6 +42,6 @@ export const useDashboardStore = create<DashboardState>()(
       setStatusFilter: (filter) =>
         set({ statusFilter: filter }, false, "setStatusFilter"),
     }),
-    { name: "DashboardStore" },
+    { name: "DashboardStore", enabled: true },
   ),
 );
