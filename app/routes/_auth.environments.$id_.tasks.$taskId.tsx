@@ -159,6 +159,22 @@ export async function loader({
     .from(environments)
     .where(eq(environments.organizationId, org.id));
 
+  // Load all org projects for the project picker
+  const allProjects = await db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      isDefault: projects.isDefault,
+    })
+    .from(projects)
+    .where(eq(projects.organizationId, org.id))
+    .orderBy(projects.name);
+
+  log.debug(
+    { environmentId: app.id, projectCount: allProjects.length },
+    "task detail page: loaded org projects for project picker",
+  );
+
   // Load project name if projectId is provided via query param
   const url = new URL(request.url);
   const projectId = url.searchParams.get("projectId");
@@ -192,6 +208,7 @@ export async function loader({
       taskNumber: task.taskNumber,
     },
     environments: allApps,
+    projects: allProjects,
     projectId: projectId ?? null,
     projectName,
   };
@@ -210,6 +227,7 @@ interface TaskLoaderData {
     taskNumber: number | null;
   };
   environments: Environment[];
+  projects: { id: string; name: string; isDefault: boolean }[];
   projectId: string | null;
   projectName: string | null;
 }
@@ -316,6 +334,7 @@ export default function TaskDetailPage({
           onClose={handleClose}
           variant="page"
           environments={loaderData.environments}
+          projects={loaderData.projects}
           onRegisterDeleteTrigger={handleRegisterDeleteTrigger}
         />
       </div>

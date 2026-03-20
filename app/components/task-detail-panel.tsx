@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
+import { FolderKanban, SquareDashed } from "lucide-react";
 import {
   useTaskStore,
   useTask,
@@ -271,6 +272,7 @@ export function TaskDetailPanel({
   onStatusFilterChange,
   onRegisterDeleteTrigger,
   environments,
+  projects = [],
   variant = "drawer",
 }: {
   environmentId: string;
@@ -281,6 +283,8 @@ export function TaskDetailPanel({
   /** Called once on mount with a function that opens the delete dialog */
   onRegisterDeleteTrigger?: (trigger: () => void) => void;
   environments: Environment[];
+  /** Org projects available for reassigning this task */
+  projects?: { id: string; name: string; isDefault: boolean }[];
   variant?: "drawer" | "page";
 }) {
   const navigate = useNavigate();
@@ -348,8 +352,11 @@ export function TaskDetailPanel({
   const [previewOpen, setPreviewOpen] = useState(true);
   const [resultsOpen, setResultsOpen] = useState(true);
 
-  // Change project state
+  // Change environment (app) state
   const [appPickerOpen, setAppPickerOpen] = useState(false);
+
+  // Change project state
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
 
   // Assignee state
   interface TeamMember {
@@ -382,6 +389,7 @@ export function TaskDetailPanel({
     setEditBranch("");
     setAssigneePickerOpen(false);
     setAppPickerOpen(false);
+    setProjectPickerOpen(false);
     setCancelOpen(false);
     setDeleteOpen(false);
   }, [environmentId, taskId]);
@@ -765,6 +773,46 @@ export function TaskDetailPanel({
     }
   };
 
+  const changeProject = async (newProjectId: string) => {
+    if (!task || newProjectId === task.projectId) {
+      setProjectPickerOpen(false);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/environments/${environmentId}/tasks/${task.id}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId: newProjectId }),
+        },
+      );
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.task) {
+          store.getState().setTask({
+            ...task,
+            ...data.task,
+            projectId: newProjectId,
+            projectName:
+              projects.find((p) => p.id === newProjectId)?.name ??
+              task.projectName,
+          });
+        }
+        toast.success("Task moved to new project");
+        store.getState().fetchAllTasks();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to move task to project");
+      }
+    } catch {
+      toast.error("Failed to move task to project");
+    } finally {
+      setProjectPickerOpen(false);
+    }
+  };
+
   const handleStopWorkspace = async (workspaceId: string) => {
     setStoppingWs(workspaceId);
     try {
@@ -899,7 +947,60 @@ export function TaskDetailPanel({
     </div>
   );
 
-  const appSection = task && (
+  const projectSection = task && (
+    <div className="flex items-center">
+      <Small className="w-28 shrink-0">Project</Small>
+      <Popover open={projectPickerOpen} onOpenChange={setProjectPickerOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto gap-2 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            {projects.find((p) => p.id === task.projectId)?.isDefault ||
+            !task.projectId ? (
+              <SquareDashed className="size-3.5 shrink-0" />
+            ) : (
+              <FolderKanban className="size-3.5 shrink-0" />
+            )}
+            {task.projectName ?? "No project"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[220px] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Move to project..." />
+            <CommandList>
+              <CommandEmpty>No projects found.</CommandEmpty>
+              <CommandGroup>
+                {projects.map((p) => (
+                  <CommandItem
+                    key={p.id}
+                    value={p.name}
+                    onSelect={() => changeProject(p.id)}
+                  >
+                    {p.isDefault ? (
+                      <SquareDashed className="size-3.5 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <FolderKanban className="size-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                    {p.name}
+                    <Check
+                      className={cn(
+                        "ml-auto size-3.5",
+                        task.projectId === p.id ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+
+  const appSection = task && environments.length > 1 && (
     <div className="flex items-center">
       <Small className="w-28 shrink-0">Environment</Small>
       <Popover
@@ -1778,7 +1879,65 @@ export function TaskDetailPanel({
                 </Popover>
 
                 {/* Environment pill */}
-                <Popover open={appPickerOpen} onOpenChange={setAppPickerOpen}>
+                {environments.length > 1 && (
+                  <Popover open={appPickerOpen} onOpenChange={setAppPickerOpen}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="shadow-none"
+                          >
+                            <Box className="size-3.5 shrink-0" />
+                          </Button>
+                        </PopoverTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {task.environmentName}
+                      </TooltipContent>
+                    </Tooltip>
+                    <PopoverContent className="w-[220px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Move to app..." />
+                        <CommandList>
+                          <CommandEmpty>No environments found.</CommandEmpty>
+                          <CommandGroup>
+                            {[...environments]
+                              .sort((a, b) => a.name.localeCompare(b.name))
+                              .map((p) => (
+                                <CommandItem
+                                  key={p.id}
+                                  value={p.name}
+                                  onSelect={() => {
+                                    setAppPickerOpen(false);
+                                    changeApp(p.id);
+                                  }}
+                                >
+                                  <Box className="size-3.5 shrink-0 text-muted-foreground" />
+                                  {p.name}
+                                  <Check
+                                    className={cn(
+                                      "ml-auto size-3.5",
+                                      task.environmentId === p.id
+                                        ? "opacity-100"
+                                        : "opacity-0",
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                )}
+
+                {/* Project pill */}
+                <Popover
+                  open={projectPickerOpen}
+                  onOpenChange={setProjectPickerOpen}
+                >
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <PopoverTrigger asChild>
@@ -1787,43 +1946,47 @@ export function TaskDetailPanel({
                           size="icon-sm"
                           className="shadow-none"
                         >
-                          <Box className="size-3.5 shrink-0" />
+                          {projects.find((p) => p.id === task.projectId)
+                            ?.isDefault || !task.projectId ? (
+                            <SquareDashed className="size-3.5 shrink-0" />
+                          ) : (
+                            <FolderKanban className="size-3.5 shrink-0" />
+                          )}
                         </Button>
                       </PopoverTrigger>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      {task.environmentName}
+                      {task.projectName ?? "No project"}
                     </TooltipContent>
                   </Tooltip>
                   <PopoverContent className="w-[220px] p-0" align="start">
                     <Command>
-                      <CommandInput placeholder="Move to app..." />
+                      <CommandInput placeholder="Move to project..." />
                       <CommandList>
-                        <CommandEmpty>No environments found.</CommandEmpty>
+                        <CommandEmpty>No projects found.</CommandEmpty>
                         <CommandGroup>
-                          {[...environments]
-                            .sort((a, b) => a.name.localeCompare(b.name))
-                            .map((p) => (
-                              <CommandItem
-                                key={p.id}
-                                value={p.name}
-                                onSelect={() => {
-                                  setAppPickerOpen(false);
-                                  changeApp(p.id);
-                                }}
-                              >
-                                <Box className="size-3.5 shrink-0 text-muted-foreground" />
-                                {p.name}
-                                <Check
-                                  className={cn(
-                                    "ml-auto size-3.5",
-                                    task.environmentId === p.id
-                                      ? "opacity-100"
-                                      : "opacity-0",
-                                  )}
-                                />
-                              </CommandItem>
-                            ))}
+                          {projects.map((p) => (
+                            <CommandItem
+                              key={p.id}
+                              value={p.name}
+                              onSelect={() => changeProject(p.id)}
+                            >
+                              {p.isDefault ? (
+                                <SquareDashed className="size-3.5 shrink-0 text-muted-foreground" />
+                              ) : (
+                                <FolderKanban className="size-3.5 shrink-0 text-muted-foreground" />
+                              )}
+                              {p.name}
+                              <Check
+                                className={cn(
+                                  "ml-auto size-3.5",
+                                  task.projectId === p.id
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
                         </CommandGroup>
                       </CommandList>
                     </Command>
@@ -2219,6 +2382,7 @@ export function TaskDetailPanel({
                 </CardHeader>
                 <CardContent className="flex flex-col gap-1">
                   {assigneeSection}
+                  {projectSection}
                   {appSection}
                   {branchSectionEditable}
                   {modelSection}
@@ -2348,22 +2512,84 @@ export function TaskDetailPanel({
                   </PopoverContent>
                 </Popover>
 
-                {/* Project pill (readonly for in-progress / completed) */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon-sm"
-                      className="shadow-none"
-                      disabled
-                    >
-                      <Box className="size-3.5 shrink-0" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {task.environmentName}
-                  </TooltipContent>
-                </Tooltip>
+                {/* Environment pill (readonly for in-progress / completed) */}
+                {environments.length > 1 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
+                        className="shadow-none"
+                        disabled
+                      >
+                        <Box className="size-3.5 shrink-0" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {task.environmentName}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+
+                {/* Project pill */}
+                <Popover
+                  open={projectPickerOpen}
+                  onOpenChange={setProjectPickerOpen}
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          className="shadow-none"
+                        >
+                          {projects.find((p) => p.id === task.projectId)
+                            ?.isDefault || !task.projectId ? (
+                            <SquareDashed className="size-3.5 shrink-0" />
+                          ) : (
+                            <FolderKanban className="size-3.5 shrink-0" />
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {task.projectName ?? "No project"}
+                    </TooltipContent>
+                  </Tooltip>
+                  <PopoverContent className="w-[220px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Move to project..." />
+                      <CommandList>
+                        <CommandEmpty>No projects found.</CommandEmpty>
+                        <CommandGroup>
+                          {projects.map((p) => (
+                            <CommandItem
+                              key={p.id}
+                              value={p.name}
+                              onSelect={() => changeProject(p.id)}
+                            >
+                              {p.isDefault ? (
+                                <SquareDashed className="size-3.5 shrink-0 text-muted-foreground" />
+                              ) : (
+                                <FolderKanban className="size-3.5 shrink-0 text-muted-foreground" />
+                              )}
+                              {p.name}
+                              <Check
+                                className={cn(
+                                  "ml-auto size-3.5",
+                                  task.projectId === p.id
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
 
                 {/* Branch pill (readonly for in-progress) */}
                 <Tooltip>

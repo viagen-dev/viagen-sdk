@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 import {
@@ -15,7 +15,15 @@ import {
   CircleDashed,
   LoaderCircle,
   Check,
+  FileText,
+  Paperclip,
+  ExternalLink,
+  Square,
 } from "lucide-react";
+
+const NO_PROJECT_DESCRIPTION =
+  "A catch-all bucket for tasks that haven't been assigned to a specific project yet. Move tasks into a dedicated project to keep your work organized.";
+
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { SidebarToggle } from "~/components/sidebar-toggle";
@@ -46,8 +54,15 @@ import { cn } from "~/lib/utils";
 
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { projects, tasks, environments, users } from "~/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import {
+  projects,
+  tasks,
+  environments,
+  users,
+  projectAttachments,
+  workspaces,
+} from "~/lib/db/schema";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { log } from "~/lib/logger.server";
 
 // ── Status grouping helpers ───────────────────────────────────────────────
@@ -150,8 +165,18 @@ export async function loader({
     .orderBy(desc(tasks.createdAt))
     .limit(100);
 
+  // Fetch project-level attachments
+  const attachmentRows = await db
+    .select()
+    .from(projectAttachments)
+    .where(eq(projectAttachments.projectId, project.id));
+
   log.debug(
-    { projectId: project.id, taskCount: projectTasks.length },
+    {
+      projectId: project.id,
+      taskCount: projectTasks.length,
+      attachmentCount: attachmentRows.length,
+    },
     "project detail loaded",
   );
 
@@ -162,17 +187,84 @@ export async function loader({
     .where(eq(environments.organizationId, org.id))
     .limit(1);
 
+  // Fetch all environments for the org (for session lookup)
+  const orgEnvs = await db
+    .select({ id: environments.id, name: environments.name })
+    .from(environments)
+    .where(eq(environments.organizationId, org.id));
+
+  // Fetch sessions (workspaces) for this project
+  const projectSessions =
+    orgEnvs.length > 0
+      ? await db
+          .select({
+            id: workspaces.id,
+            environmentId: workspaces.environmentId,
+            sandboxId: workspaces.sandboxId,
+            url: workspaces.url,
+            status: workspaces.status,
+            name: workspaces.name,
+            branch: workspaces.branch,
+            expiresAt: workspaces.expiresAt,
+            createdAt: workspaces.createdAt,
+            taskId: workspaces.taskId,
+            projectId: workspaces.projectId,
+          })
+          .from(workspaces)
+          .where(
+            and(
+              eq(workspaces.projectId, project.id),
+              inArray(
+                workspaces.environmentId,
+                orgEnvs.map((e) => e.id),
+              ),
+            ),
+          )
+          .orderBy(desc(workspaces.createdAt))
+      : [];
+
+  const envMap = Object.fromEntries(orgEnvs.map((e) => [e.id, e.name]));
+
+  log.debug(
+    { projectId: project.id, sessionCount: projectSessions.length },
+    "project detail: sessions loaded",
+  );
+
   return {
     project: {
       id: project.id,
       name: project.name,
+      description: project.description ?? null,
       taskPrefix: project.taskPrefix,
       isDefault: project.isDefault,
     },
     tasks: projectTasks,
+    attachments: attachmentRows,
     firstEnvironmentId: firstEnv?.id ?? null,
+    orgEnvs,
+    sessions: projectSessions.map((s) => ({
+      ...s,
+      environmentName: envMap[s.environmentId] ?? null,
+      expiresAt: s.expiresAt.toISOString(),
+      createdAt: s.createdAt.toISOString(),
+    })),
   };
 }
+
+type SessionRow = {
+  id: string;
+  environmentId: string;
+  environmentName: string | null;
+  sandboxId: string;
+  url: string;
+  status: string;
+  name: string | null;
+  branch: string;
+  expiresAt: string;
+  createdAt: string;
+  taskId: string | null;
+  projectId: string | null;
+};
 
 type TaskRow = {
   id: string;
@@ -189,6 +281,16 @@ type TaskRow = {
   creatorAvatarUrl: string | null;
 };
 
+type AttachmentRow = {
+  id: string;
+  projectId: string;
+  filename: string;
+  blobUrl: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+};
+
 export default function ProjectDetail({
   loaderData,
 }: {
@@ -196,11 +298,15 @@ export default function ProjectDetail({
     project: {
       id: string;
       name: string;
+      description: string | null;
       taskPrefix: string | null;
       isDefault: boolean;
     };
     tasks: TaskRow[];
+    attachments: AttachmentRow[];
     firstEnvironmentId: string | null;
+    sessions: SessionRow[];
+    orgEnvs: { id: string; name: string }[];
   };
 }) {
   const { project, tasks, firstEnvironmentId } = loaderData;
@@ -214,6 +320,219 @@ export default function ProjectDetail({
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => ({
     "status:Completed": true,
   }));
+
+  // ── Overview tab state ──────────────────────────────────────────────────
+  const [editTitle, setEditTitle] = useState(project.name);
+  const [editDescription, setEditDescription] = useState(
+    project.description ?? "",
+  );
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [savingDescription, setSavingDescription] = useState(false);
+  const [attachments, setAttachments] = useState<AttachmentRow[]>(
+    loaderData.attachments,
+  );
+  const [sessions, setSessions] = useState<SessionRow[]>(
+    loaderData.sessions ?? [],
+  );
+  const [uploading, setUploading] = useState(false);
+
+  // Sync state when navigating between projects without a full remount
+  useEffect(() => {
+    setEditTitle(project.name);
+    setEditDescription(project.description ?? "");
+    setAttachments(loaderData.attachments);
+    setSessions(loaderData.sessions ?? []);
+  }, [project.id]);
+
+  const titleRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const attachInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const el = descriptionRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [editDescription]);
+
+  // ── Activity grouping ─────────────────────────────────────────────────
+  const activityGroups = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+    function dayLabel(date: Date): string {
+      const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const diffMs = todayStart.getTime() - d.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays === 0) return "Today";
+      if (diffDays === 1) return "Yesterday";
+      return `${diffDays} days ago`;
+    }
+
+    const map = new Map<string, TaskRow[]>();
+    for (const task of tasks) {
+      const label = dayLabel(new Date(task.createdAt));
+      const existing = map.get(label);
+      if (existing) existing.push(task);
+      else map.set(label, [task]);
+    }
+
+    // Sort groups: Today first, then by most recent
+    return Array.from(map.entries())
+      .sort(([, a], [, b]) => {
+        const aTime = new Date(a[0].createdAt).getTime();
+        const bTime = new Date(b[0].createdAt).getTime();
+        return bTime - aTime;
+      })
+      .map(([label, groupTasks]) => ({ label, tasks: groupTasks }));
+  }, [tasks]);
+
+  const [activityCollapsed, setActivityCollapsed] = useState<
+    Record<string, boolean>
+  >({});
+
+  // Default: only the first (most recent) group is expanded
+  useEffect(() => {
+    setActivityCollapsed(
+      Object.fromEntries(activityGroups.map((g, i) => [g.label, i !== 0])),
+    );
+  }, [project.id]);
+
+  const toggleActivity = (label: string) =>
+    setActivityCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
+
+  // Compute a short display ID for the project
+  const projectDisplayId = (() => {
+    const shortId =
+      (parseInt(project.id.replace(/-/g, "").slice(0, 4), 16) % 9000) + 1000;
+    return project.taskPrefix
+      ? `${project.taskPrefix}-${shortId}`
+      : `PR-${shortId}`;
+  })();
+
+  // ── Save title ────────────────────────────────────────────────────────
+  const saveTitle = useCallback(async () => {
+    const trimmed = editTitle.trim();
+    if (!trimmed) {
+      setEditTitle(project.name);
+      return;
+    }
+    if (trimmed === project.name) return;
+
+    setSavingTitle(true);
+    console.log("[ProjectDetail] Saving title:", trimmed);
+    try {
+      const res = await fetch("/api/projects", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: project.id, name: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("[ProjectDetail] Save title failed:", data.error);
+        toast.error(data.error ?? "Failed to save title");
+        setEditTitle(project.name);
+      } else {
+        console.log("[ProjectDetail] Title saved:", data.project?.name);
+        toast.success("Project title updated");
+      }
+    } catch (err) {
+      console.error("[ProjectDetail] Save title error:", err);
+      toast.error("Failed to save title");
+      setEditTitle(project.name);
+    } finally {
+      setSavingTitle(false);
+    }
+  }, [editTitle, project.id, project.name]);
+
+  // ── Save description ──────────────────────────────────────────────────
+  const saveDescription = useCallback(async () => {
+    const trimmed = editDescription.trim();
+    const original = project.description ?? "";
+    if (trimmed === original) return;
+
+    setSavingDescription(true);
+    console.log("[ProjectDetail] Saving description length:", trimmed.length);
+    try {
+      const res = await fetch("/api/projects", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: project.id, description: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("[ProjectDetail] Save description failed:", data.error);
+        toast.error(data.error ?? "Failed to save description");
+        setEditDescription(original);
+      } else {
+        console.log("[ProjectDetail] Description saved");
+      }
+    } catch (err) {
+      console.error("[ProjectDetail] Save description error:", err);
+      toast.error("Failed to save description");
+      setEditDescription(original);
+    } finally {
+      setSavingDescription(false);
+    }
+  }, [editDescription, project.id, project.description]);
+
+  // ── Upload attachment ─────────────────────────────────────────────────
+  const handleAttachmentUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // Reset file input so same file can be re-selected
+      e.target.value = "";
+
+      console.log(
+        "[ProjectDetail] Uploading attachment:",
+        file.name,
+        file.size,
+      );
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch(`/api/projects/${project.id}/attachments`, {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          console.error(
+            "[ProjectDetail] Attachment upload failed:",
+            data.error,
+          );
+          toast.error(data.error ?? "Failed to upload file");
+        } else {
+          console.log(
+            "[ProjectDetail] Attachment uploaded:",
+            data.attachment?.id,
+          );
+          setAttachments((prev) => [...prev, data.attachment]);
+          toast.success(`${file.name} attached`);
+        }
+      } catch (err) {
+        console.error("[ProjectDetail] Attachment upload error:", err);
+        toast.error("Failed to upload file");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [project.id],
+  );
 
   const toggleCollapsed = (key: string) =>
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -259,7 +578,7 @@ export default function ProjectDetail({
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ branch }),
+          body: JSON.stringify({ branch, projectId: project.id }),
         },
       );
       const data = await res.json();
@@ -277,7 +596,25 @@ export default function ProjectDetail({
     } finally {
       setLaunchingWs(false);
     }
-  }, [firstEnvironmentId]);
+  }, [firstEnvironmentId, project.id]);
+
+  const handleStopSession = useCallback(async (sessionId: string) => {
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error ?? "Failed to stop session");
+      } else {
+        toast.success("Session stopped");
+      }
+    } catch {
+      toast.error("Failed to stop session");
+    }
+  }, []);
 
   const handleCreateTask = useCallback(async () => {
     if (!firstEnvironmentId) {
@@ -314,6 +651,14 @@ export default function ProjectDetail({
     }
   }, [project.id, firstEnvironmentId, navigate]);
 
+  function timeRemaining(expiresAt: string): string {
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    if (diff <= 0) return "Expired";
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m remaining`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m remaining`;
+  }
+
   async function handleDelete() {
     setDeleting(true);
     try {
@@ -344,7 +689,9 @@ export default function ProjectDetail({
       <div className="flex items-center justify-between h-14 px-4 border-b shrink-0">
         <div className="flex items-center gap-2">
           <SidebarToggle />
-          <h1 className="text-base font-semibold">{project.name}</h1>
+          <h1 className="text-base font-semibold">
+            {project.isDefault ? project.name : editTitle || project.name}
+          </h1>
           {project.taskPrefix && (
             <Badge variant="secondary" className="text-xs font-mono">
               {project.taskPrefix}
@@ -440,32 +787,207 @@ export default function ProjectDetail({
         </div>
 
         {/* Overview tab */}
-        <TabsContent value="overview" className="flex-1 mt-0">
-          <div className="flex flex-col items-center justify-center h-full py-24 gap-6 select-none">
-            <div className="relative">
-              <div
-                className="absolute inset-0 rounded-full border border-dashed border-muted-foreground/20 animate-spin [animation-duration:10s]"
-                style={{ margin: "-20px" }}
-              />
-              <div
-                className="absolute inset-0 rounded-full bg-primary/10 blur-xl animate-pulse"
-                style={{ margin: "-10px" }}
-              />
-              <div className="relative flex items-center justify-center size-16 rounded-2xl bg-muted border border-border shadow-sm">
-                <Bot className="size-8 text-muted-foreground" />
-                <div className="absolute -top-2 -right-2 flex items-center justify-center size-5 rounded-full bg-primary text-primary-foreground shadow">
-                  <Zap className="size-3 fill-current" />
-                </div>
+        <TabsContent value="overview" className="flex-1 mt-0 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-8 py-10 flex flex-col gap-6">
+            {/* Project ID badge */}
+            <span className="text-sm font-medium text-muted-foreground">
+              {projectDisplayId}
+            </span>
+
+            {/* Title */}
+            {project.isDefault ? (
+              <h2 className="text-2xl font-semibold leading-snug">
+                {project.name}
+              </h2>
+            ) : (
+              <div className="relative">
+                <input
+                  ref={titleRef}
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  onBlur={saveTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.currentTarget.blur();
+                    }
+                    if (e.key === "Escape") {
+                      setEditTitle(project.name);
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  placeholder="Project title"
+                  className="w-full border-0 bg-transparent px-0 text-2xl font-semibold shadow-none leading-snug focus:outline-none focus-visible:outline-none placeholder:text-muted-foreground/40 placeholder:font-normal"
+                  disabled={savingTitle}
+                />
+                {savingTitle && (
+                  <Loader2 className="absolute right-0 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            )}
+
+            {/* Description */}
+            {project.isDefault ? (
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {NO_PROJECT_DESCRIPTION}
+              </p>
+            ) : (
+              <div className="relative">
+                <textarea
+                  ref={descriptionRef}
+                  value={editDescription}
+                  onChange={(e) => {
+                    setEditDescription(e.target.value);
+                  }}
+                  onBlur={saveDescription}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setEditDescription(project.description ?? "");
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  placeholder="Add specs"
+                  rows={1}
+                  className="w-full border-0 bg-transparent px-0 text-sm text-muted-foreground shadow-none resize-none focus:outline-none focus-visible:outline-none placeholder:text-muted-foreground/40 min-h-8 leading-relaxed overflow-hidden"
+                  disabled={savingDescription}
+                />
+                {savingDescription && (
+                  <Loader2 className="absolute right-0 top-1 size-3.5 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            )}
+
+            {/* Attachments — only for non-default projects */}
+            {!project.isDefault && (
+              <div className="flex flex-col gap-2">
+                {attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {attachments.map((att) => (
+                      <a
+                        key={att.id}
+                        href={att.blobUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background text-sm hover:bg-muted/50 transition-colors"
+                      >
+                        <FileText className="size-4 text-muted-foreground shrink-0" />
+                        <span className="max-w-50 truncate">
+                          {att.filename}
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                {/* Hidden file input */}
+                <input
+                  ref={attachInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleAttachmentUpload}
+                  disabled={uploading}
+                />
+
+                {/* Add attachment button */}
+                <button
+                  type="button"
+                  onClick={() => attachInputRef.current?.click()}
+                  disabled={uploading || attachments.length >= 5}
+                  className="flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    attachments.length >= 5
+                      ? "Maximum 5 attachments reached"
+                      : "Add attachment"
+                  }
+                >
+                  {uploading ? (
+                    <Loader2 className="size-4 text-muted-foreground animate-spin" />
+                  ) : (
+                    <Paperclip className="size-4 text-muted-foreground" />
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ── Activity ──────────────────────────────────────────────── */}
+          {tasks.length > 0 && (
+            <div className="max-w-2xl mx-auto px-8 pb-10 flex flex-col gap-4">
+              <div className="border-t border-border" />
+              <h3 className="text-base font-semibold">Activity</h3>
+
+              <div className="flex flex-col gap-1">
+                {activityGroups.map((group) => {
+                  const isCollapsed = activityCollapsed[group.label] ?? false;
+                  return (
+                    <div key={group.label}>
+                      {/* Day header row */}
+                      <button
+                        type="button"
+                        onClick={() => toggleActivity(group.label)}
+                        className="flex items-center gap-2 w-full h-10 hover:opacity-70 transition-opacity text-left min-w-0 overflow-hidden"
+                      >
+                        {isCollapsed ? (
+                          <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
+                        )}
+                        <span className="text-xs font-medium text-muted-foreground shrink-0">
+                          {group.label}
+                        </span>
+                        <span className="text-xs text-muted-foreground/60 shrink-0">
+                          {group.tasks.length}
+                        </span>
+                        <div className="flex-1 border-b border-dashed border-muted-foreground/20 ml-1" />
+                      </button>
+
+                      {/* Task rows */}
+                      {!isCollapsed && (
+                        <div className="flex flex-col">
+                          {group.tasks.map((task) => {
+                            const taskId = shortTaskId(task.id, {
+                              prefix: project.taskPrefix,
+                              environmentName: project.name,
+                              taskNumber: task.taskNumber,
+                            });
+                            return (
+                              <Link
+                                key={task.id}
+                                to={`/environments/${task.environmentId}/tasks/${task.id}?from=project&projectId=${project.id}`}
+                                className="flex items-center gap-2.5 w-full h-10 pl-8 pr-3 transition-colors text-left min-w-0 overflow-hidden hover:bg-muted/50"
+                              >
+                                <span className="font-mono text-xs text-muted-foreground shrink-0">
+                                  {taskId}
+                                </span>
+                                <span className="text-sm truncate min-w-0">
+                                  {task.title || task.prompt}
+                                </span>
+                                <div className="flex-1" />
+                                <Avatar size="sm" className="size-5 shrink-0">
+                                  {task.creatorAvatarUrl ? (
+                                    <AvatarImage
+                                      src={task.creatorAvatarUrl}
+                                      alt={task.creatorName ?? ""}
+                                    />
+                                  ) : null}
+                                  <AvatarFallback className="text-[0.45rem]">
+                                    {getInitials(task.creatorName)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
+                                  {timeAgo(task.createdAt)}
+                                </span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <div className="flex flex-col items-center gap-2 text-center max-w-xs">
-              <p className="text-sm font-medium">We're working on this page…</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Project overview is coming soon. You'll be able to see key
-                metrics, recent activity, and project health right here.
-              </p>
-            </div>
-          </div>
+          )}
         </TabsContent>
 
         {/* Tasks tab */}
@@ -625,44 +1147,167 @@ export default function ProjectDetail({
         </TabsContent>
 
         {/* Sessions tab */}
-        <TabsContent value="sessions" className="flex-1 mt-0">
-          <div className="flex flex-col items-center justify-center h-full py-24 gap-6 select-none">
-            <div className="relative">
-              <div
-                className="absolute inset-0 rounded-full border border-dashed border-muted-foreground/20 animate-spin [animation-duration:10s]"
-                style={{ margin: "-20px" }}
-              />
-              <div
-                className="absolute inset-0 rounded-full bg-primary/10 blur-xl animate-pulse"
-                style={{ margin: "-10px" }}
-              />
-              <div className="relative flex items-center justify-center size-16 rounded-2xl bg-muted border border-border shadow-sm">
-                <Bot className="size-8 text-muted-foreground" />
-                <div className="absolute -top-2 -right-2 flex items-center justify-center size-5 rounded-full bg-primary text-primary-foreground shadow">
-                  <Zap className="size-3 fill-current" />
+        <TabsContent
+          value="sessions"
+          className="flex-1 mt-0 overflow-y-auto min-w-0 flex flex-col"
+        >
+          <div className="w-full flex-1 flex flex-col">
+            {sessions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center flex-1 gap-6 select-none">
+                <div className="relative">
+                  <div
+                    className="absolute inset-0 rounded-full border border-dashed border-muted-foreground/20 animate-spin [animation-duration:10s]"
+                    style={{ margin: "-20px" }}
+                  />
+                  <div
+                    className="absolute inset-0 rounded-full bg-primary/10 blur-xl animate-pulse"
+                    style={{ margin: "-10px" }}
+                  />
+                  <div className="relative flex items-center justify-center size-16 rounded-2xl bg-muted border border-border shadow-sm">
+                    <Bot className="size-8 text-muted-foreground" />
+                    <div className="absolute -top-2 -right-2 flex items-center justify-center size-5 rounded-full bg-primary text-primary-foreground shadow">
+                      <Zap className="size-3 fill-current" />
+                    </div>
+                  </div>
                 </div>
+                <div className="flex flex-col items-center gap-2 text-center max-w-xs">
+                  <p className="text-sm font-medium">No sessions yet</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Start a session to work on this project interactively.
+                  </p>
+                </div>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleStartSession}
+                  disabled={launchingWs || !firstEnvironmentId}
+                >
+                  {launchingWs ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                  ) : (
+                    <Bot className="h-4 w-4 mr-1.5" />
+                  )}
+                  Start session
+                </Button>
               </div>
-            </div>
-            <div className="flex flex-col items-center gap-2 text-center max-w-xs">
-              <p className="text-sm font-medium">No active sessions</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Start a session to spin up a sandbox and work on this project
-                interactively.
-              </p>
-            </div>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleStartSession}
-              disabled={launchingWs || !firstEnvironmentId}
-            >
-              {launchingWs ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-              ) : (
-                <Bot className="h-4 w-4 mr-1.5" />
-              )}
-              Start session
-            </Button>
+            ) : (
+              <div className="flex flex-col w-full">
+                {/* Sessions list header with New session button */}
+                <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {sessions.length} session{sessions.length !== 1 ? "s" : ""}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shadow-none"
+                    onClick={handleStartSession}
+                    disabled={launchingWs || !firstEnvironmentId}
+                  >
+                    {launchingWs ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    ) : (
+                      <Bot className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    New session
+                  </Button>
+                </div>
+
+                {/* Session rows */}
+                {sessions.map((session) => {
+                  const isRunning = session.status === "running";
+                  const isProvisioning = session.status === "provisioning";
+                  const remaining = isRunning
+                    ? timeRemaining(session.expiresAt)
+                    : null;
+                  const isExpired = remaining === "Expired";
+
+                  return (
+                    <div
+                      key={session.id}
+                      className="flex items-center gap-3 w-full h-14 px-4 border-b hover:bg-muted/30 transition-colors min-w-0"
+                    >
+                      {/* Status indicator */}
+                      <div className="shrink-0">
+                        {isProvisioning ? (
+                          <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                        ) : isRunning ? (
+                          <div className="size-2 rounded-full bg-green-500" />
+                        ) : (
+                          <div className="size-2 rounded-full bg-muted-foreground/40" />
+                        )}
+                      </div>
+
+                      {/* Name + env badge */}
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className="text-sm truncate font-medium">
+                          {session.name ?? session.branch}
+                        </span>
+                        {session.environmentName && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[0.65rem] px-1.5 py-0 h-5 shrink-0"
+                          >
+                            {session.environmentName}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Time remaining / created */}
+                      <div className="flex flex-col items-end shrink-0 gap-0.5">
+                        {isRunning && remaining && (
+                          <span
+                            className={cn(
+                              "text-xs",
+                              isExpired
+                                ? "text-red-500"
+                                : "text-muted-foreground",
+                            )}
+                          >
+                            {remaining}
+                          </span>
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {timeAgo(session.createdAt)}
+                        </span>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isRunning && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="shadow-none h-7 px-2.5 text-xs"
+                            asChild
+                          >
+                            <a
+                              href={session.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <ExternalLink className="size-3 mr-1" />
+                              Open
+                            </a>
+                          </Button>
+                        )}
+                        {(isRunning || isProvisioning) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="shadow-none h-7 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                            onClick={() => handleStopSession(session.id)}
+                          >
+                            <Square className="size-3 mr-1" />
+                            Stop
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

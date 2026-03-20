@@ -10,6 +10,7 @@
     "backfill:titles": "tsx scripts/backfill-task-titles.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:rename-unassigned": "npx tsx scripts/rename-unassigned-projects.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "test:db:up": "docker compose up -d",

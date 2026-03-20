@@ -39,6 +39,7 @@ export default [
     route("inbox", "routes/_auth.inbox.tsx"),
     route("tasks", "routes/_auth.tasks.tsx"),
     route("sessions", "routes/_auth.sessions.tsx"),
+    route("sessions/:id", "routes/_auth.sessions.$id.tsx"),
     route("teams", "routes/_auth.teams.tsx"),
     route("projects/:id", "routes/_auth.projects.$id.tsx"),
   ]),
@@ -71,6 +72,10 @@ export default [
     "api/projects/:id/tasks/:taskId/attachments",
     "routes/api.projects.$id.tasks.$taskId.attachments.ts",
   ),
+  route(
+    "api/projects/:id/attachments",
+    "routes/api.projects.$id.attachments.ts",
+  ),
   route("api/environments", "routes/api.environments.ts"),
   route("api/environments/sync", "routes/api.environments.sync.ts"),
   route("api/environments/:id", "routes/api.environments.$id.ts"),
@@ -88,6 +93,8 @@ export default [
     "routes/api.environments.$id.sandbox.ts",
   ),
   route("api/sandbox/callback", "routes/api.sandbox.callback.ts"),
+  route("api/sessions", "routes/api.sessions.ts"),
+  route("api/sessions/:id", "routes/api.sessions.$id.ts"),
   route(
     "api/environments/:id/workspaces/:workspaceId/logs",
     "routes/api.environments.$id.workspaces.$workspaceId.logs.ts",

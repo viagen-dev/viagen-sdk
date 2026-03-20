@@ -18,11 +18,20 @@ async function main() {
 
   // Step 1: Add new columns to projects (skip if already exist)
   const newColumns: Array<{ name: string; ddl: string }> = [
-    { name: "github_repo",           ddl: 'ADD COLUMN "github_repo" varchar(255)' },
-    { name: "vercel_project_id",     ddl: 'ADD COLUMN "vercel_project_id" varchar(255)' },
-    { name: "vercel_project_name",   ddl: 'ADD COLUMN "vercel_project_name" varchar(255)' },
-    { name: "vercel_org_id",         ddl: 'ADD COLUMN "vercel_org_id" varchar(255)' },
-    { name: "is_default",            ddl: 'ADD COLUMN "is_default" boolean NOT NULL DEFAULT false' },
+    { name: "github_repo", ddl: 'ADD COLUMN "github_repo" varchar(255)' },
+    {
+      name: "vercel_project_id",
+      ddl: 'ADD COLUMN "vercel_project_id" varchar(255)',
+    },
+    {
+      name: "vercel_project_name",
+      ddl: 'ADD COLUMN "vercel_project_name" varchar(255)',
+    },
+    { name: "vercel_org_id", ddl: 'ADD COLUMN "vercel_org_id" varchar(255)' },
+    {
+      name: "is_default",
+      ddl: 'ADD COLUMN "is_default" boolean NOT NULL DEFAULT false',
+    },
   ];
 
   for (const col of newColumns) {
@@ -41,19 +50,21 @@ async function main() {
   // Step 2: Create a default "Unassigned" project for each org that has orphaned tasks
   const inserted = await db.execute(sql`
     INSERT INTO "projects" ("organization_id", "name", "is_default", "created_at", "updated_at")
-    SELECT DISTINCT e."organization_id", 'Unassigned', true, now(), now()
+    SELECT DISTINCT e."organization_id", 'No project', true, now(), now()
     FROM "tasks" t
     JOIN "environments" e ON e.id = t.environment_id
     WHERE t.project_id IS NULL
     ON CONFLICT DO NOTHING
     RETURNING id, organization_id
   `);
-  console.log(`\n  ✓ Inserted ${inserted.rows.length} Unassigned project(s) for orgs with orphaned tasks`);
+  console.log(
+    `\n  ✓ Inserted ${inserted.rows.length} No project bucket(s) for orgs with orphaned tasks`,
+  );
 
   // Also ensure every org that exists has an Unassigned project, even if it has no tasks yet
   const insertedAll = await db.execute(sql`
     INSERT INTO "projects" ("organization_id", "name", "is_default", "created_at", "updated_at")
-    SELECT o.id, 'Unassigned', true, now(), now()
+    SELECT o.id, 'No project', true, now(), now()
     FROM "organizations" o
     WHERE NOT EXISTS (
       SELECT 1 FROM "projects" p
@@ -61,7 +72,9 @@ async function main() {
     )
     RETURNING id, organization_id
   `);
-  console.log(`  ✓ Inserted ${insertedAll.rows.length} Unassigned project(s) for orgs with no default project`);
+  console.log(
+    `  ✓ Inserted ${insertedAll.rows.length} No project bucket(s) for orgs with no default project`,
+  );
 
   // Step 3: Back-fill orphaned tasks to their org's default project
   const backfilled = await db.execute(sql`
@@ -73,7 +86,9 @@ async function main() {
       AND t.project_id IS NULL
     RETURNING t.id
   `);
-  console.log(`  ✓ Back-filled ${backfilled.rows.length} orphaned task(s) to their Unassigned project`);
+  console.log(
+    `  ✓ Back-filled ${backfilled.rows.length} orphaned task(s) to their No project bucket`,
+  );
 
   // Step 4: Check if any tasks still have a null project_id before adding NOT NULL constraint
   const nullCheck = await db.execute(sql`
@@ -82,7 +97,9 @@ async function main() {
   const nullCount = Number((nullCheck.rows[0] as { cnt: string }).cnt);
 
   if (nullCount > 0) {
-    console.error(`\n  ✗ ${nullCount} task(s) still have NULL project_id — cannot add NOT NULL constraint`);
+    console.error(
+      `\n  ✗ ${nullCount} task(s) still have NULL project_id — cannot add NOT NULL constraint`,
+    );
     console.error("    Fix these rows manually before re-running.");
     process.exit(1);
   }
@@ -92,12 +109,18 @@ async function main() {
     SELECT is_nullable FROM information_schema.columns
     WHERE table_name = 'tasks' AND column_name = 'project_id'
   `);
-  const isNullable = (colNullable.rows[0] as { is_nullable: string } | undefined)?.is_nullable === "YES";
+  const isNullable =
+    (colNullable.rows[0] as { is_nullable: string } | undefined)
+      ?.is_nullable === "YES";
 
   if (!isNullable) {
-    console.log("\n  ✓ tasks.project_id is already NOT NULL — skipping constraint change");
+    console.log(
+      "\n  ✓ tasks.project_id is already NOT NULL — skipping constraint change",
+    );
   } else {
-    await db.execute(sql`ALTER TABLE "tasks" ALTER COLUMN "project_id" SET NOT NULL`);
+    await db.execute(
+      sql`ALTER TABLE "tasks" ALTER COLUMN "project_id" SET NOT NULL`,
+    );
     console.log("\n  ✓ tasks.project_id is now NOT NULL");
   }
 

@@ -1,4 +1,5 @@
 import { createAuthClient, type AuthClient } from "./auth.js";
+import { createSessionsClient, type SessionsClient } from "./sessions.js";
 import { createOrgsClient, type OrgsClient } from "./orgs.js";
 import {
   createEnvironmentsClient,
@@ -57,6 +58,12 @@ export type {
   CreateProjectInput,
   ProjectsClient,
 } from "./projects.js";
+export type {
+  Session,
+  StartSessionInput,
+  UpdateSessionInput,
+  SessionsClient,
+} from "./sessions.js";
 export {
   loadCredentials,
   saveCredentials,
@@ -78,6 +85,7 @@ export interface ViagenClient {
   environments: EnvironmentsClient;
   projects: ProjectsClient;
   tasks: TasksClient;
+  sessions: SessionsClient;
   vercel: VercelClient;
   github: GitHubClient;
 }
@@ -138,6 +146,7 @@ export function createViagen(config: ViagenConfig): ViagenClient {
     environments: createEnvironmentsClient(baseUrl, request),
     projects: createProjectsClient(baseUrl, request),
     tasks: createTasksClient(baseUrl, request),
+    sessions: createSessionsClient(baseUrl, request),
     vercel: createVercelClient(baseUrl, request),
     github: createGitHubClient(baseUrl, request),
   };

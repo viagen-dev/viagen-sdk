@@ -75,6 +75,11 @@ type Pages = {
   "/sessions": {
     params: {};
   };
+  "/sessions/:id": {
+    params: {
+      "id": string;
+    };
+  };
   "/teams": {
     params: {};
   };
@@ -146,6 +151,11 @@ type Pages = {
       "taskId": string;
     };
   };
+  "/api/projects/:id/attachments": {
+    params: {
+      "id": string;
+    };
+  };
   "/api/environments": {
     params: {};
   };
@@ -179,6 +189,14 @@ type Pages = {
   };
   "/api/sandbox/callback": {
     params: {};
+  };
+  "/api/sessions": {
+    params: {};
+  };
+  "/api/sessions/:id": {
+    params: {
+      "id": string;
+    };
   };
   "/api/environments/:id/workspaces/:workspaceId/logs": {
     params: {
@@ -269,7 +287,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/privacy" | "/terms" | "/company" | "/request-invite" | "/onboarding" | "/cli/authorize" | "/dashboard" | "/environments/new" | "/environments/:id/settings" | "/environments/:id/deploys" | "/environments/:id/tasks/:taskId" | "/settings" | "/data" | "/billing" | "/inbox" | "/tasks" | "/sessions" | "/teams" | "/projects/:id" | "/api/auth/invite" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/profile" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/:id/tasks" | "/api/projects/:id/tasks/:taskId" | "/api/projects/:id/tasks/:taskId/merge" | "/api/projects/:id/tasks/:taskId/cancel" | "/api/projects/:id/tasks/:taskId/attachments" | "/api/environments" | "/api/environments/sync" | "/api/environments/:id" | "/api/environments/:id/claude" | "/api/environments/:id/secrets" | "/api/environments/:id/vercel-sync" | "/api/environments/:id/sandbox" | "/api/sandbox/callback" | "/api/environments/:id/workspaces/:workspaceId/logs" | "/api/databases" | "/api/environments/:id/status" | "/api/environments/:id/tasks" | "/api/environments/:id/tasks/:taskId" | "/api/environments/:id/tasks/:taskId/merge" | "/api/environments/:id/tasks/:taskId/cancel" | "/api/environments/:id/tasks/:taskId/delete" | "/api/environments/:id/tasks/:taskId/attachments" | "/api/tasks" | "/api/environments/:id/deployments" | "/api/vercel/environments" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
+    page: "/" | "/login" | "/privacy" | "/terms" | "/company" | "/request-invite" | "/onboarding" | "/cli/authorize" | "/dashboard" | "/environments/new" | "/environments/:id/settings" | "/environments/:id/deploys" | "/environments/:id/tasks/:taskId" | "/settings" | "/data" | "/billing" | "/inbox" | "/tasks" | "/sessions" | "/sessions/:id" | "/teams" | "/projects/:id" | "/api/auth/invite" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/profile" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/:id/tasks" | "/api/projects/:id/tasks/:taskId" | "/api/projects/:id/tasks/:taskId/merge" | "/api/projects/:id/tasks/:taskId/cancel" | "/api/projects/:id/tasks/:taskId/attachments" | "/api/projects/:id/attachments" | "/api/environments" | "/api/environments/sync" | "/api/environments/:id" | "/api/environments/:id/claude" | "/api/environments/:id/secrets" | "/api/environments/:id/vercel-sync" | "/api/environments/:id/sandbox" | "/api/sandbox/callback" | "/api/sessions" | "/api/sessions/:id" | "/api/environments/:id/workspaces/:workspaceId/logs" | "/api/databases" | "/api/environments/:id/status" | "/api/environments/:id/tasks" | "/api/environments/:id/tasks/:taskId" | "/api/environments/:id/tasks/:taskId/merge" | "/api/environments/:id/tasks/:taskId/cancel" | "/api/environments/:id/tasks/:taskId/delete" | "/api/environments/:id/tasks/:taskId/attachments" | "/api/tasks" | "/api/environments/:id/deployments" | "/api/vercel/environments" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -305,7 +323,7 @@ type RouteFiles = {
   };
   "routes/_auth.tsx": {
     id: "routes/_auth";
-    page: "/dashboard" | "/environments/new" | "/environments/:id/settings" | "/environments/:id/deploys" | "/environments/:id/tasks/:taskId" | "/settings" | "/data" | "/billing" | "/inbox" | "/tasks" | "/sessions" | "/teams" | "/projects/:id";
+    page: "/dashboard" | "/environments/new" | "/environments/:id/settings" | "/environments/:id/deploys" | "/environments/:id/tasks/:taskId" | "/settings" | "/data" | "/billing" | "/inbox" | "/tasks" | "/sessions" | "/sessions/:id" | "/teams" | "/projects/:id";
   };
   "routes/_auth.environments.tsx": {
     id: "routes/_auth.environments";
@@ -350,6 +368,10 @@ type RouteFiles = {
   "routes/_auth.sessions.tsx": {
     id: "routes/_auth.sessions";
     page: "/sessions";
+  };
+  "routes/_auth.sessions.$id.tsx": {
+    id: "routes/_auth.sessions.$id";
+    page: "/sessions/:id";
   };
   "routes/_auth.teams.tsx": {
     id: "routes/_auth.teams";
@@ -419,6 +441,10 @@ type RouteFiles = {
     id: "routes/api.projects.$id.tasks.$taskId.attachments";
     page: "/api/projects/:id/tasks/:taskId/attachments";
   };
+  "routes/api.projects.$id.attachments.ts": {
+    id: "routes/api.projects.$id.attachments";
+    page: "/api/projects/:id/attachments";
+  };
   "routes/api.environments.ts": {
     id: "routes/api.environments";
     page: "/api/environments";
@@ -450,6 +476,14 @@ type RouteFiles = {
   "routes/api.sandbox.callback.ts": {
     id: "routes/api.sandbox.callback";
     page: "/api/sandbox/callback";
+  };
+  "routes/api.sessions.ts": {
+    id: "routes/api.sessions";
+    page: "/api/sessions";
+  };
+  "routes/api.sessions.$id.ts": {
+    id: "routes/api.sessions.$id";
+    page: "/api/sessions/:id";
   };
   "routes/api.environments.$id.workspaces.$workspaceId.logs.ts": {
     id: "routes/api.environments.$id.workspaces.$workspaceId.logs";
@@ -555,6 +589,7 @@ type RouteModules = {
   "routes/_auth.inbox": typeof import("./app/routes/_auth.inbox.tsx");
   "routes/_auth.tasks": typeof import("./app/routes/_auth.tasks.tsx");
   "routes/_auth.sessions": typeof import("./app/routes/_auth.sessions.tsx");
+  "routes/_auth.sessions.$id": typeof import("./app/routes/_auth.sessions.$id.tsx");
   "routes/_auth.teams": typeof import("./app/routes/_auth.teams.tsx");
   "routes/_auth.projects.$id": typeof import("./app/routes/_auth.projects.$id.tsx");
   "routes/api.auth.invite": typeof import("./app/routes/api.auth.invite.ts");
@@ -572,6 +607,7 @@ type RouteModules = {
   "routes/api.projects.$id.tasks.$taskId.merge": typeof import("./app/routes/api.projects.$id.tasks.$taskId.merge.ts");
   "routes/api.projects.$id.tasks.$taskId.cancel": typeof import("./app/routes/api.projects.$id.tasks.$taskId.cancel.ts");
   "routes/api.projects.$id.tasks.$taskId.attachments": typeof import("./app/routes/api.projects.$id.tasks.$taskId.attachments.ts");
+  "routes/api.projects.$id.attachments": typeof import("./app/routes/api.projects.$id.attachments.ts");
   "routes/api.environments": typeof import("./app/routes/api.environments.ts");
   "routes/api.environments.sync": typeof import("./app/routes/api.environments.sync.ts");
   "routes/api.environments.$id": typeof import("./app/routes/api.environments.$id.ts");
@@ -580,6 +616,8 @@ type RouteModules = {
   "routes/api.environments.$id.vercel-sync": typeof import("./app/routes/api.environments.$id.vercel-sync.ts");
   "routes/api.environments.$id.sandbox": typeof import("./app/routes/api.environments.$id.sandbox.ts");
   "routes/api.sandbox.callback": typeof import("./app/routes/api.sandbox.callback.ts");
+  "routes/api.sessions": typeof import("./app/routes/api.sessions.ts");
+  "routes/api.sessions.$id": typeof import("./app/routes/api.sessions.$id.ts");
   "routes/api.environments.$id.workspaces.$workspaceId.logs": typeof import("./app/routes/api.environments.$id.workspaces.$workspaceId.logs.ts");
   "routes/api.databases": typeof import("./app/routes/api.databases.ts");
   "routes/api.environments.$id.status": typeof import("./app/routes/api.environments.$id.status.ts");

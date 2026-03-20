@@ -2,8 +2,13 @@ import { randomUUID, createHash } from "crypto";
 import { Sandbox } from "@vercel/sandbox";
 import { requireAuth, isAdminRole } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { environments, workspaces, tasks, taskAttachments } from "~/lib/db/schema";
-import { eq, and, gt, desc } from "drizzle-orm";
+import {
+  environments,
+  workspaces,
+  tasks,
+  taskAttachments,
+} from "~/lib/db/schema";
+import { eq, and, gt, desc, sql } from "drizzle-orm";
 import { resolveAllSecrets, flattenSecrets } from "~/lib/infisical.server";
 import { log } from "~/lib/logger.server";
 
@@ -21,7 +26,9 @@ export async function loader({
   const [app] = await db
     .select({ id: environments.id })
     .from(environments)
-    .where(and(eq(environments.id, id), eq(environments.organizationId, org.id)));
+    .where(
+      and(eq(environments.id, id), eq(environments.organizationId, org.id)),
+    );
 
   if (!app) {
     return Response.json({ error: "App not found" }, { status: 404 });
@@ -69,7 +76,9 @@ export async function action({
   const [app] = await db
     .select()
     .from(environments)
-    .where(and(eq(environments.id, id), eq(environments.organizationId, org.id)));
+    .where(
+      and(eq(environments.id, id), eq(environments.organizationId, org.id)),
+    );
 
   if (!app) {
     log.warn(
@@ -93,7 +102,10 @@ export async function action({
       .select()
       .from(workspaces)
       .where(
-        and(eq(workspaces.id, body.workspaceId), eq(workspaces.environmentId, id)),
+        and(
+          eq(workspaces.id, body.workspaceId),
+          eq(workspaces.environmentId, id),
+        ),
       );
 
     if (!workspace) {
@@ -166,6 +178,8 @@ export async function action({
   const model: string = body.model?.trim() || "claude-sonnet-4-6";
   const taskId: string | null = body.taskId?.trim() || null;
   const reviewMode: boolean = body.reviewMode === true;
+  const name: string | null = body.name?.trim() || null;
+  const projectId: string | null = body.projectId?.trim() || null;
 
   if (rawBranch !== branch) {
     log.info({ rawBranch, branch }, "sanitized branch name");
@@ -182,6 +196,8 @@ export async function action({
       branch,
       model,
       hasPrompt: !!prompt,
+      name,
+      projectId,
     },
     "sandbox launch requested",
   );
@@ -306,6 +322,22 @@ export async function action({
   const timeoutMinutes = 45;
   const timeoutMs = timeoutMinutes * 60 * 1000;
 
+  // Compute session number scoped to project (if a project is linked)
+  let sessionNumber: number | null = null;
+  if (projectId) {
+    const [{ max: maxNum }] = await db
+      .select({
+        max: sql<number>`coalesce(max(${workspaces.sessionNumber}), 0)`,
+      })
+      .from(workspaces)
+      .where(eq(workspaces.projectId, projectId));
+    sessionNumber = (maxNum ?? 0) + 1;
+    log.info(
+      { projectId, sessionNumber },
+      "sandbox launch: computed session number",
+    );
+  }
+
   try {
     const start = Date.now();
 
@@ -336,6 +368,9 @@ export async function action({
         url: "", // placeholder until setup completes
         expiresAt,
         branch,
+        name: name ?? null,
+        projectId: projectId ?? null,
+        sessionNumber: sessionNumber ?? null,
         gitRemoteUrl: remoteUrl,
         gitUserName: "viagen",
         gitUserEmail: "bot@viagen.dev",

@@ -61,11 +61,11 @@ async function handleCreate(request: Request) {
 
   await db.insert(projects).values({
     organizationId: org.id,
-    name: "Unassigned",
+    name: "No project",
     isDefault: true,
   });
 
-  log.info({ orgId: org.id }, "default Unassigned project created for new org");
+  log.info({ orgId: org.id }, "default No project bucket created for new org");
 
   log.info(
     { userId: session.user.id, orgId: org.id, orgName: org.name },

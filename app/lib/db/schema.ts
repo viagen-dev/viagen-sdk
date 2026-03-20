@@ -90,6 +90,7 @@ export const projects = pgTable("projects", {
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
   taskPrefix: varchar("task_prefix", { length: 10 }),
   githubRepo: varchar("github_repo", { length: 255 }),
   vercelProjectId: varchar("vercel_project_id", { length: 255 }),
@@ -114,6 +115,11 @@ export const workspaces = pgTable("workspaces", {
   url: varchar("url", { length: 2048 }).notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   branch: varchar("branch", { length: 255 }).notNull().default("main"),
+  name: varchar("name", { length: 255 }),
+  projectId: uuid("project_id").references(() => projects.id, {
+    onDelete: "set null",
+  }),
+  sessionNumber: integer("session_number"),
   gitRemoteUrl: varchar("git_remote_url", { length: 1024 }),
   gitUserName: varchar("git_user_name", { length: 255 }),
   gitUserEmail: varchar("git_user_email", { length: 255 }),
@@ -233,3 +239,19 @@ export const taskAttachments = pgTable("task_attachments", {
 
 export type Task = typeof tasks.$inferSelect;
 export type TaskAttachment = typeof taskAttachments.$inferSelect;
+
+export const projectAttachments = pgTable("project_attachments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  filename: varchar("filename", { length: 255 }).notNull(),
+  blobUrl: text("blob_url").notNull(),
+  contentType: varchar("content_type", { length: 128 }).notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export type ProjectAttachment = typeof projectAttachments.$inferSelect;

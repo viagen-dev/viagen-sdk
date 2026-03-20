@@ -1,4 +1,6 @@
 import { useEffect, useMemo } from "react";
+import { Button } from "~/components/ui/button";
+import { Plus, Loader2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { Badge } from "~/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
@@ -6,13 +8,12 @@ import {
   ChevronRight,
   ChevronDown,
   FolderKanban,
+  SquareDashed,
   CircleDashed,
   LoaderCircle,
   Check,
   Sparkles,
   CheckCircle2,
-  GitPullRequest,
-  Bot,
 } from "lucide-react";
 import {
   STATUS_CONFIG,
@@ -29,6 +30,8 @@ interface TasksTableProps {
   projects: Project[];
   onTaskClick: (task: FeedTask) => void;
   selectedTaskId?: string | null;
+  onCreateTask?: () => void;
+  creatingTask?: boolean;
 }
 
 type StatusGroup = "Backlog" | "In-progress" | "Completed";
@@ -114,6 +117,8 @@ export function TasksTable({
   projects,
   onTaskClick,
   selectedTaskId,
+  onCreateTask,
+  creatingTask = false,
 }: TasksTableProps) {
   // Collapse state persisted in the task store so it survives navigation.
   const collapsed = useTaskStore((s) => s.collapsed);
@@ -215,66 +220,43 @@ export function TasksTable({
   if (tasks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-24 gap-6 select-none">
-        {/* Illustration */}
         <div className="relative">
-          {/* Spinning dashed ring */}
           <div
             className="absolute inset-0 rounded-full border border-dashed border-muted-foreground/20 animate-spin [animation-duration:10s]"
             style={{ margin: "-20px" }}
           />
-          {/* Soft glow */}
           <div
             className="absolute inset-0 rounded-full bg-primary/10 blur-xl animate-pulse"
             style={{ margin: "-10px" }}
           />
-          {/* Central icon tile */}
           <div className="relative flex items-center justify-center size-16 rounded-2xl bg-muted border border-border shadow-sm">
             <CheckCircle2 className="size-8 text-muted-foreground" />
-            {/* Sparkle badge */}
             <div className="absolute -top-2 -right-2 flex items-center justify-center size-5 rounded-full bg-primary text-primary-foreground shadow">
               <Sparkles className="size-3" />
             </div>
           </div>
         </div>
-
-        {/* Copy */}
         <div className="flex flex-col items-center gap-2 text-center max-w-xs">
-          <p className="text-sm font-medium">Your queue is clear 🎉</p>
+          <p className="text-sm font-medium">No tasks yet</p>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            No tasks assigned to you yet. Hit{" "}
-            <span className="font-medium text-foreground">Create task</span> to
-            let the AI get to work — then watch this list fill up.
+            Create your first task and let the AI get to work on this project.
           </p>
         </div>
-
-        {/* Ghost task pills */}
-        <div
-          className="flex flex-col gap-2 w-64 opacity-25 pointer-events-none"
-          aria-hidden
-        >
-          {[
-            { icon: Bot, label: "Build the landing page", status: "Building" },
-            {
-              icon: GitPullRequest,
-              label: "Fix auth redirect bug",
-              status: "PR Ready",
-            },
-            { icon: CheckCircle2, label: "Update API docs", status: "Done" },
-          ].map(({ icon: Icon, label, status }) => (
-            <div
-              key={label}
-              className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/50 px-3 py-2"
-            >
-              <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground flex-1 truncate">
-                {label}
-              </span>
-              <span className="text-[0.6rem] text-muted-foreground/60 shrink-0">
-                {status}
-              </span>
-            </div>
-          ))}
-        </div>
+        {onCreateTask && (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onCreateTask}
+            disabled={creatingTask}
+          >
+            {creatingTask ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+            ) : (
+              <Plus className="h-4 w-4 mr-1.5" />
+            )}
+            Create task
+          </Button>
+        )}
       </div>
     );
   }
@@ -300,7 +282,11 @@ export function TasksTable({
               ) : (
                 <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
               )}
-              <FolderKanban className="size-4 shrink-0 text-muted-foreground" />
+              {"isDefault" in group.project && group.project.isDefault ? (
+                <SquareDashed className="size-4 shrink-0 text-muted-foreground" />
+              ) : (
+                <FolderKanban className="size-4 shrink-0 text-muted-foreground" />
+              )}
               <span className="text-sm font-medium truncate">
                 {group.project.name}
               </span>

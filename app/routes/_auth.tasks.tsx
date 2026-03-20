@@ -478,6 +478,8 @@ export default function MyTasksPage({
               projects={loaderData.projects}
               onTaskClick={handleTaskClick}
               selectedTaskId={null}
+              onCreateTask={handleCreateTask}
+              creatingTask={creatingTask}
             />
           </div>
         </TabsContent>

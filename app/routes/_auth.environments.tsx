@@ -45,7 +45,7 @@ import { useTaskStore, useTaskList, useIsLaunching } from "~/store/task-store";
 
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { environments } from "~/lib/db/schema";
+import { environments, projects } from "~/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -105,7 +105,18 @@ export async function loader({ request }: { request: Request }) {
     .select()
     .from(environments)
     .where(eq(environments.organizationId, org.id));
-  return { environments: rows };
+
+  const projectRows = await db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      isDefault: projects.isDefault,
+    })
+    .from(projects)
+    .where(eq(projects.organizationId, org.id))
+    .orderBy(projects.name);
+
+  return { environments: rows, projects: projectRows };
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -525,7 +536,10 @@ function TaskFeedItem({
 export default function Dashboard({
   loaderData,
 }: {
-  loaderData: { environments: Environment[] };
+  loaderData: {
+    environments: Environment[];
+    projects: { id: string; name: string; isDefault: boolean }[];
+  };
 }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1191,6 +1205,7 @@ export default function Dashboard({
               onClose={closeTaskPanel}
               onStatusFilterChange={switchStatusFilter}
               environments={loaderData.environments}
+              projects={loaderData.projects}
             />
           </DrawerPanel>
         </>
