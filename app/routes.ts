@@ -54,6 +54,7 @@ export default [
   route("api/orgs", "routes/api.orgs.ts"),
   route("api/orgs/members", "routes/api.orgs.members.ts"),
   route("api/projects", "routes/api.projects.ts"),
+  route("api/projects/:id", "routes/api.projects.$id.ts"),
   route("api/projects/:id/tasks", "routes/api.projects.$id.tasks.ts"),
   route(
     "api/projects/:id/tasks/:taskId",

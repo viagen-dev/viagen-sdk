@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 import {
   Ellipsis,
   Trash2,
+  Pencil,
   Bot,
   Plus,
   Loader2,
@@ -37,6 +38,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "~/components/ui/dialog";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import {
   STATUS_CONFIG,
   timeAgo,
@@ -209,6 +219,10 @@ export default function ProjectDetail({
   const defaultTab = searchParams.get("tab") ?? "overview";
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState(project.name);
+  const [editPrefix, setEditPrefix] = useState(project.taskPrefix ?? "");
+  const [saving, setSaving] = useState(false);
   const [launchingWs, setLaunchingWs] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => ({
@@ -314,6 +328,41 @@ export default function ProjectDetail({
     }
   }, [project.id, firstEnvironmentId, navigate]);
 
+  function openEdit() {
+    setEditName(project.name);
+    setEditPrefix(project.taskPrefix ?? "");
+    setEditOpen(true);
+  }
+
+  async function handleEdit() {
+    if (!editName.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName,
+          taskPrefix: editPrefix || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error ?? "Failed to update project");
+        return;
+      }
+      toast.success("Project updated");
+      setEditOpen(false);
+      // Refresh the page to reflect updated data
+      navigate(0);
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleDelete() {
     setDeleting(true);
     try {
@@ -359,6 +408,10 @@ export default function ProjectDetail({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
+                  <DropdownMenuItem onSelect={openEdit}>
+                    <Pencil className="size-3.5" />
+                    Edit project
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     variant="destructive"
                     onSelect={() => setDeleteOpen(true)}
@@ -393,6 +446,66 @@ export default function ProjectDetail({
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+
+              <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit project</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-4 py-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="edit-project-name">Name</Label>
+                      <Input
+                        id="edit-project-name"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleEdit()}
+                        disabled={saving}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="edit-project-prefix">
+                        Task prefix{" "}
+                        <span className="text-muted-foreground font-normal">
+                          (optional)
+                        </span>
+                      </Label>
+                      <Input
+                        id="edit-project-prefix"
+                        value={editPrefix}
+                        onChange={(e) => setEditPrefix(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleEdit()}
+                        disabled={saving}
+                        placeholder="e.g. PROJ"
+                        className="font-mono"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setEditOpen(false)}
+                      disabled={saving}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleEdit}
+                      disabled={saving || !editName.trim()}
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="size-3.5 animate-spin" />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save"
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </>
           )}
         </div>
