@@ -21,8 +21,14 @@ export default [
   layout("routes/_auth.tsx", [
     route("dashboard", "routes/_auth.environments.tsx"),
     route("environments/new", "routes/_auth.environments.new.tsx"),
-    route("environments/:id/settings", "routes/_auth.environments.$id_.settings.tsx"),
-    route("environments/:id/deploys", "routes/_auth.environments.$id_.deploys.tsx"),
+    route(
+      "environments/:id/settings",
+      "routes/_auth.environments.$id_.settings.tsx",
+    ),
+    route(
+      "environments/:id/deploys",
+      "routes/_auth.environments.$id_.deploys.tsx",
+    ),
     route(
       "environments/:id/tasks/:taskId",
       "routes/_auth.environments.$id_.tasks.$taskId.tsx",
@@ -30,7 +36,10 @@ export default [
     route("settings", "routes/_auth.settings.tsx"),
     route("data", "routes/_auth.data.tsx"),
     route("billing", "routes/_auth.billing.tsx"),
+    route("inbox", "routes/_auth.inbox.tsx"),
     route("tasks", "routes/_auth.tasks.tsx"),
+    route("sessions", "routes/_auth.sessions.tsx"),
+    route("teams", "routes/_auth.teams.tsx"),
     route("projects/:id", "routes/_auth.projects.$id.tsx"),
   ]),
 
@@ -45,16 +54,39 @@ export default [
   route("api/orgs", "routes/api.orgs.ts"),
   route("api/orgs/members", "routes/api.orgs.members.ts"),
   route("api/projects", "routes/api.projects.ts"),
+  route("api/projects/:id/tasks", "routes/api.projects.$id.tasks.ts"),
+  route(
+    "api/projects/:id/tasks/:taskId",
+    "routes/api.projects.$id.tasks.$taskId.ts",
+  ),
+  route(
+    "api/projects/:id/tasks/:taskId/merge",
+    "routes/api.projects.$id.tasks.$taskId.merge.ts",
+  ),
+  route(
+    "api/projects/:id/tasks/:taskId/cancel",
+    "routes/api.projects.$id.tasks.$taskId.cancel.ts",
+  ),
+  route(
+    "api/projects/:id/tasks/:taskId/attachments",
+    "routes/api.projects.$id.tasks.$taskId.attachments.ts",
+  ),
   route("api/environments", "routes/api.environments.ts"),
   route("api/environments/sync", "routes/api.environments.sync.ts"),
   route("api/environments/:id", "routes/api.environments.$id.ts"),
   route("api/environments/:id/claude", "routes/api.environments.$id.claude.ts"),
-  route("api/environments/:id/secrets", "routes/api.environments.$id.secrets.ts"),
+  route(
+    "api/environments/:id/secrets",
+    "routes/api.environments.$id.secrets.ts",
+  ),
   route(
     "api/environments/:id/vercel-sync",
     "routes/api.environments.$id.vercel-sync.ts",
   ),
-  route("api/environments/:id/sandbox", "routes/api.environments.$id.sandbox.ts"),
+  route(
+    "api/environments/:id/sandbox",
+    "routes/api.environments.$id.sandbox.ts",
+  ),
   route("api/sandbox/callback", "routes/api.sandbox.callback.ts"),
   route(
     "api/environments/:id/workspaces/:workspaceId/logs",

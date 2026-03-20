@@ -1,16 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouteLoaderData, useNavigate } from "react-router";
 import { toast } from "sonner";
-import {
-  Filter,
-  Plus,
-  Bot,
-  ArrowUpRight,
-  Loader2,
-  X,
-  Check,
-  Zap,
-} from "lucide-react";
+import { Filter, Plus, Bot, Loader2, X, Check, Zap } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 import { Badge } from "~/components/ui/badge";
@@ -25,11 +16,11 @@ import { SidebarToggle } from "~/components/sidebar-toggle";
 import { TasksTable } from "~/components/tasks-table";
 
 import { useTaskStore, useTaskList } from "~/store/task-store";
-import type { FeedTask, Environment, TaskStatus } from "~/types/task";
+import type { FeedTask, Project, TaskStatus } from "~/types/task";
 
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { environments } from "~/lib/db/schema";
+import { projects, environments } from "~/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 // ── Loader ────────────────────────────────────────────────────────────────
@@ -38,9 +29,17 @@ export async function loader({ request }: { request: Request }) {
   const { org } = await requireAuth(request);
   const rows = await db
     .select()
+    .from(projects)
+    .where(eq(projects.organizationId, org.id))
+    .orderBy(projects.name);
+
+  // Also load environments so we can pick a default for task creation
+  const envRows = await db
+    .select()
     .from(environments)
     .where(eq(environments.organizationId, org.id));
-  return { environments: rows };
+
+  return { projects: rows, environments: envRows };
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -58,7 +57,7 @@ interface ParentData {
 }
 
 interface FilterState {
-  environmentIds: Set<string>;
+  projectIds: Set<string>;
   statuses: Set<TaskStatus>;
 }
 
@@ -81,25 +80,25 @@ const ALL_STATUSES: TaskStatus[] = [
 // ── Filter Popover ────────────────────────────────────────────────────────
 
 function FilterPopover({
-  environments,
+  projects,
   filters,
   onChange,
   onClear,
 }: {
-  environments: Environment[];
+  projects: Project[];
   filters: FilterState;
   onChange: (next: FilterState) => void;
   onClear: () => void;
 }) {
   const [open, setOpen] = useState(false);
 
-  const activeCount = filters.environmentIds.size + filters.statuses.size;
+  const activeCount = filters.projectIds.size + filters.statuses.size;
 
-  const toggleEnvironment = (id: string) => {
-    const next = new Set(filters.environmentIds);
+  const toggleProject = (id: string) => {
+    const next = new Set(filters.projectIds);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    onChange({ ...filters, environmentIds: next });
+    onChange({ ...filters, projectIds: next });
   };
 
   const toggleStatus = (s: TaskStatus) => {
@@ -142,19 +141,19 @@ function FilterPopover({
           )}
         </div>
 
-        {/* Environment filter */}
-        {environments.length > 0 && (
+        {/* Project filter */}
+        {projects.length > 0 && (
           <div className="px-3 py-2.5">
             <p className="mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Environment
+              Project
             </p>
             <div className="flex flex-col gap-0.5">
-              {environments.map((p) => {
-                const checked = filters.environmentIds.has(p.id);
+              {projects.map((p) => {
+                const checked = filters.projectIds.has(p.id);
                 return (
                   <button
                     key={p.id}
-                    onClick={() => toggleEnvironment(p.id)}
+                    onClick={() => toggleProject(p.id)}
                     className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted transition-colors text-left w-full"
                   >
                     <div
@@ -175,7 +174,7 @@ function FilterPopover({
           </div>
         )}
 
-        {environments.length > 0 && <Separator />}
+        {projects.length > 0 && <Separator />}
 
         {/* Status filter */}
         <div className="px-3 py-2.5">
@@ -216,28 +215,28 @@ function FilterPopover({
 
 function FilterChips({
   filters,
-  environments,
+  projects,
   onChange,
   onClear,
 }: {
   filters: FilterState;
-  environments: Environment[];
+  projects: Project[];
   onChange: (next: FilterState) => void;
   onClear: () => void;
 }) {
-  const environmentMap = useMemo(() => {
+  const projectMap = useMemo(() => {
     const m = new Map<string, string>();
-    for (const p of environments) m.set(p.id, p.name);
+    for (const p of projects) m.set(p.id, p.name);
     return m;
-  }, [environments]);
+  }, [projects]);
 
-  const activeCount = filters.environmentIds.size + filters.statuses.size;
+  const activeCount = filters.projectIds.size + filters.statuses.size;
   if (activeCount === 0) return null;
 
-  const removeEnvironment = (id: string) => {
-    const next = new Set(filters.environmentIds);
+  const removeProject = (id: string) => {
+    const next = new Set(filters.projectIds);
     next.delete(id);
-    onChange({ ...filters, environmentIds: next });
+    onChange({ ...filters, projectIds: next });
   };
 
   const removeStatus = (s: TaskStatus) => {
@@ -248,15 +247,15 @@ function FilterChips({
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap px-4 py-2 border-b shrink-0">
-      {Array.from(filters.environmentIds).map((id) => (
+      {Array.from(filters.projectIds).map((id) => (
         <Badge
           key={id}
           variant="secondary"
           className="gap-1 pr-1 text-xs font-normal"
         >
-          {environmentMap.get(id) ?? id}
+          {projectMap.get(id) ?? id}
           <button
-            onClick={() => removeEnvironment(id)}
+            onClick={() => removeProject(id)}
             className="ml-0.5 rounded-sm hover:bg-muted-foreground/20 p-0.5"
           >
             <X className="size-2.5" />
@@ -293,7 +292,16 @@ function FilterChips({
 export default function MyTasksPage({
   loaderData,
 }: {
-  loaderData: { environments: Environment[] };
+  loaderData: {
+    projects: Project[];
+    environments: {
+      id: string;
+      name: string;
+      githubRepo: string | null;
+      vercelProjectId: string | null;
+      vercelProjectName: string | null;
+    }[];
+  };
 }) {
   const navigate = useNavigate();
   const parentData = useRouteLoaderData("routes/_auth") as
@@ -319,29 +327,36 @@ export default function MyTasksPage({
         task.id,
         "environment:",
         task.environmentId,
+        "project:",
+        task.projectId,
       );
-      navigate(`/environments/${task.environmentId}/tasks/${task.id}?from=tasks`);
+      navigate(
+        `/environments/${task.environmentId}/tasks/${task.id}?from=tasks`,
+      );
     },
     [navigate],
   );
 
   // ── Filters ───────────────────────────────────────────────────────────
   const [filters, setFilters] = useState<FilterState>({
-    environmentIds: new Set(),
+    projectIds: new Set(),
     statuses: new Set(),
   });
 
   const clearFilters = useCallback(() => {
-    setFilters({ environmentIds: new Set(), statuses: new Set() });
+    setFilters({ projectIds: new Set(), statuses: new Set() });
   }, []);
 
   const filteredTasks = useMemo(() => {
-    const hasEnvironmentFilter = filters.environmentIds.size > 0;
+    const hasProjectFilter = filters.projectIds.size > 0;
     const hasStatusFilter = filters.statuses.size > 0;
-    if (!hasEnvironmentFilter && !hasStatusFilter) return tasks;
+    if (!hasProjectFilter && !hasStatusFilter) return tasks;
 
     return tasks.filter((t) => {
-      if (hasEnvironmentFilter && !filters.environmentIds.has(t.environmentId))
+      if (
+        hasProjectFilter &&
+        !filters.projectIds.has(t.projectId ?? t.environmentId)
+      )
         return false;
       if (hasStatusFilter && !filters.statuses.has(t.status)) return false;
       return true;
@@ -352,20 +367,25 @@ export default function MyTasksPage({
   const [creatingTask, setCreatingTask] = useState(false);
 
   const handleCreateTask = useCallback(async () => {
-    const firstApp = loaderData.environments[0];
-    if (!firstApp) {
-      toast.error("No app available");
+    // Prefer the default project; fall back to first project
+    const defaultProject =
+      loaderData.projects.find((p) => p.isDefault) ?? loaderData.projects[0];
+    const firstEnv = loaderData.environments[0];
+
+    if (!defaultProject || !firstEnv) {
+      toast.error("No project available");
       return;
     }
     setCreatingTask(true);
     try {
-      const res = await fetch(`/api/environments/${firstApp.id}/tasks`, {
+      const res = await fetch(`/api/projects/${defaultProject.id}/tasks`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: "",
           branch: `feat-${Math.random().toString(36).slice(2, 8)}`,
+          environmentId: firstEnv.id,
         }),
       });
       const data = await res.json();
@@ -374,62 +394,22 @@ export default function MyTasksPage({
         return;
       }
       const task = data.task as FeedTask;
-      task.environmentName = firstApp.name;
-      task.githubRepo = firstApp.githubRepo;
-      task.vercelProjectId = firstApp.vercelProjectId;
-      task.vercelProjectName = firstApp.vercelProjectName;
+      task.projectId = defaultProject.id;
+      task.projectName = defaultProject.name;
+      task.environmentName = firstEnv.name;
+      task.githubRepo = firstEnv.githubRepo;
+      task.vercelProjectId = firstEnv.vercelProjectId;
+      task.vercelProjectName = firstEnv.vercelProjectName;
       useTaskStore.getState().setTask(task);
-      navigate(`/environments/${task.environmentId}/tasks/${task.id}?from=tasks`);
+      navigate(
+        `/environments/${task.environmentId}/tasks/${task.id}?from=tasks`,
+      );
     } catch {
       toast.error("Failed to create task");
     } finally {
       setCreatingTask(false);
     }
-  }, [loaderData.environments, navigate]);
-
-  // ── Quick workspace launcher ──────────────────────────────────────────
-  const [launchingWs, setLaunchingWs] = useState(false);
-
-  const handleQuickWorkspace = useCallback(async () => {
-    const pid = loaderData.environments[0]?.id;
-    if (!pid) {
-      toast.error("No app available");
-      return;
-    }
-    const branch = `sandbox-${Math.random().toString(36).slice(2, 8)}`;
-    console.log(
-      "[MyTasks] Launching quick workspace for project:",
-      pid,
-      "branch:",
-      branch,
-    );
-    setLaunchingWs(true);
-    try {
-      const res = await fetch(`/api/environments/${pid}/sandbox`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ branch }),
-      });
-      const data = await res.json();
-      if (res.ok && data.workspace) {
-        console.log(
-          "[MyTasks] Workspace launched successfully:",
-          data.workspace.url,
-        );
-        toast.success("Workspace launched");
-        window.open(data.workspace.url, "_blank");
-      } else {
-        console.error("[MyTasks] Workspace launch failed:", data.error);
-        toast.error(data.error ?? "Failed to launch workspace");
-      }
-    } catch (err) {
-      console.error("[MyTasks] Workspace launch error:", err);
-      toast.error("Failed to launch workspace");
-    } finally {
-      setLaunchingWs(false);
-    }
-  }, [loaderData.environments]);
+  }, [loaderData.projects, loaderData.environments, navigate]);
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
@@ -442,25 +422,14 @@ export default function MyTasksPage({
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
-            size="sm"
-            className="shadow-none"
-            onClick={handleQuickWorkspace}
-            disabled={launchingWs || loaderData.environments.length === 0}
-          >
-            {launchingWs ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-            ) : (
-              <Bot className="h-4 w-4 mr-1.5" />
-            )}
-            Quick workspace
-            <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
-          </Button>
-          <Button
             variant="default"
             size="sm"
             onClick={handleCreateTask}
-            disabled={creatingTask || loaderData.environments.length === 0}
+            disabled={
+              creatingTask ||
+              loaderData.projects.length === 0 ||
+              loaderData.environments.length === 0
+            }
           >
             {creatingTask ? (
               <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
@@ -482,7 +451,7 @@ export default function MyTasksPage({
           </TabsList>
           <div className="flex items-center gap-1">
             <FilterPopover
-              environments={loaderData.environments}
+              projects={loaderData.projects}
               filters={filters}
               onChange={setFilters}
               onClear={clearFilters}
@@ -490,7 +459,7 @@ export default function MyTasksPage({
           </div>
         </div>
 
-        {/* ── Created tab ────────────────────────────────────────────── */}
+        {/* ── Assigned tab ───────────────────────────────────────────── */}
         <TabsContent
           value="assigned"
           className="flex flex-col flex-1 min-h-0 mt-0"
@@ -498,7 +467,7 @@ export default function MyTasksPage({
           {/* Active filter chips */}
           <FilterChips
             filters={filters}
-            environments={loaderData.environments}
+            projects={loaderData.projects}
             onChange={setFilters}
             onClear={clearFilters}
           />
@@ -506,7 +475,7 @@ export default function MyTasksPage({
           <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
             <TasksTable
               tasks={filteredTasks}
-              environments={loaderData.environments}
+              projects={loaderData.projects}
               onTaskClick={handleTaskClick}
               selectedTaskId={null}
             />
@@ -516,19 +485,19 @@ export default function MyTasksPage({
         {/* ── Activity tab ───────────────────────────────────────────── */}
         <TabsContent value="activity" className="flex-1 mt-0">
           <div className="flex flex-col items-center justify-center h-full py-24 gap-6 select-none">
-            {/* Animated bot illustration */}
+            {/* Illustration */}
             <div className="relative">
-              {/* Orbit ring */}
+              {/* Spinning dashed ring */}
               <div
-                className="absolute inset-0 rounded-full border border-dashed border-muted-foreground/20 animate-spin [animation-duration:8s]"
-                style={{ margin: "-16px" }}
+                className="absolute inset-0 rounded-full border border-dashed border-muted-foreground/20 animate-spin [animation-duration:10s]"
+                style={{ margin: "-20px" }}
               />
-              {/* Pulsing glow */}
+              {/* Soft glow */}
               <div
                 className="absolute inset-0 rounded-full bg-primary/10 blur-xl animate-pulse"
-                style={{ margin: "-8px" }}
+                style={{ margin: "-10px" }}
               />
-              {/* Bot icon */}
+              {/* Central icon tile */}
               <div className="relative flex items-center justify-center size-16 rounded-2xl bg-muted border border-border shadow-sm">
                 <Bot className="size-8 text-muted-foreground" />
                 {/* Zap badge */}
@@ -545,38 +514,6 @@ export default function MyTasksPage({
                 Activity tracking is coming soon. Check back shortly — we're
                 building it right now.
               </p>
-            </div>
-
-            {/* Fake activity pills for visual flair */}
-            <div
-              className="flex flex-col gap-2 w-56 opacity-30 pointer-events-none"
-              aria-hidden
-            >
-              {[
-                { color: "bg-blue-500", label: "Task started", w: "w-24" },
-                { color: "bg-green-500", label: "PR opened", w: "w-16" },
-                { color: "bg-purple-500", label: "Build complete", w: "w-20" },
-              ].map(({ color, label, w }) => (
-                <div
-                  key={label}
-                  className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/50 px-3 py-2"
-                >
-                  <div
-                    className={cn("size-1.5 rounded-full shrink-0", color)}
-                  />
-                  <div className="flex-1 flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {label}
-                    </span>
-                    <div
-                      className={cn(
-                        "h-1.5 rounded-full bg-muted-foreground/30 ml-auto",
-                        w,
-                      )}
-                    />
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         </TabsContent>

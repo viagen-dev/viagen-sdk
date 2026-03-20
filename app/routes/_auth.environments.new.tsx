@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useRouteLoaderData } from "react-router";
+import { SidebarToggle } from "~/components/sidebar-toggle";
 import { X, Plus, Loader2, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
@@ -21,7 +22,7 @@ import {
   ItemActions,
 } from "~/components/ui/item";
 import { Badge } from "~/components/ui/badge";
-import { H3, Small, Muted } from "~/components/ui/typography";
+import { Small, Muted } from "~/components/ui/typography";
 import { ResourcePicker } from "~/components/resource-picker";
 
 const TEMPLATES = [
@@ -350,349 +351,366 @@ export default function NewApp() {
   const canCreate = name.trim().length > 0;
 
   return (
-    <div className="mx-auto max-w-[960px]">
-      <div className="mb-8">
-        <H3>New App</H3>
+    <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
+      <div className="flex items-center h-14 px-4 border-b shrink-0 gap-2">
+        <SidebarToggle />
+        <h1 className="text-base font-semibold">New environment</h1>
       </div>
+      <div className="flex-1 overflow-y-auto min-w-0">
+        <div className="mx-auto max-w-[960px] px-6 py-8">
+          {/* Card 1: App Name */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>App Name</CardTitle>
+              <CardDescription>A unique name for your app.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Input
+                id="app-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && canCreate && handleCreate()
+                }
+                placeholder="my-app"
+                className="max-w-md"
+                autoFocus
+              />
+            </CardContent>
+          </Card>
 
-      {/* Card 1: App Name */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>App Name</CardTitle>
-          <CardDescription>A unique name for your app.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Input
-            id="app-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && canCreate && handleCreate()}
-            placeholder="my-app"
-            className="max-w-md"
-            autoFocus
-          />
-        </CardContent>
-      </Card>
+          {/* Card 2: Template */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Template</CardTitle>
+              <CardDescription>
+                Choose a starter template or bring your own app.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3">
+                {TEMPLATES.map((t) => (
+                  <Item key={t.id} variant="outline">
+                    <ItemMedia variant="icon">
+                      {t.id === "bring-your-own" ? (
+                        <FolderOpen className="size-5" />
+                      ) : (
+                        <ReactRouterIcon />
+                      )}
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{t.name}</ItemTitle>
+                      <ItemDescription>{t.description}</ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <Button
+                        size="sm"
+                        variant={
+                          selectedTemplate === t.id ? "default" : "outline"
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTemplate(
+                            selectedTemplate === t.id ? null : t.id,
+                          );
+                        }}
+                      >
+                        {selectedTemplate === t.id ? "Selected" : "Use"}
+                      </Button>
+                    </ItemActions>
+                  </Item>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Card 2: Template */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Template</CardTitle>
-          <CardDescription>
-            Choose a starter template or bring your own app.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-3">
-            {TEMPLATES.map((t) => (
-              <Item key={t.id} variant="outline">
-                <ItemMedia variant="icon">
-                  {t.id === "bring-your-own" ? (
-                    <FolderOpen className="size-5" />
-                  ) : (
-                    <ReactRouterIcon />
-                  )}
-                </ItemMedia>
-                <ItemContent>
-                  <ItemTitle>{t.name}</ItemTitle>
-                  <ItemDescription>{t.description}</ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  <Button
-                    size="sm"
-                    variant={selectedTemplate === t.id ? "default" : "outline"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedTemplate(
-                        selectedTemplate === t.id ? null : t.id,
-                      );
-                    }}
-                  >
-                    {selectedTemplate === t.id ? "Selected" : "Use"}
-                  </Button>
-                </ItemActions>
-              </Item>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Card 3: GitHub Repository */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <GitHubIcon /> GitHub Repository
-          </CardTitle>
-          <CardDescription>
-            Link a source repository for sandbox code and pushing changes.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!githubConnected ? (
-            <Muted>
-              GitHub not connected.{" "}
-              <Link to="/settings" className="underline">
-                Configure in settings
-              </Link>{" "}
-              to link a repository.
-            </Muted>
-          ) : selectedGithubRepo ? (
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="font-mono">
-                {selectedGithubRepo.fullName}
-              </Badge>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setSelectedGithubRepo(null)}
-              >
-                <X className="size-3.5" />
-              </Button>
-            </div>
-          ) : null}
-        </CardContent>
-        {githubConnected && !selectedGithubRepo && (
-          <CardFooter
-            className={`border-t ${showCreateRepo ? "justify-end" : "justify-between"}`}
-          >
-            {!showCreateRepo && <Muted>No repository selected.</Muted>}
-            {showCreateRepo ? (
-              <div className="flex flex-col gap-3 w-full">
+          {/* Card 3: GitHub Repository */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GitHubIcon /> GitHub Repository
+              </CardTitle>
+              <CardDescription>
+                Link a source repository for sandbox code and pushing changes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!githubConnected ? (
+                <Muted>
+                  GitHub not connected.{" "}
+                  <Link to="/settings" className="underline">
+                    Configure in settings
+                  </Link>{" "}
+                  to link a repository.
+                </Muted>
+              ) : selectedGithubRepo ? (
                 <div className="flex items-center gap-2">
-                  <select
-                    value={selectedGithubOrg ?? ""}
-                    onChange={(e) => setSelectedGithubOrg(e.target.value)}
-                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    {githubOrgs.map((o) => (
-                      <option key={o.login} value={o.login}>
-                        {o.login}
-                        {o.type === "user" ? " (personal)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="text-muted-foreground">/</span>
-                  <Input
-                    type="text"
-                    value={newRepoName}
-                    onChange={(e) => setNewRepoName(e.target.value)}
-                    placeholder={name.trim() || "repository-name"}
-                    className="max-w-xs"
-                    onKeyDown={(e) => e.key === "Enter" && handleCreateRepo()}
-                    autoFocus
-                  />
+                  <Badge variant="secondary" className="font-mono">
+                    {selectedGithubRepo.fullName}
+                  </Badge>
                   <Button
-                    size="sm"
-                    onClick={handleCreateRepo}
-                    disabled={creatingRepo}
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setSelectedGithubRepo(null)}
                   >
-                    {creatingRepo ? (
-                      <>
-                        <Loader2 className="size-3.5 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      "Create"
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setShowCreateRepo(false);
-                      setNewRepoName("");
-                    }}
-                  >
-                    Cancel
+                    <X className="size-3.5" />
                   </Button>
                 </div>
-                <Muted className="text-xs">
-                  Creates a private repository
-                  {selectedTemplate &&
-                  TEMPLATES.find((t) => t.id === selectedTemplate)?.repo
-                    ? " from the selected template"
-                    : ""}
-                  . Leave blank to use the app name.
-                </Muted>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <ResourcePicker
-                  items={githubRepos}
-                  loading={githubLoading}
-                  error={githubError}
-                  renderItem={(repo) => (
-                    <span className="truncate">{repo.fullName}</span>
-                  )}
-                  getItemValue={(repo) => repo.fullName}
-                  getItemKey={(repo) => String(repo.id)}
-                  selectedKey={null}
-                  onSelect={handleSelectGithubRepo}
-                  onOpen={loadGithubRepos}
-                  triggerLabel="Select existing"
-                  placeholder="Search repositories..."
-                  emptyMessage="No repositories found."
-                  notConnectedMessage="GitHub token not configured."
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setShowCreateRepo(true);
-                    loadGithubOrgs();
-                  }}
-                >
-                  <Plus className="size-3.5" />
-                  Create new
-                </Button>
-              </div>
-            )}
-          </CardFooter>
-        )}
-      </Card>
-
-      {/* Card 4: Vercel Project */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <VercelIcon /> Vercel Project
-          </CardTitle>
-          <CardDescription>
-            Link a Vercel project for deployments and environment variable sync.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!vercelConnected ? (
-            <Muted>
-              Vercel not connected.{" "}
-              <Link to="/settings" className="underline">
-                Configure in settings
-              </Link>{" "}
-              to link a project.
-            </Muted>
-          ) : selectedVercel ? (
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">{selectedVercel.name}</Badge>
-              {selectedVercel.framework && (
-                <Muted className="text-xs">{selectedVercel.framework}</Muted>
-              )}
-              {selectedVercel.link && (
-                <Muted className="text-xs">
-                  {selectedVercel.link.org}/{selectedVercel.link.repo}
-                </Muted>
-              )}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setSelectedVercel(null)}
+              ) : null}
+            </CardContent>
+            {githubConnected && !selectedGithubRepo && (
+              <CardFooter
+                className={`border-t ${showCreateRepo ? "justify-end" : "justify-between"}`}
               >
-                <X className="size-3.5" />
-              </Button>
-            </div>
-          ) : null}
-        </CardContent>
-        {vercelConnected && !selectedVercel && (
-          <CardFooter
-            className={`border-t ${showCreateVercel ? "justify-end" : "justify-between"}`}
-          >
-            {!showCreateVercel && <Muted>No Vercel project selected.</Muted>}
-            {showCreateVercel ? (
-              <div className="flex flex-col gap-3 w-full">
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="text"
-                    value={newVercelName}
-                    onChange={(e) => setNewVercelName(e.target.value)}
-                    placeholder={name.trim() || "app-name"}
-                    className="max-w-xs"
-                    onKeyDown={(e) => e.key === "Enter" && handleCreateVercel()}
-                    autoFocus
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleCreateVercel}
-                    disabled={creatingVercel}
-                  >
-                    {creatingVercel ? (
-                      <>
-                        <Loader2 className="size-3.5 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      "Create"
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setShowCreateVercel(false);
-                      setNewVercelName("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-                <Muted className="text-xs">
-                  Creates a new Vercel project.
-                  {selectedGithubRepo
-                    ? ` Will attempt to link to ${selectedGithubRepo.fullName} (can be configured later).`
-                    : " Leave blank to use the app name."}
-                </Muted>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <ResourcePicker
-                  items={vercelProjects}
-                  loading={vercelLoading}
-                  error={vercelError}
-                  renderItem={(vp) => (
-                    <div className="flex flex-col">
-                      <span className="truncate">{vp.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {vp.framework ?? "No framework"}
-                        {vp.link
-                          ? ` \u00b7 ${vp.link.org}/${vp.link.repo}`
-                          : ""}
-                      </span>
+                {!showCreateRepo && <Muted>No repository selected.</Muted>}
+                {showCreateRepo ? (
+                  <div className="flex flex-col gap-3 w-full">
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedGithubOrg ?? ""}
+                        onChange={(e) => setSelectedGithubOrg(e.target.value)}
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        {githubOrgs.map((o) => (
+                          <option key={o.login} value={o.login}>
+                            {o.login}
+                            {o.type === "user" ? " (personal)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-muted-foreground">/</span>
+                      <Input
+                        type="text"
+                        value={newRepoName}
+                        onChange={(e) => setNewRepoName(e.target.value)}
+                        placeholder={name.trim() || "repository-name"}
+                        className="max-w-xs"
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleCreateRepo()
+                        }
+                        autoFocus
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleCreateRepo}
+                        disabled={creatingRepo}
+                      >
+                        {creatingRepo ? (
+                          <>
+                            <Loader2 className="size-3.5 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          "Create"
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowCreateRepo(false);
+                          setNewRepoName("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
                     </div>
-                  )}
-                  getItemValue={(vp) => vp.name}
-                  getItemKey={(vp) => vp.id}
-                  selectedKey={null}
-                  onSelect={handleSelectVercel}
-                  onOpen={loadVercelProjects}
-                  triggerLabel="Select existing"
-                  placeholder="Search projects..."
-                  emptyMessage="No Vercel projects found."
-                  notConnectedMessage="Vercel token not configured."
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowCreateVercel(true)}
-                >
-                  <Plus className="size-3.5" />
-                  Create new
-                </Button>
-              </div>
+                    <Muted className="text-xs">
+                      Creates a private repository
+                      {selectedTemplate &&
+                      TEMPLATES.find((t) => t.id === selectedTemplate)?.repo
+                        ? " from the selected template"
+                        : ""}
+                      . Leave blank to use the app name.
+                    </Muted>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <ResourcePicker
+                      items={githubRepos}
+                      loading={githubLoading}
+                      error={githubError}
+                      renderItem={(repo) => (
+                        <span className="truncate">{repo.fullName}</span>
+                      )}
+                      getItemValue={(repo) => repo.fullName}
+                      getItemKey={(repo) => String(repo.id)}
+                      selectedKey={null}
+                      onSelect={handleSelectGithubRepo}
+                      onOpen={loadGithubRepos}
+                      triggerLabel="Select existing"
+                      placeholder="Search repositories..."
+                      emptyMessage="No repositories found."
+                      notConnectedMessage="GitHub token not configured."
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setShowCreateRepo(true);
+                        loadGithubOrgs();
+                      }}
+                    >
+                      <Plus className="size-3.5" />
+                      Create new
+                    </Button>
+                  </div>
+                )}
+              </CardFooter>
             )}
-          </CardFooter>
-        )}
-      </Card>
+          </Card>
 
-      {/* Error */}
-      {error && <Small className="mb-4 text-destructive">{error}</Small>}
+          {/* Card 4: Vercel Project */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <VercelIcon /> Vercel Project
+              </CardTitle>
+              <CardDescription>
+                Link a Vercel project for deployments and environment variable
+                sync.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!vercelConnected ? (
+                <Muted>
+                  Vercel not connected.{" "}
+                  <Link to="/settings" className="underline">
+                    Configure in settings
+                  </Link>{" "}
+                  to link a project.
+                </Muted>
+              ) : selectedVercel ? (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{selectedVercel.name}</Badge>
+                  {selectedVercel.framework && (
+                    <Muted className="text-xs">
+                      {selectedVercel.framework}
+                    </Muted>
+                  )}
+                  {selectedVercel.link && (
+                    <Muted className="text-xs">
+                      {selectedVercel.link.org}/{selectedVercel.link.repo}
+                    </Muted>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setSelectedVercel(null)}
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                </div>
+              ) : null}
+            </CardContent>
+            {vercelConnected && !selectedVercel && (
+              <CardFooter
+                className={`border-t ${showCreateVercel ? "justify-end" : "justify-between"}`}
+              >
+                {!showCreateVercel && (
+                  <Muted>No Vercel project selected.</Muted>
+                )}
+                {showCreateVercel ? (
+                  <div className="flex flex-col gap-3 w-full">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="text"
+                        value={newVercelName}
+                        onChange={(e) => setNewVercelName(e.target.value)}
+                        placeholder={name.trim() || "app-name"}
+                        className="max-w-xs"
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleCreateVercel()
+                        }
+                        autoFocus
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleCreateVercel}
+                        disabled={creatingVercel}
+                      >
+                        {creatingVercel ? (
+                          <>
+                            <Loader2 className="size-3.5 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          "Create"
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowCreateVercel(false);
+                          setNewVercelName("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                    <Muted className="text-xs">
+                      Creates a new Vercel project.
+                      {selectedGithubRepo
+                        ? ` Will attempt to link to ${selectedGithubRepo.fullName} (can be configured later).`
+                        : " Leave blank to use the app name."}
+                    </Muted>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <ResourcePicker
+                      items={vercelProjects}
+                      loading={vercelLoading}
+                      error={vercelError}
+                      renderItem={(vp) => (
+                        <div className="flex flex-col">
+                          <span className="truncate">{vp.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {vp.framework ?? "No framework"}
+                            {vp.link
+                              ? ` \u00b7 ${vp.link.org}/${vp.link.repo}`
+                              : ""}
+                          </span>
+                        </div>
+                      )}
+                      getItemValue={(vp) => vp.name}
+                      getItemKey={(vp) => vp.id}
+                      selectedKey={null}
+                      onSelect={handleSelectVercel}
+                      onOpen={loadVercelProjects}
+                      triggerLabel="Select existing"
+                      placeholder="Search projects..."
+                      emptyMessage="No Vercel projects found."
+                      notConnectedMessage="Vercel token not configured."
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCreateVercel(true)}
+                    >
+                      <Plus className="size-3.5" />
+                      Create new
+                    </Button>
+                  </div>
+                )}
+              </CardFooter>
+            )}
+          </Card>
 
-      {/* Create button */}
-      <Button
-        onClick={handleCreate}
-        disabled={!canCreate || creating}
-        className="w-full"
-      >
-        {creating ? "Creating..." : "Create App"}
-      </Button>
+          {/* Error */}
+          {error && <Small className="mb-4 text-destructive">{error}</Small>}
+
+          {/* Create button */}
+          <Button
+            onClick={handleCreate}
+            disabled={!canCreate || creating}
+            className="w-full"
+          >
+            {creating ? "Creating..." : "Create App"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

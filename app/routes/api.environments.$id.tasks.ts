@@ -2,7 +2,13 @@ import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { generateTaskTitle } from "~/lib/task-title.server";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { environments, tasks, orgMembers, users } from "~/lib/db/schema";
+import {
+  environments,
+  tasks,
+  orgMembers,
+  users,
+  projects,
+} from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
 import { getSecret } from "~/lib/infisical.server";
 import { parsePrUrl, isPrMerged } from "~/lib/github.server";
@@ -23,7 +29,10 @@ export async function loader({
     .select()
     .from(environments)
     .where(
-      and(eq(environments.id, environmentId), eq(environments.organizationId, org.id)),
+      and(
+        eq(environments.id, environmentId),
+        eq(environments.organizationId, org.id),
+      ),
     );
 
   if (!app) {
@@ -38,15 +47,17 @@ export async function loader({
   const url = new URL(request.url);
   const statusFilter = url.searchParams.get("status");
 
-  // Join with users to get creator name + avatar
+  // Join with users to get creator name + avatar, and projects for context
   const rowsWithCreator = await db
     .select({
       task: tasks,
       creatorName: users.name,
       creatorAvatarUrl: users.avatarUrl,
+      projectName: projects.name,
     })
     .from(tasks)
     .leftJoin(users, eq(tasks.createdBy, users.id))
+    .leftJoin(projects, eq(tasks.projectId, projects.id))
     .where(eq(tasks.environmentId, environmentId))
     .orderBy(desc(tasks.createdAt));
 
@@ -55,6 +66,7 @@ export async function loader({
     ...r.task,
     creatorName: r.creatorName ?? null,
     creatorAvatarUrl: r.creatorAvatarUrl ?? null,
+    projectName: r.projectName ?? null,
   }));
 
   // Auto-timeout tasks that have been running for 40+ minutes without agent response
@@ -184,7 +196,10 @@ export async function loader({
       }
     } catch (err) {
       log.warn(
-        { environmentId, error: err instanceof Error ? err.message : "unknown" },
+        {
+          environmentId,
+          error: err instanceof Error ? err.message : "unknown",
+        },
         "failed to check PR merge status (non-fatal)",
       );
     }
@@ -221,7 +236,10 @@ export async function action({
     .select()
     .from(environments)
     .where(
-      and(eq(environments.id, environmentId), eq(environments.organizationId, org.id)),
+      and(
+        eq(environments.id, environmentId),
+        eq(environments.organizationId, org.id),
+      ),
     );
 
   if (!app) {
@@ -254,6 +272,7 @@ export async function action({
     model?: string;
     type?: string;
     title?: string;
+    projectId?: string;
   };
   try {
     body = await request.json();
@@ -279,6 +298,48 @@ export async function action({
     );
   }
 
+  // Resolve projectId — use provided one (validated) or fall back to org default
+  let resolvedProjectId: string;
+
+  if (body.projectId) {
+    const [proj] = await db
+      .select()
+      .from(projects)
+      .where(
+        and(
+          eq(projects.id, body.projectId),
+          eq(projects.organizationId, org.id),
+        ),
+      );
+    if (!proj) {
+      log.warn(
+        { userId: user.id, projectId: body.projectId },
+        "task create: invalid projectId",
+      );
+      return Response.json({ error: "Project not found" }, { status: 404 });
+    }
+    resolvedProjectId = proj.id;
+  } else {
+    // Fall back to the org's default (Unassigned) project
+    const [defaultProj] = await db
+      .select()
+      .from(projects)
+      .where(
+        and(eq(projects.organizationId, org.id), eq(projects.isDefault, true)),
+      );
+    if (!defaultProj) {
+      log.error(
+        { orgId: org.id },
+        "task create: no default project found for org",
+      );
+      return Response.json(
+        { error: "No default project found for org" },
+        { status: 500 },
+      );
+    }
+    resolvedProjectId = defaultProj.id;
+  }
+
   // Get next task number for this app
   const [{ max: maxNum }] = await db
     .select({ max: sql<number>`coalesce(max(${tasks.taskNumber}), 0)` })
@@ -290,6 +351,7 @@ export async function action({
     .insert(tasks)
     .values({
       environmentId: environmentId,
+      projectId: resolvedProjectId,
       title,
       prompt,
       branch,
@@ -310,6 +372,7 @@ export async function action({
       branch,
       model,
       type,
+      projectId: resolvedProjectId,
     },
     "task created",
   );

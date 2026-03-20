@@ -106,7 +106,12 @@ import {
 } from "~/components/task-attachments";
 
 // ── Types (re-exported from ~/types/task) ─────────────────────────────────
-export type { Environment, TaskStatus, FeedTask, Workspace } from "~/types/task";
+export type {
+  Environment,
+  TaskStatus,
+  FeedTask,
+  Workspace,
+} from "~/types/task";
 import type { Environment, FeedTask, TaskStatus } from "~/types/task";
 
 // ── Status config ─────────────────────────────────────────────────────────
@@ -555,12 +560,15 @@ export function TaskDetailPanel({
     if (trimmed === (task.title ?? "")) return;
     setSavingTitle(true);
     try {
-      const res = await fetch(`/api/environments/${environmentId}/tasks/${task.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: trimmed || null }),
-      });
+      const res = await fetch(
+        `/api/environments/${environmentId}/tasks/${task.id}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: trimmed || null }),
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         store.getState().setTask({ ...task, ...data.task });
@@ -580,12 +588,15 @@ export function TaskDetailPanel({
     if (!task || !editPrompt.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/environments/${environmentId}/tasks/${task.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: editPrompt.trim() }),
-      });
+      const res = await fetch(
+        `/api/environments/${environmentId}/tasks/${task.id}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: editPrompt.trim() }),
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         if (task) store.getState().setTask({ ...task, ...data.task });
@@ -610,12 +621,15 @@ export function TaskDetailPanel({
     }
     setSavingBranch(true);
     try {
-      const res = await fetch(`/api/environments/${environmentId}/tasks/${task.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ branch: editBranch.trim() }),
-      });
+      const res = await fetch(
+        `/api/environments/${environmentId}/tasks/${task.id}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ branch: editBranch.trim() }),
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         if (task) store.getState().setTask({ ...task, ...data.task });
@@ -642,12 +656,15 @@ export function TaskDetailPanel({
     if (!task || newModel === task.model) return;
     setSavingModel(true);
     try {
-      const res = await fetch(`/api/environments/${environmentId}/tasks/${task.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: newModel }),
-      });
+      const res = await fetch(
+        `/api/environments/${environmentId}/tasks/${task.id}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: newModel }),
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         if (task) store.getState().setTask({ ...task, ...data.task });
@@ -686,12 +703,15 @@ export function TaskDetailPanel({
       return;
     }
     try {
-      const res = await fetch(`/api/environments/${environmentId}/tasks/${task.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ createdBy: userId }),
-      });
+      const res = await fetch(
+        `/api/environments/${environmentId}/tasks/${task.id}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ createdBy: userId }),
+        },
+      );
       if (res.ok) {
         const member = teamMembers.find((m) => m.id === userId);
         if (task) {
@@ -717,12 +737,15 @@ export function TaskDetailPanel({
   const changeApp = async (newAppId: string) => {
     if (!task || newAppId === task.environmentId) return;
     try {
-      const res = await fetch(`/api/environments/${environmentId}/tasks/${task.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: newAppId }),
-      });
+      const res = await fetch(
+        `/api/environments/${environmentId}/tasks/${task.id}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId: newAppId }),
+        },
+      );
       if (res.ok) {
         toast.success("Task moved to new app");
         store.getState().fetchAllTasks();
@@ -881,9 +904,7 @@ export function TaskDetailPanel({
       <Small className="w-28 shrink-0">Environment</Small>
       <Popover
         open={task.status === "ready" ? appPickerOpen : false}
-        onOpenChange={
-          task.status === "ready" ? setAppPickerOpen : undefined
-        }
+        onOpenChange={task.status === "ready" ? setAppPickerOpen : undefined}
       >
         <PopoverTrigger asChild>
           <Button
@@ -915,7 +936,9 @@ export function TaskDetailPanel({
                     <Check
                       className={cn(
                         "ml-auto size-3.5",
-                        task.environmentId === p.id ? "opacity-100" : "opacity-0",
+                        task.environmentId === p.id
+                          ? "opacity-100"
+                          : "opacity-0",
                       )}
                     />
                   </CommandItem>
@@ -1661,7 +1684,7 @@ export function TaskDetailPanel({
               {/* ── Page variant: Linear-style backlog layout ───────── */}
 
               {/* ── Attribute pills row ─────────────────────────────── */}
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {/* Assignee pill */}
                 <Popover
                   open={assigneePickerOpen}
@@ -1670,33 +1693,39 @@ export function TaskDetailPanel({
                     if (open) fetchTeamMembers();
                   }}
                 >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 shadow-none"
-                    >
-                      <Avatar size="sm" className="size-4">
-                        {task.creatorAvatarUrl ? (
-                          <AvatarImage
-                            src={task.creatorAvatarUrl}
-                            alt={task.creatorName ?? ""}
-                          />
-                        ) : null}
-                        <AvatarFallback className="text-[0.45rem]">
-                          {task.creatorName
-                            ? task.creatorName
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")
-                                .toUpperCase()
-                                .slice(0, 2)
-                            : "?"}
-                        </AvatarFallback>
-                      </Avatar>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          className="shadow-none"
+                        >
+                          <Avatar size="sm" className="size-4">
+                            {task.creatorAvatarUrl ? (
+                              <AvatarImage
+                                src={task.creatorAvatarUrl}
+                                alt={task.creatorName ?? ""}
+                              />
+                            ) : null}
+                            <AvatarFallback className="text-[0.45rem]">
+                              {task.creatorName
+                                ? task.creatorName
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .toUpperCase()
+                                    .slice(0, 2)
+                                : "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                        </Button>
+                      </PopoverTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
                       {task.creatorName ?? "Unassigned"}
-                    </Button>
-                  </PopoverTrigger>
+                    </TooltipContent>
+                  </Tooltip>
                   <PopoverContent className="w-[220px] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Assign to..." />
@@ -1749,20 +1778,23 @@ export function TaskDetailPanel({
                 </Popover>
 
                 {/* Environment pill */}
-                <Popover
-                  open={appPickerOpen}
-                  onOpenChange={setAppPickerOpen}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 shadow-none"
-                    >
-                      <Box className="size-3.5 shrink-0" />
+                <Popover open={appPickerOpen} onOpenChange={setAppPickerOpen}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          className="shadow-none"
+                        >
+                          <Box className="size-3.5 shrink-0" />
+                        </Button>
+                      </PopoverTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
                       {task.environmentName}
-                    </Button>
-                  </PopoverTrigger>
+                    </TooltipContent>
+                  </Tooltip>
                   <PopoverContent className="w-[220px] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Move to app..." />
@@ -1800,7 +1832,7 @@ export function TaskDetailPanel({
 
                 {/* Branch pill */}
                 {editingBranch ? (
-                  <div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1">
+                  <div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
                     <GitBranch className="size-3.5 text-muted-foreground shrink-0" />
                     <Input
                       value={editBranch}
@@ -1825,50 +1857,70 @@ export function TaskDetailPanel({
                     )}
                   </div>
                 ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 shadow-none"
-                    onClick={() => {
-                      setEditBranch(task.branch);
-                      setEditingBranch(true);
-                    }}
-                  >
-                    <GitBranch className="size-3.5" />
-                    {task.branch}
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
+                        className="shadow-none"
+                        onClick={() => {
+                          setEditBranch(task.branch);
+                          setEditingBranch(true);
+                        }}
+                      >
+                        <GitBranch className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">{task.branch}</TooltipContent>
+                  </Tooltip>
                 )}
 
                 {/* Model pill */}
                 {task.status === "ready" ? (
-                  <Select
-                    value={task.model}
-                    onValueChange={changeModel}
-                    disabled={savingModel}
-                  >
-                    <SelectTrigger className="h-8 w-auto gap-1.5 border bg-background px-3 text-sm font-medium shadow-none hover:bg-accent hover:text-accent-foreground focus:ring-0 dark:bg-input/30 dark:border-input dark:hover:bg-input/50 [&>svg]:size-3.5 [&>svg:last-child]:hidden">
-                      <AnthropicIcon className="size-3.5 shrink-0" />
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MODELS.map((m) => (
-                        <SelectItem key={m.value} value={m.value}>
-                          {m.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Tooltip>
+                    <Select
+                      value={task.model}
+                      onValueChange={changeModel}
+                      disabled={savingModel}
+                    >
+                      <TooltipTrigger asChild>
+                        <SelectTrigger
+                          size="sm"
+                          className="size-8 w-8 gap-0 border bg-background px-0 text-sm font-medium shadow-none hover:bg-accent hover:text-accent-foreground focus:ring-0 dark:bg-input/30 dark:border-input dark:hover:bg-input/50 [&>*:last-child]:hidden justify-center"
+                        >
+                          <AnthropicIcon className="size-3.5 shrink-0" />
+                        </SelectTrigger>
+                      </TooltipTrigger>
+                      <SelectContent>
+                        {MODELS.map((m) => (
+                          <SelectItem key={m.value} value={m.value}>
+                            {m.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <TooltipContent side="bottom">
+                      {MODELS.find((m) => m.value === task.model)?.label ??
+                        task.model}
+                    </TooltipContent>
+                  </Tooltip>
                 ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 shadow-none"
-                    disabled
-                  >
-                    <AnthropicIcon className="size-3.5" />
-                    {MODELS.find((m) => m.value === task.model)?.label ??
-                      task.model}
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
+                        className="shadow-none"
+                        disabled
+                      >
+                        <AnthropicIcon className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {MODELS.find((m) => m.value === task.model)?.label ??
+                        task.model}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
 
@@ -2203,7 +2255,7 @@ export function TaskDetailPanel({
               {/* ── Page variant: in-progress / review / completed layout ── */}
 
               {/* ── Attribute pills row ─────────────────────────────── */}
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {/* Assignee pill */}
                 <Popover
                   open={assigneePickerOpen}
@@ -2212,33 +2264,39 @@ export function TaskDetailPanel({
                     if (open) fetchTeamMembers();
                   }}
                 >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 shadow-none"
-                    >
-                      <Avatar size="sm" className="size-4">
-                        {task.creatorAvatarUrl ? (
-                          <AvatarImage
-                            src={task.creatorAvatarUrl}
-                            alt={task.creatorName ?? ""}
-                          />
-                        ) : null}
-                        <AvatarFallback className="text-[0.45rem]">
-                          {task.creatorName
-                            ? task.creatorName
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")
-                                .toUpperCase()
-                                .slice(0, 2)
-                            : "?"}
-                        </AvatarFallback>
-                      </Avatar>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          className="shadow-none"
+                        >
+                          <Avatar size="sm" className="size-4">
+                            {task.creatorAvatarUrl ? (
+                              <AvatarImage
+                                src={task.creatorAvatarUrl}
+                                alt={task.creatorName ?? ""}
+                              />
+                            ) : null}
+                            <AvatarFallback className="text-[0.45rem]">
+                              {task.creatorName
+                                ? task.creatorName
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .toUpperCase()
+                                    .slice(0, 2)
+                                : "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                        </Button>
+                      </PopoverTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
                       {task.creatorName ?? "Unassigned"}
-                    </Button>
-                  </PopoverTrigger>
+                    </TooltipContent>
+                  </Tooltip>
                   <PopoverContent className="w-[220px] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Assign to..." />
@@ -2291,38 +2349,54 @@ export function TaskDetailPanel({
                 </Popover>
 
                 {/* Project pill (readonly for in-progress / completed) */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 shadow-none"
-                  disabled
-                >
-                  <Box className="size-3.5 shrink-0" />
-                  {task.environmentName}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      className="shadow-none"
+                      disabled
+                    >
+                      <Box className="size-3.5 shrink-0" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {task.environmentName}
+                  </TooltipContent>
+                </Tooltip>
 
                 {/* Branch pill (readonly for in-progress) */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 shadow-none"
-                  disabled
-                >
-                  <GitBranch className="size-3.5" />
-                  {task.branch}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      className="shadow-none"
+                      disabled
+                    >
+                      <GitBranch className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">{task.branch}</TooltipContent>
+                </Tooltip>
 
                 {/* Model pill (readonly) */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 shadow-none"
-                  disabled
-                >
-                  <AnthropicIcon className="size-3.5" />
-                  {MODELS.find((m) => m.value === task.model)?.label ??
-                    task.model}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      className="shadow-none"
+                      disabled
+                    >
+                      <AnthropicIcon className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {MODELS.find((m) => m.value === task.model)?.label ??
+                      task.model}
+                  </TooltipContent>
+                </Tooltip>
 
                 {/* Status badge — hidden when "validating" (PR ready) or "completed" (Merged) since both have their own sections */}
                 {task.status !== "validating" &&

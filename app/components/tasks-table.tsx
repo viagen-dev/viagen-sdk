@@ -5,7 +5,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import {
   ChevronRight,
   ChevronDown,
-  Box,
+  FolderKanban,
   CircleDashed,
   LoaderCircle,
   Check,
@@ -19,22 +19,22 @@ import {
   timeAgo,
   shortTaskId,
 } from "~/components/task-detail-panel";
-import type { FeedTask, Environment, TaskStatus } from "~/types/task";
+import type { FeedTask, Project, TaskStatus } from "~/types/task";
 import { useTaskStore } from "~/store/task-store";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
 interface TasksTableProps {
   tasks: FeedTask[];
-  environments: Environment[];
+  projects: Project[];
   onTaskClick: (task: FeedTask) => void;
   selectedTaskId?: string | null;
 }
 
 type StatusGroup = "Backlog" | "In-progress" | "Completed";
 
-interface GroupedEnvironment {
-  environment: Environment | { id: string; name: string };
+interface GroupedProject {
+  project: Project | { id: string; name: string };
   taskCount: number;
   statusGroups: {
     label: StatusGroup;
@@ -111,7 +111,7 @@ function getInitials(name: string | null): string {
 
 export function TasksTable({
   tasks,
-  environments,
+  projects,
   onTaskClick,
   selectedTaskId,
 }: TasksTableProps) {
@@ -125,7 +125,8 @@ export function TasksTable({
     const defaults: Record<string, boolean> = {};
     for (const task of tasks) {
       if (task.status === "completed") {
-        defaults[`status:${task.environmentId}:Completed`] = true;
+        const pid = task.projectId ?? task.environmentId;
+        defaults[`status:${pid}:Completed`] = true;
       }
     }
     if (Object.keys(defaults).length > 0) {
@@ -135,36 +136,43 @@ export function TasksTable({
 
   const toggle = (key: string) => toggleCollapsed(key);
 
-  const grouped = useMemo<GroupedEnvironment[]>(() => {
+  const grouped = useMemo<GroupedProject[]>(() => {
     if (tasks.length === 0) return [];
 
-    const envMap = new Map<string, Environment>();
-    for (const p of environments) {
-      envMap.set(p.id, p);
+    const projectMap = new Map<string, Project>();
+    for (const p of projects) {
+      projectMap.set(p.id, p);
     }
 
-    // Group tasks by environmentId
-    const byEnvironment = new Map<string, FeedTask[]>();
+    // Group tasks by projectId (fall back to environmentId for legacy tasks)
+    const byProject = new Map<string, FeedTask[]>();
     for (const task of tasks) {
-      const existing = byEnvironment.get(task.environmentId);
+      const key = task.projectId ?? task.environmentId;
+      const existing = byProject.get(key);
       if (existing) {
         existing.push(task);
       } else {
-        byEnvironment.set(task.environmentId, [task]);
+        byProject.set(key, [task]);
       }
     }
 
-    const result: GroupedEnvironment[] = [];
+    const result: GroupedProject[] = [];
 
-    for (const [environmentId, envTasks] of byEnvironment) {
-      const environment = envMap.get(environmentId) ?? {
-        id: environmentId,
-        name: envTasks[0]?.environmentName ?? "Unknown Environment",
+    for (const [projectKey, projectTasks] of byProject) {
+      // Try to look up a real project; fall back to name from the task itself
+      const project: Project | { id: string; name: string } = projectMap.get(
+        projectKey,
+      ) ?? {
+        id: projectKey,
+        name:
+          projectTasks[0]?.projectName ??
+          projectTasks[0]?.environmentName ??
+          "Unknown Project",
       };
 
       // Group by status group
       const statusMap = new Map<StatusGroup, FeedTask[]>();
-      for (const task of envTasks) {
+      for (const task of projectTasks) {
         const group = getStatusGroup(task.status);
         const existing = statusMap.get(group);
         if (existing) {
@@ -190,17 +198,17 @@ export function TasksTable({
       }));
 
       result.push({
-        environment,
-        taskCount: envTasks.length,
+        project,
+        taskCount: projectTasks.length,
         statusGroups,
       });
     }
 
-    // Sort environments alphabetically by name
-    result.sort((a, b) => a.environment.name.localeCompare(b.environment.name));
+    // Sort projects alphabetically by name
+    result.sort((a, b) => a.project.name.localeCompare(b.project.name));
 
     return result;
-  }, [tasks, environments]);
+  }, [tasks, projects]);
 
   // ── Empty state ───────────────────────────────────────────────────────
 
@@ -276,11 +284,11 @@ export function TasksTable({
   return (
     <div className="flex flex-col w-full min-w-0">
       {grouped.map((group) => {
-        const projectKey = `project:${group.environment.id}`;
+        const projectKey = `project:${group.project.id}`;
         const isProjectCollapsed = collapsed[projectKey] ?? false;
 
         return (
-          <div key={group.environment.id}>
+          <div key={group.project.id}>
             {/* Project header row */}
             <button
               type="button"
@@ -292,9 +300,9 @@ export function TasksTable({
               ) : (
                 <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
               )}
-              <Box className="size-4 shrink-0 text-muted-foreground" />
+              <FolderKanban className="size-4 shrink-0 text-muted-foreground" />
               <span className="text-sm font-medium truncate">
-                {group.environment.name}
+                {group.project.name}
               </span>
               <span className="text-xs text-muted-foreground shrink-0">
                 {group.taskCount}
@@ -304,7 +312,7 @@ export function TasksTable({
             {/* Status sub-groups */}
             {!isProjectCollapsed &&
               group.statusGroups.map((sg) => {
-                const statusKey = `status:${group.environment.id}:${sg.label}`;
+                const statusKey = `status:${group.project.id}:${sg.label}`;
                 const isStatusCollapsed = collapsed[statusKey] ?? false;
                 const StatusIcon = getStatusGroupIcon(sg.label);
                 const statusIconClass = getStatusGroupIconClass(sg.label);

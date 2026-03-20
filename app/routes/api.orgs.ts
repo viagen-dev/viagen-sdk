@@ -1,6 +1,6 @@
 import { requireUser, requireAuth, isAdminRole } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { organizations, orgMembers } from "~/lib/db/schema";
+import { organizations, orgMembers, projects } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { log } from "~/lib/logger.server";
 
@@ -59,6 +59,14 @@ async function handleCreate(request: Request) {
     role: "owner",
   });
 
+  await db.insert(projects).values({
+    organizationId: org.id,
+    name: "Unassigned",
+    isDefault: true,
+  });
+
+  log.info({ orgId: org.id }, "default Unassigned project created for new org");
+
   log.info(
     { userId: session.user.id, orgId: org.id, orgName: org.name },
     "organization created",
@@ -71,40 +79,49 @@ async function handleCreate(request: Request) {
   );
 }
 
-/** PATCH — Rename the current organization */
+/** PATCH — Update the current organization (name and/or description) */
 async function handleRename(request: Request) {
   const { role, user, org } = await requireAuth(request);
 
   if (!isAdminRole(role)) {
     log.warn(
       { userId: user.id, orgId: org.id },
-      "org rename denied: not admin/owner",
+      "org update denied: not admin/owner",
     );
     return Response.json({ error: "Admin role required" }, { status: 403 });
   }
 
   const body = await request.json();
 
-  if (
-    !body.name ||
-    typeof body.name !== "string" ||
-    body.name.trim().length === 0
-  ) {
-    return Response.json(
-      { error: "Organization name is required" },
-      { status: 400 },
-    );
+  const updates: { name?: string; description?: string | null } = {};
+
+  if (body.name !== undefined) {
+    if (typeof body.name !== "string" || body.name.trim().length === 0) {
+      return Response.json(
+        { error: "Organization name cannot be empty" },
+        { status: 400 },
+      );
+    }
+    updates.name = body.name.trim();
+  }
+
+  if (body.description !== undefined) {
+    updates.description =
+      typeof body.description === "string" && body.description.trim().length > 0
+        ? body.description.trim()
+        : null;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return Response.json({ error: "Nothing to update" }, { status: 400 });
   }
 
   await db
     .update(organizations)
-    .set({ name: body.name.trim() })
+    .set(updates)
     .where(eq(organizations.id, org.id));
 
-  log.info(
-    { userId: user.id, orgId: org.id, newName: body.name.trim() },
-    "organization renamed",
-  );
+  log.info({ userId: user.id, orgId: org.id, updates }, "organization updated");
   return Response.json({ success: true });
 }
 

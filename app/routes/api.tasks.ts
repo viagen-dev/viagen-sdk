@@ -2,7 +2,13 @@ import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { generateTaskTitle } from "~/lib/task-title.server";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { environments, tasks, orgMembers, users } from "~/lib/db/schema";
+import {
+  environments,
+  tasks,
+  orgMembers,
+  users,
+  projects,
+} from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
 import { getSecret } from "~/lib/infisical.server";
 import { parsePrUrl, isPrMerged } from "~/lib/github.server";
@@ -47,15 +53,17 @@ export async function loader({ request }: { request: Request }) {
       task: tasks,
       creatorName: users.name,
       creatorAvatarUrl: users.avatarUrl,
-      appName: environments.name,
+      environmentName: environments.name,
       taskPrefix: environments.taskPrefix,
       githubRepo: environments.githubRepo,
       vercelProjectId: environments.vercelProjectId,
       vercelProjectName: environments.vercelProjectName,
+      projectName: projects.name,
     })
     .from(tasks)
     .leftJoin(users, eq(tasks.createdBy, users.id))
     .innerJoin(environments, eq(tasks.environmentId, environments.id))
+    .leftJoin(projects, eq(tasks.projectId, projects.id))
     .where(
       and(inArray(tasks.environmentId, appIds), eq(tasks.createdBy, user.id)),
     )
@@ -67,11 +75,13 @@ export async function loader({ request }: { request: Request }) {
     ...r.task,
     creatorName: r.creatorName ?? null,
     creatorAvatarUrl: r.creatorAvatarUrl ?? null,
-    appName: r.appName,
+    environmentName: r.environmentName,
     taskPrefix: r.taskPrefix ?? null,
     githubRepo: r.githubRepo,
     vercelProjectId: r.vercelProjectId,
     vercelProjectName: r.vercelProjectName,
+    projectId: r.task.projectId ?? null,
+    projectName: r.projectName ?? null,
   }));
 
   // Auto-timeout tasks that have been running for 40+ minutes without agent response
@@ -125,7 +135,7 @@ export async function loader({ request }: { request: Request }) {
           for (const member of members) {
             sendTaskTimeoutEmail({
               to: member.email,
-              appName: row.appName,
+              appName: row.environmentName,
               environmentId: row.environmentId,
               taskId: row.id,
               taskPrompt: row.prompt,
@@ -384,10 +394,54 @@ export async function action({ request }: { request: Request }) {
     .where(eq(tasks.environmentId, environmentId));
   const taskNumber = (maxNum ?? 0) + 1;
 
+  // ── Find or create a project for this repo + Vercel combo ──
+  let projectId: string;
+
+  const [existingProject] = await db
+    .select()
+    .from(projects)
+    .where(
+      and(
+        eq(projects.organizationId, org.id),
+        eq(projects.githubRepo, githubRepo),
+        eq(projects.vercelProjectId, vercelProjectId),
+      ),
+    )
+    .limit(1);
+
+  if (existingProject) {
+    projectId = existingProject.id;
+    log.info(
+      { userId: user.id, projectId },
+      "team task create: found existing project",
+    );
+  } else {
+    const repoShortName = githubRepo.includes("/")
+      ? githubRepo.split("/").pop()!
+      : githubRepo;
+    const [newProject] = await db
+      .insert(projects)
+      .values({
+        organizationId: org.id,
+        name: repoShortName,
+        githubRepo,
+        vercelProjectId,
+        vercelProjectName: vercelProjectName ?? null,
+        isDefault: false,
+      })
+      .returning();
+    projectId = newProject.id;
+    log.info(
+      { userId: user.id, projectId, githubRepo, vercelProjectId },
+      "team task create: auto-created project",
+    );
+  }
+
   const [task] = await db
     .insert(tasks)
     .values({
       environmentId: environmentId,
+      projectId,
       title,
       prompt,
       branch,
@@ -404,6 +458,7 @@ export async function action({ request }: { request: Request }) {
       orgId: org.id,
       environmentId,
       taskId: task.id,
+      projectId,
       branch,
       model,
       githubRepo,
@@ -417,6 +472,11 @@ export async function action({ request }: { request: Request }) {
     {
       task: {
         ...task,
+        projectName:
+          existingProject?.name ??
+          (githubRepo.includes("/")
+            ? githubRepo.split("/").pop()!
+            : githubRepo),
         appName:
           existingApp?.name ??
           (githubRepo.includes("/")
@@ -425,11 +485,15 @@ export async function action({ request }: { request: Request }) {
         githubRepo,
         vercelProjectId,
         vercelProjectName:
-          vercelProjectName ?? existingApp?.vercelProjectName ?? null,
+          vercelProjectName ??
+          existingProject?.vercelProjectName ??
+          existingApp?.vercelProjectName ??
+          null,
         creatorName: user.name ?? null,
         creatorAvatarUrl: user.avatarUrl ?? null,
       },
       environmentId,
+      projectId,
     },
     { status: 201 },
   );

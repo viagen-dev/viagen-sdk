@@ -10,7 +10,16 @@ import { WebsiteHeader } from "~/components/website-header";
 export async function loader({ request }: { request: Request }) {
   const session = await getSessionUser(request);
   if (session && session.memberships.length > 0) {
-    throw redirect("/dashboard");
+    const cookieHeader = request.headers.get("Cookie");
+    const lastPath = cookieHeader
+      ?.split(";")
+      .map((c) => c.trim())
+      .find((c) => c.startsWith("viagen-last-path="))
+      ?.split("=")
+      .slice(1)
+      .join("=");
+    const destination = lastPath ? decodeURIComponent(lastPath) : "/dashboard";
+    throw redirect(destination);
   }
   return null;
 }

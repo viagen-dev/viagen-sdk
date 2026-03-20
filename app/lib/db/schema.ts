@@ -8,6 +8,7 @@ import {
   jsonb,
   integer,
   real,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -36,6 +37,7 @@ export const sessions = pgTable("sessions", {
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -89,6 +91,11 @@ export const projects = pgTable("projects", {
     .references(() => organizations.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
   taskPrefix: varchar("task_prefix", { length: 10 }),
+  githubRepo: varchar("github_repo", { length: 255 }),
+  vercelProjectId: varchar("vercel_project_id", { length: 255 }),
+  vercelProjectName: varchar("vercel_project_name", { length: 255 }),
+  vercelOrgId: varchar("vercel_org_id", { length: 255 }),
+  isDefault: boolean("is_default").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -165,9 +172,11 @@ export const tasks = pgTable("tasks", {
   environmentId: uuid("environment_id")
     .notNull()
     .references(() => environments.id, { onDelete: "cascade" }),
-  projectId: uuid("project_id").references(() => projects.id, {
-    onDelete: "set null",
-  }),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, {
+      onDelete: "restrict",
+    }),
   title: varchar("title", { length: 255 }),
   prompt: text("prompt").notNull(),
   model: varchar("model", { length: 100 })

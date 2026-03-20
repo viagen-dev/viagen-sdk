@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router";
+import { SidebarToggle } from "~/components/sidebar-toggle";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { environments } from "~/lib/db/schema";
@@ -20,13 +21,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "~/components/ui/tooltip";
-import {
-  ArrowUp,
-  Loader2,
-  GitBranch,
-  Clock,
-  ExternalLink,
-} from "lucide-react";
+import { ArrowUp, Loader2, GitBranch, Clock, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 export async function loader({
@@ -41,7 +36,10 @@ export async function loader({
     .select()
     .from(environments)
     .where(
-      and(eq(environments.id, params.id), eq(environments.organizationId, org.id)),
+      and(
+        eq(environments.id, params.id),
+        eq(environments.organizationId, org.id),
+      ),
     );
 
   if (!app) {
@@ -194,159 +192,182 @@ export default function AppDeploys({
 
   if (!app.vercelProjectId) {
     return (
-      <div className="space-y-6">
-        <H4 className="mb-0">Deployments</H4>
-        <Card className="border-dashed bg-muted/50">
-          <CardContent className="flex flex-col items-center justify-center px-8 py-10">
-            <p className="text-sm text-muted-foreground">
-              No Vercel project linked. Connect one in{" "}
-              <Link
-                to={`/apps/${app.id}/settings`}
-                className="underline hover:text-foreground"
-              >
-                Settings
-              </Link>
-              .
-            </p>
-          </CardContent>
-        </Card>
+      <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
+        <div className="flex items-center h-14 px-4 border-b shrink-0 gap-2">
+          <SidebarToggle />
+          <h1 className="text-base font-semibold">Deploys</h1>
+        </div>
+        <div className="flex-1 overflow-y-auto min-w-0">
+          <div className="mx-auto w-full max-w-[900px] px-6 py-8">
+            <div className="space-y-6">
+              <H4 className="mb-0">Deployments</H4>
+              <Card className="border-dashed bg-muted/50">
+                <CardContent className="flex flex-col items-center justify-center px-8 py-10">
+                  <p className="text-sm text-muted-foreground">
+                    No Vercel project linked. Connect one in{" "}
+                    <Link
+                      to={`/apps/${app.id}/settings`}
+                      className="underline hover:text-foreground"
+                    >
+                      Settings
+                    </Link>
+                    .
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <H4 className="mb-0">Deployments</H4>
-        {isAdmin && (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={deploying}
-            onClick={() => handleRedeploy("production")}
-          >
-            {deploying ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <ArrowUp className="size-3.5" />
-            )}
-            {deploying ? "Deploying..." : "Deploy"}
-          </Button>
-        )}
+    <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
+      <div className="flex items-center h-14 px-4 border-b shrink-0 gap-2">
+        <SidebarToggle />
+        <h1 className="text-base font-semibold">Deploys</h1>
       </div>
+      <div className="flex-1 overflow-y-auto min-w-0">
+        <div className="mx-auto w-full max-w-[900px] px-6 py-8">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <H4 className="mb-0">Deployments</H4>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={deploying}
+                  onClick={() => handleRedeploy("production")}
+                >
+                  {deploying ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <ArrowUp className="size-3.5" />
+                  )}
+                  {deploying ? "Deploying..." : "Deploy"}
+                </Button>
+              )}
+            </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
-        </div>
-      ) : deployments.length === 0 ? (
-        <Card className="border-dashed bg-muted/50">
-          <CardContent className="flex flex-col items-center justify-center px-8 py-10">
-            <p className="text-sm text-muted-foreground">
-              No deployments yet
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {deployments.map((d) => {
-            const cfg = DEPLOY_STATE[d.state] ?? {
-              label: d.state,
-              className: "gap-1.5 font-normal",
-            };
-            return (
-              <Item key={d.uid} variant="outline">
-                <ItemContent>
-                  <ItemTitle>
-                    {d.meta?.githubCommitMessage
-                      ? d.meta.githubCommitMessage.length > 80
-                        ? d.meta.githubCommitMessage.slice(0, 80) + "..."
-                        : d.meta.githubCommitMessage
-                      : d.url}
-                  </ItemTitle>
-                  <ItemDescription>
-                    <span className="flex items-center gap-3 flex-wrap">
-                      <Badge variant="secondary" className={cfg.className}>
-                        {d.state === "BUILDING" && (
-                          <Loader2 className="size-3 animate-spin" />
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : deployments.length === 0 ? (
+              <Card className="border-dashed bg-muted/50">
+                <CardContent className="flex flex-col items-center justify-center px-8 py-10">
+                  <p className="text-sm text-muted-foreground">
+                    No deployments yet
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {deployments.map((d) => {
+                  const cfg = DEPLOY_STATE[d.state] ?? {
+                    label: d.state,
+                    className: "gap-1.5 font-normal",
+                  };
+                  return (
+                    <Item key={d.uid} variant="outline">
+                      <ItemContent>
+                        <ItemTitle>
+                          {d.meta?.githubCommitMessage
+                            ? d.meta.githubCommitMessage.length > 80
+                              ? d.meta.githubCommitMessage.slice(0, 80) + "..."
+                              : d.meta.githubCommitMessage
+                            : d.url}
+                        </ItemTitle>
+                        <ItemDescription>
+                          <span className="flex items-center gap-3 flex-wrap">
+                            <Badge
+                              variant="secondary"
+                              className={cfg.className}
+                            >
+                              {d.state === "BUILDING" && (
+                                <Loader2 className="size-3 animate-spin" />
+                              )}
+                              {cfg.label}
+                            </Badge>
+                            {d.meta?.githubCommitRef && (
+                              <span className="flex items-center gap-1">
+                                <GitBranch className="size-3" />
+                                {d.meta.githubCommitRef}
+                              </span>
+                            )}
+                            {d.target === "production" && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs font-normal"
+                              >
+                                Production
+                              </Badge>
+                            )}
+                            <span className="flex items-center gap-1">
+                              <Clock className="size-3" />
+                              {timeAgo(new Date(d.created).toISOString())}
+                            </span>
+                            {d.creator?.username && (
+                              <span className="text-xs text-muted-foreground">
+                                by {d.creator.username}
+                              </span>
+                            )}
+                          </span>
+                        </ItemDescription>
+                      </ItemContent>
+                      <ItemActions>
+                        {d.state === "READY" && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                className="sm:w-auto sm:px-2.5 sm:h-8"
+                                onClick={() =>
+                                  window.open(`https://${d.url}`, "_blank")
+                                }
+                              >
+                                <ExternalLink className="size-3.5" />
+                                <span className="hidden sm:inline">Visit</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Open deployment</TooltipContent>
+                          </Tooltip>
                         )}
-                        {cfg.label}
-                      </Badge>
-                      {d.meta?.githubCommitRef && (
-                        <span className="flex items-center gap-1">
-                          <GitBranch className="size-3" />
-                          {d.meta.githubCommitRef}
-                        </span>
-                      )}
-                      {d.target === "production" && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs font-normal"
-                        >
-                          Production
-                        </Badge>
-                      )}
-                      <span className="flex items-center gap-1">
-                        <Clock className="size-3" />
-                        {timeAgo(new Date(d.created).toISOString())}
-                      </span>
-                      {d.creator?.username && (
-                        <span className="text-xs text-muted-foreground">
-                          by {d.creator.username}
-                        </span>
-                      )}
-                    </span>
-                  </ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  {d.state === "READY" && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon-sm"
-                          className="sm:w-auto sm:px-2.5 sm:h-8"
-                          onClick={() =>
-                            window.open(`https://${d.url}`, "_blank")
-                          }
-                        >
-                          <ExternalLink className="size-3.5" />
-                          <span className="hidden sm:inline">Visit</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Open deployment</TooltipContent>
-                    </Tooltip>
-                  )}
-                  {d.inspectorUrl && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() =>
-                            window.open(d.inspectorUrl, "_blank")
-                          }
-                        >
-                          <ExternalLink className="size-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>View build logs</TooltipContent>
-                    </Tooltip>
-                  )}
-                </ItemActions>
-              </Item>
-            );
-          })}
-          <a
-            href={`https://vercel.com/${app.vercelProjectName ?? app.vercelProjectId}/deployments`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors text-center py-1"
-          >
-            View all deployments on Vercel
-          </a>
+                        {d.inspectorUrl && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() =>
+                                  window.open(d.inspectorUrl, "_blank")
+                                }
+                              >
+                                <ExternalLink className="size-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>View build logs</TooltipContent>
+                          </Tooltip>
+                        )}
+                      </ItemActions>
+                    </Item>
+                  );
+                })}
+                <a
+                  href={`https://vercel.com/${app.vercelProjectName ?? app.vercelProjectId}/deployments`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors text-center py-1"
+                >
+                  View all deployments on Vercel
+                </a>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

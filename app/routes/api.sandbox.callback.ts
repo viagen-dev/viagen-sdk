@@ -1,7 +1,13 @@
 import { createHash } from "crypto";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "~/lib/db/index.server";
-import { tasks, environments, orgMembers, users } from "~/lib/db/schema";
+import {
+  tasks,
+  environments,
+  orgMembers,
+  users,
+  projects,
+} from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
 import { sendTaskReadyEmail } from "~/lib/email.server";
 
@@ -68,9 +74,7 @@ export async function action({ request }: { request: Request }) {
       .from(tasks)
       .where(eq(tasks.environmentId, body.projectId));
 
-    const authTask = appTasks.find(
-      (t) => t.callbackTokenHash === tokenHash,
-    );
+    const authTask = appTasks.find((t) => t.callbackTokenHash === tokenHash);
     if (!authTask) {
       log.warn(
         { environmentId: body.projectId, action: crudAction },
@@ -116,7 +120,9 @@ export async function action({ request }: { request: Request }) {
       }
       const branch = body.branch?.trim() || "feat";
       const type = body.type?.trim() || "task";
-      if (!VALID_TASK_TYPES.includes(type as (typeof VALID_TASK_TYPES)[number])) {
+      if (
+        !VALID_TASK_TYPES.includes(type as (typeof VALID_TASK_TYPES)[number])
+      ) {
         return Response.json(
           { error: `type must be one of: ${VALID_TASK_TYPES.join(", ")}` },
           { status: 400 },
@@ -129,10 +135,45 @@ export async function action({ request }: { request: Request }) {
       );
       const taskNumber = maxTaskNumber + 1;
 
+      // Resolve the project for this task — fall back to the org's default (Unassigned) project
+      const [environment] = await db
+        .select()
+        .from(environments)
+        .where(eq(environments.id, body.projectId));
+
+      let resolvedProjectId: string | undefined;
+
+      if (environment) {
+        const [defaultProj] = await db
+          .select()
+          .from(projects)
+          .where(
+            and(
+              eq(projects.organizationId, environment.organizationId),
+              eq(projects.isDefault, true),
+            ),
+          );
+        if (defaultProj) {
+          resolvedProjectId = defaultProj.id;
+        }
+      }
+
+      if (!resolvedProjectId) {
+        log.error(
+          { environmentId: body.projectId },
+          "sandbox callback: no default project found for org — cannot create task",
+        );
+        return Response.json(
+          { error: "No default project found for org" },
+          { status: 500 },
+        );
+      }
+
       const [task] = await db
         .insert(tasks)
         .values({
           environmentId: body.projectId,
+          projectId: resolvedProjectId,
           prompt,
           branch,
           type,
@@ -144,7 +185,12 @@ export async function action({ request }: { request: Request }) {
         .returning();
 
       log.info(
-        { environmentId: body.projectId, taskId: task.id, taskNumber },
+        {
+          environmentId: body.projectId,
+          projectId: resolvedProjectId,
+          taskId: task.id,
+          taskNumber,
+        },
         "sandbox callback: task created",
       );
       return Response.json({ task }, { status: 201 });
@@ -169,10 +215,7 @@ export async function action({ request }: { request: Request }) {
   }
 
   // Look up the task
-  const [task] = await db
-    .select()
-    .from(tasks)
-    .where(eq(tasks.id, body.taskId));
+  const [task] = await db.select().from(tasks).where(eq(tasks.id, body.taskId));
 
   if (!task) {
     log.warn({ taskId: body.taskId }, "sandbox callback: task not found");
@@ -255,7 +298,10 @@ export async function action({ request }: { request: Request }) {
     (async () => {
       try {
         const [app] = await db
-          .select({ name: environments.name, organizationId: environments.organizationId })
+          .select({
+            name: environments.name,
+            organizationId: environments.organizationId,
+          })
           .from(environments)
           .where(eq(environments.id, task.environmentId));
 
@@ -276,7 +322,10 @@ export async function action({ request }: { request: Request }) {
             taskPrompt: task.prompt,
             prUrl: body.prUrl,
           }).catch((err: unknown) =>
-            log.error({ email: member.email, taskId: updated.id, err }, "task ready email failed"),
+            log.error(
+              { email: member.email, taskId: updated.id, err },
+              "task ready email failed",
+            ),
           );
         }
 
@@ -285,7 +334,10 @@ export async function action({ request }: { request: Request }) {
           "task ready emails dispatched",
         );
       } catch (err) {
-        log.error({ taskId: updated.id, err }, "failed to send task ready notifications");
+        log.error(
+          { taskId: updated.id, err },
+          "failed to send task ready notifications",
+        );
       }
     })();
   }

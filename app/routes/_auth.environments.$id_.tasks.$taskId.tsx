@@ -11,7 +11,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { requireAuth, serializeCookie } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
-import { environments, tasks } from "~/lib/db/schema";
+import { environments, tasks, projects } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { log } from "~/lib/logger.server";
 import { getSecret } from "~/lib/infisical.server";
@@ -45,7 +45,10 @@ export async function loader({
     .select()
     .from(environments)
     .where(
-      and(eq(environments.id, params.id), eq(environments.organizationId, org.id)),
+      and(
+        eq(environments.id, params.id),
+        eq(environments.organizationId, org.id),
+      ),
     );
 
   if (!app) {
@@ -77,15 +80,11 @@ export async function loader({
         const url = new URL(request.url);
         throw redirect(url.pathname + url.search, {
           headers: {
-            "Set-Cookie": serializeCookie(
-              "viagen-org",
-              appAny.organizationId,
-              {
-                path: "/",
-                maxAge: 60 * 60 * 24 * 365,
-                sameSite: "Lax",
-              },
-            ),
+            "Set-Cookie": serializeCookie("viagen-org", appAny.organizationId, {
+              path: "/",
+              maxAge: 60 * 60 * 24 * 365,
+              sameSite: "Lax",
+            }),
           },
         });
       }
@@ -160,6 +159,24 @@ export async function loader({
     .from(environments)
     .where(eq(environments.organizationId, org.id));
 
+  // Load project name if projectId is provided via query param
+  const url = new URL(request.url);
+  const projectId = url.searchParams.get("projectId");
+  let projectName: string | null = null;
+  if (projectId) {
+    const [proj] = await db
+      .select({ name: projects.name })
+      .from(projects)
+      .where(
+        and(eq(projects.id, projectId), eq(projects.organizationId, org.id)),
+      );
+    projectName = proj?.name ?? null;
+    log.debug(
+      { projectId, projectName },
+      "task detail page: loaded project name for breadcrumb",
+    );
+  }
+
   log.debug(
     { environmentId: app.id, taskId: task.id },
     "task detail page: rendering full page view",
@@ -175,6 +192,8 @@ export async function loader({
       taskNumber: task.taskNumber,
     },
     environments: allApps,
+    projectId: projectId ?? null,
+    projectName,
   };
 }
 
@@ -191,6 +210,8 @@ interface TaskLoaderData {
     taskNumber: number | null;
   };
   environments: Environment[];
+  projectId: string | null;
+  projectName: string | null;
 }
 
 export default function TaskDetailPage({
@@ -213,7 +234,7 @@ export default function TaskDetailPage({
   const livePrompt = liveTask?.prompt ?? loaderData.task.prompt;
 
   const taskId = shortTaskId(loaderData.task.id, {
-    environmentName: loaderData.app.name,
+    environmentName: loaderData.projectName ?? loaderData.app.name,
     taskNumber: loaderData.task.taskNumber,
   });
 
@@ -226,7 +247,9 @@ export default function TaskDetailPage({
       : livePrompt;
 
   const handleClose = () => {
-    if (from === "tasks") {
+    if (from === "project" && loaderData.projectId) {
+      navigate(`/projects/${loaderData.projectId}?tab=tasks`);
+    } else if (from === "tasks") {
       navigate("/tasks");
     } else {
       navigate("/dashboard");
@@ -239,7 +262,14 @@ export default function TaskDetailPage({
       <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
         <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
           <SidebarToggle />
-          {from === "tasks" ? (
+          {from === "project" && loaderData.projectId ? (
+            <Link
+              to={`/projects/${loaderData.projectId}?tab=tasks`}
+              className="text-base font-semibold hover:text-muted-foreground transition-colors whitespace-nowrap shrink-0"
+            >
+              {loaderData.projectName ?? "Project"}
+            </Link>
+          ) : from === "tasks" ? (
             <Link
               to="/tasks"
               className="text-base font-semibold hover:text-muted-foreground transition-colors whitespace-nowrap shrink-0"

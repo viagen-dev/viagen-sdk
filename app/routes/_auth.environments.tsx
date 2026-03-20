@@ -92,6 +92,7 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { cn } from "~/lib/utils";
+import { SidebarToggle } from "~/components/sidebar-toggle";
 
 const generateRandomBranch = () =>
   `feat-${Math.random().toString(36).slice(2, 8)}`;
@@ -627,16 +628,14 @@ export default function Dashboard({
   }, []);
 
   // App filter state — always has a value (also used by the launcher)
-  const [selectedAppId, setSelectedAppId] = useState<string | null>(
-    () => {
-      if (typeof window === "undefined")
-        return loaderData.environments[0]?.id ?? null;
-      const saved = localStorage.getItem("viagen-filter-app");
-      if (saved && loaderData.environments.some((p) => p.id === saved))
-        return saved;
+  const [selectedAppId, setSelectedAppId] = useState<string | null>(() => {
+    if (typeof window === "undefined")
       return loaderData.environments[0]?.id ?? null;
-    },
-  );
+    const saved = localStorage.getItem("viagen-filter-app");
+    if (saved && loaderData.environments.some((p) => p.id === saved))
+      return saved;
+    return loaderData.environments[0]?.id ?? null;
+  });
   const [appPickerOpen, setAppPickerOpen] = useState(false);
   const selectedApp = selectedAppId
     ? (loaderData.environments.find((p) => p.id === selectedAppId) ?? null)
@@ -797,7 +796,9 @@ export default function Dashboard({
       task.vercelProjectId = app.vercelProjectId;
       task.vercelProjectName = app.vercelProjectName;
       useTaskStore.getState().setTask(task);
-      navigate(`/environments/${task.environmentId}/tasks/${task.id}?from=dashboard`);
+      navigate(
+        `/environments/${task.environmentId}/tasks/${task.id}?from=dashboard`,
+      );
     } catch {
       toast.error("Failed to create task");
     } finally {
@@ -823,357 +824,354 @@ export default function Dashboard({
         t.status === "validating" ||
         t.status === "timed_out",
     ).length;
-    const completed = appTasks.filter(
-      (t) => t.status === "completed",
-    ).length;
+    const completed = appTasks.filter((t) => t.status === "completed").length;
     return { backlog, review, completed };
   }, [appTasks]);
 
   return (
-    <div className="flex gap-0">
-      {/* Main content */}
-      <div className="min-w-0 flex-1 mx-auto max-w-[1200px]">
-        {/* Task Launcher */}
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="text-lg font-semibold flex items-center gap-1.5">
-              <span>Create task in</span>
-              {loaderData.environments.length > 1 ? (
-                <Popover
-                  open={appPickerOpen}
-                  onOpenChange={setAppPickerOpen}
-                >
-                  <PopoverTrigger asChild>
-                    <button
-                      role="combobox"
-                      aria-expanded={appPickerOpen}
-                      className="inline-flex items-center gap-1 font-semibold underline decoration-dotted underline-offset-4 hover:opacity-70 transition-opacity cursor-pointer"
-                    >
-                      {selectedApp
-                        ? selectedApp.name
-                        : "Select app"}
-                      <ChevronDown className="size-4 opacity-50" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[240px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search environments..." />
-                      <CommandList>
-                        <CommandEmpty>No environments found.</CommandEmpty>
-                        <CommandGroup>
-                          {loaderData.environments.map((p) => (
-                            <CommandItem
-                              key={p.id}
-                              value={p.name}
-                              onSelect={() => {
-                                updateFilterApp(p.id);
-                                setAppPickerOpen(false);
-                              }}
-                            >
-                              {p.name}
-                              <Check
-                                className={cn(
-                                  "ml-auto size-3.5",
-                                  selectedAppId === p.id
-                                    ? "opacity-100"
-                                    : "opacity-0",
-                                )}
-                              />
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              ) : (
-                <span>
-                  {selectedApp ? selectedApp.name : "Select app"}
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {launchingWs && !standaloneWs && (
-              <div className="flex items-center gap-1.5">
-                <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
-                  Launching…
-                </span>
+    <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center h-14 px-4 border-b shrink-0 gap-2">
+        <SidebarToggle />
+        <h1 className="text-base font-semibold">Dashboard</h1>
+      </div>
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto min-w-0">
+        <div className="min-w-0 flex-1 mx-auto max-w-[1200px] px-6 py-8">
+          {/* Task Launcher */}
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="text-lg font-semibold flex items-center gap-1.5">
+                <span>Create task in</span>
+                {loaderData.environments.length > 1 ? (
+                  <Popover open={appPickerOpen} onOpenChange={setAppPickerOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        role="combobox"
+                        aria-expanded={appPickerOpen}
+                        className="inline-flex items-center gap-1 font-semibold underline decoration-dotted underline-offset-4 hover:opacity-70 transition-opacity cursor-pointer"
+                      >
+                        {selectedApp ? selectedApp.name : "Select app"}
+                        <ChevronDown className="size-4 opacity-50" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[240px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search environments..." />
+                        <CommandList>
+                          <CommandEmpty>No environments found.</CommandEmpty>
+                          <CommandGroup>
+                            {loaderData.environments.map((p) => (
+                              <CommandItem
+                                key={p.id}
+                                value={p.name}
+                                onSelect={() => {
+                                  updateFilterApp(p.id);
+                                  setAppPickerOpen(false);
+                                }}
+                              >
+                                {p.name}
+                                <Check
+                                  className={cn(
+                                    "ml-auto size-3.5",
+                                    selectedAppId === p.id
+                                      ? "opacity-100"
+                                      : "opacity-0",
+                                  )}
+                                />
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <span>{selectedApp ? selectedApp.name : "Select app"}</span>
+                )}
               </div>
-            )}
-            {standaloneWs &&
-              (() => {
-                const isProvisioning = standaloneWs.status === "provisioning";
-                if (isProvisioning) {
+            </div>
+            <div className="flex items-center gap-1.5">
+              {launchingWs && !standaloneWs && (
+                <div className="flex items-center gap-1.5">
+                  <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">
+                    Launching…
+                  </span>
+                </div>
+              )}
+              {standaloneWs &&
+                (() => {
+                  const isProvisioning = standaloneWs.status === "provisioning";
+                  if (isProvisioning) {
+                    return (
+                      <div className="flex items-center gap-1.5">
+                        <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          Launching…
+                        </span>
+                      </div>
+                    );
+                  }
+                  const { domain, token } = parseWsUrl(standaloneWs.url);
+                  const splitUrl = `${domain}/via/iframe/t/${token}`;
                   return (
-                    <div className="flex items-center gap-1.5">
-                      <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">
-                        Launching…
-                      </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        asChild
+                        title="Open workspace"
+                      >
+                        <a
+                          href={standaloneWs.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="size-3.5" />
+                        </a>
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        asChild
+                        title="Split view"
+                      >
+                        <a
+                          href={splitUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Columns2 className="size-3.5" />
+                        </a>
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        className="text-destructive hover:bg-destructive/10"
+                        disabled={stoppingWs}
+                        onClick={handleStopStandaloneWs}
+                        title="Stop workspace"
+                      >
+                        {stoppingWs ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Square className="size-3.5" />
+                        )}
+                      </Button>
                     </div>
                   );
-                }
-                const { domain, token } = parseWsUrl(standaloneWs.url);
-                const splitUrl = `${domain}/via/iframe/t/${token}`;
-                return (
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="icon-sm"
-                      variant="outline"
-                      asChild
-                      title="Open workspace"
-                    >
-                      <a
-                        href={standaloneWs.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <ExternalLink className="size-3.5" />
-                      </a>
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="outline"
-                      asChild
-                      title="Split view"
-                    >
-                      <a
-                        href={splitUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Columns2 className="size-3.5" />
-                      </a>
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="outline"
-                      className="text-destructive hover:bg-destructive/10"
-                      disabled={stoppingWs}
-                      onClick={handleStopStandaloneWs}
-                      title="Stop workspace"
-                    >
-                      {stoppingWs ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : (
-                        <Square className="size-3.5" />
-                      )}
-                    </Button>
-                  </div>
-                );
-              })()}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon-sm">
-                  <Ellipsis className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {!standaloneWs && !launchingWs && (
-                  <>
-                    <DropdownMenuItem
-                      onClick={async () => {
-                        const pid =
-                          selectedAppId ?? loaderData.environments[0]?.id;
-                        if (!pid) {
-                          toast.error("No app selected");
-                          return;
-                        }
-                        const branch = `sandbox-${Math.random().toString(36).slice(2, 8)}`;
-                        setLaunchingWs(true);
-                        try {
-                          const res = await fetch(
-                            `/api/environments/${pid}/sandbox`,
-                            {
-                              method: "POST",
-                              credentials: "include",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ branch }),
-                            },
-                          );
-                          const data = await res.json();
-                          if (res.ok && data.workspace) {
-                            toast.success("Workspace launched");
-                            setStandaloneWs(data.workspace);
-                            window.open(data.workspace.url, "_blank");
-                          } else {
-                            toast.error(
-                              data.error ?? "Failed to launch workspace",
-                            );
+                })()}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon-sm">
+                    <Ellipsis className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {!standaloneWs && !launchingWs && (
+                    <>
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          const pid =
+                            selectedAppId ?? loaderData.environments[0]?.id;
+                          if (!pid) {
+                            toast.error("No app selected");
+                            return;
                           }
-                        } catch {
-                          toast.error("Failed to launch workspace");
-                        } finally {
-                          setLaunchingWs(false);
-                        }
-                      }}
-                    >
-                      <Terminal className="size-3.5" />
-                      Launch Workspace
+                          const branch = `sandbox-${Math.random().toString(36).slice(2, 8)}`;
+                          setLaunchingWs(true);
+                          try {
+                            const res = await fetch(
+                              `/api/environments/${pid}/sandbox`,
+                              {
+                                method: "POST",
+                                credentials: "include",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ branch }),
+                              },
+                            );
+                            const data = await res.json();
+                            if (res.ok && data.workspace) {
+                              toast.success("Workspace launched");
+                              setStandaloneWs(data.workspace);
+                              window.open(data.workspace.url, "_blank");
+                            } else {
+                              toast.error(
+                                data.error ?? "Failed to launch workspace",
+                              );
+                            }
+                          } catch {
+                            toast.error("Failed to launch workspace");
+                          } finally {
+                            setLaunchingWs(false);
+                          }
+                        }}
+                      >
+                        <Terminal className="size-3.5" />
+                        Launch Workspace
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuItem asChild>
+                    <Link to="/environments/new">
+                      <Plus className="size-3.5" />
+                      New App
+                    </Link>
+                  </DropdownMenuItem>
+                  {selectedAppId && (
+                    <DropdownMenuItem asChild>
+                      <Link to={`/environments/${selectedAppId}/deploys`}>
+                        <Rocket className="size-3.5" />
+                        Deployments
+                      </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                <DropdownMenuItem asChild>
-                  <Link to="/environments/new">
-                    <Plus className="size-3.5" />
-                    New App
-                  </Link>
-                </DropdownMenuItem>
-                {selectedAppId && (
+                  )}
                   <DropdownMenuItem asChild>
-                    <Link to={`/environments/${selectedAppId}/deploys`}>
-                      <Rocket className="size-3.5" />
-                      Deployments
+                    <Link to="/data">
+                      <Database className="size-3.5" />
+                      Data Sources
                     </Link>
                   </DropdownMenuItem>
-                )}
-                <DropdownMenuItem asChild>
-                  <Link to="/data">
-                    <Database className="size-3.5" />
-                    Data Sources
-                  </Link>
-                </DropdownMenuItem>
-                {selectedAppId && (
-                  <DropdownMenuItem asChild>
-                    <Link to={`/environments/${selectedAppId}/settings`}>
-                      <Settings className="size-3.5" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                {(selectedApp?.githubRepo || selectedApp?.vercelProjectId) && (
-                  <DropdownMenuSeparator />
-                )}
-                {selectedApp?.githubRepo && (
-                  <DropdownMenuItem asChild>
-                    <a
-                      href={`https://github.com/${selectedApp.githubRepo}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <GitHubIcon size={14} />
-                      GitHub Repository
-                    </a>
-                  </DropdownMenuItem>
-                )}
-                {selectedApp?.vercelProjectId && (
-                  <DropdownMenuItem asChild>
-                    <a
-                      href={`https://vercel.com/${selectedApp.vercelProjectName ?? selectedApp.vercelProjectId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <VercelIcon />
-                      Vercel Project
-                    </a>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  {selectedAppId && (
+                    <DropdownMenuItem asChild>
+                      <Link to={`/environments/${selectedAppId}/settings`}>
+                        <Settings className="size-3.5" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {(selectedApp?.githubRepo ||
+                    selectedApp?.vercelProjectId) && <DropdownMenuSeparator />}
+                  {selectedApp?.githubRepo && (
+                    <DropdownMenuItem asChild>
+                      <a
+                        href={`https://github.com/${selectedApp.githubRepo}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <GitHubIcon size={14} />
+                        GitHub Repository
+                      </a>
+                    </DropdownMenuItem>
+                  )}
+                  {selectedApp?.vercelProjectId && (
+                    <DropdownMenuItem asChild>
+                      <a
+                        href={`https://vercel.com/${selectedApp.vercelProjectName ?? selectedApp.vercelProjectId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <VercelIcon />
+                        Vercel Project
+                      </a>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
-        </div>
-        <div className="mb-6">
-          <Button
-            onClick={handleCreateTask}
-            disabled={creatingTask || loaderData.environments.length === 0}
-            size="sm"
+          <div className="mb-6">
+            <Button
+              onClick={handleCreateTask}
+              disabled={creatingTask || loaderData.environments.length === 0}
+              size="sm"
+            >
+              {creatingTask ? (
+                <Loader2 className="size-3.5 animate-spin mr-1.5" />
+              ) : (
+                <Plus className="size-3.5 mr-1.5" />
+              )}
+              Create task
+            </Button>
+          </div>
+
+          {/* Feed tabs */}
+          <Tabs
+            value={statusFilter ?? "backlog"}
+            onValueChange={updateStatusFilter}
           >
-            {creatingTask ? (
-              <Loader2 className="size-3.5 animate-spin mr-1.5" />
+            <div className="mb-4 flex items-center gap-4">
+              <TabsList>
+                <TabsTrigger value="backlog">
+                  Backlog
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 h-4 min-w-4 px-1 text-[10px]"
+                  >
+                    {counts.backlog}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="review">
+                  Review
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 h-4 min-w-4 px-1 text-[10px]"
+                  >
+                    {counts.review}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="completed">
+                  Completed
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 h-4 min-w-4 px-1 text-[10px]"
+                  >
+                    {counts.completed}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            {/* Task Feed */}
+            {tasksLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredTasks(appTasks, statusFilter).length === 0 ? (
+              <Card className="border-dashed bg-muted/50">
+                <CardContent className="flex flex-col items-center justify-center px-8 py-16">
+                  {appTasks.length === 0 ? (
+                    <>
+                      <Large className="mb-2">No tasks yet</Large>
+                      <Muted className="text-center">
+                        {selectedAppId
+                          ? "No tasks in this app yet."
+                          : "Use the input above to describe what you'd like Claude to build."}
+                      </Muted>
+                    </>
+                  ) : (
+                    <>
+                      <Large className="mb-2">No matching tasks</Large>
+                      <Muted className="text-center mb-3">
+                        No tasks match the current filter.
+                      </Muted>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateStatusFilter("backlog")}
+                      >
+                        Show backlog
+                      </Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             ) : (
-              <Plus className="size-3.5 mr-1.5" />
+              <div className="flex flex-col gap-2">
+                {filteredTasks(appTasks, statusFilter).map((task) => (
+                  <TaskFeedItem
+                    key={task.id}
+                    task={task}
+                    onOpen={openTaskPanel}
+                    isSelected={panelOpen && panelTaskId === task.id}
+                  />
+                ))}
+              </div>
             )}
-            Create task
-          </Button>
+          </Tabs>
         </div>
-
-        {/* Feed tabs */}
-        <Tabs
-          value={statusFilter ?? "backlog"}
-          onValueChange={updateStatusFilter}
-        >
-          <div className="mb-4 flex items-center gap-4">
-            <TabsList>
-              <TabsTrigger value="backlog">
-                Backlog
-                <Badge
-                  variant="secondary"
-                  className="ml-1 h-4 min-w-4 px-1 text-[10px]"
-                >
-                  {counts.backlog}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="review">
-                Review
-                <Badge
-                  variant="secondary"
-                  className="ml-1 h-4 min-w-4 px-1 text-[10px]"
-                >
-                  {counts.review}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="completed">
-                Completed
-                <Badge
-                  variant="secondary"
-                  className="ml-1 h-4 min-w-4 px-1 text-[10px]"
-                >
-                  {counts.completed}
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          {/* Task Feed */}
-          {tasksLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="size-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : filteredTasks(appTasks, statusFilter).length === 0 ? (
-            <Card className="border-dashed bg-muted/50">
-              <CardContent className="flex flex-col items-center justify-center px-8 py-16">
-                {appTasks.length === 0 ? (
-                  <>
-                    <Large className="mb-2">No tasks yet</Large>
-                    <Muted className="text-center">
-                      {selectedAppId
-                        ? "No tasks in this app yet."
-                        : "Use the input above to describe what you'd like Claude to build."}
-                    </Muted>
-                  </>
-                ) : (
-                  <>
-                    <Large className="mb-2">No matching tasks</Large>
-                    <Muted className="text-center mb-3">
-                      No tasks match the current filter.
-                    </Muted>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => updateStatusFilter("backlog")}
-                    >
-                      Show backlog
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {filteredTasks(appTasks, statusFilter).map((task) => (
-                <TaskFeedItem
-                  key={task.id}
-                  task={task}
-                  onOpen={openTaskPanel}
-                  isSelected={panelOpen && panelTaskId === task.id}
-                />
-              ))}
-            </div>
-          )}
-        </Tabs>
       </div>
 
       {/* Task Detail Panel — overlay sidebar */}

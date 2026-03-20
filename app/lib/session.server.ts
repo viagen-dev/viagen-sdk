@@ -2,7 +2,13 @@ import { createHash } from "crypto";
 import { redirect } from "react-router";
 import { validateSession, validateApiToken } from "./auth.server";
 import { db } from "./db/index.server";
-import { orgMembers, organizations, tasks, environments, users } from "./db/schema";
+import {
+  orgMembers,
+  organizations,
+  tasks,
+  environments,
+  users,
+} from "./db/schema";
 import { eq } from "drizzle-orm";
 import type { User } from "./db/schema";
 import { log } from "./logger.server";
@@ -55,6 +61,7 @@ async function fetchMemberships(userId: string) {
       organizationId: orgMembers.organizationId,
       role: orgMembers.role,
       organizationName: organizations.name,
+      organizationDescription: organizations.description,
     })
     .from(orgMembers)
     .innerJoin(organizations, eq(orgMembers.organizationId, organizations.id))
@@ -70,14 +77,13 @@ function isApiRequest(request: Request): boolean {
 }
 
 /** Get the session user from cookie or Bearer token. Returns null if not authenticated. */
-export async function getSessionUser(
-  request: Request,
-): Promise<{
+export async function getSessionUser(request: Request): Promise<{
   user: User;
   memberships: {
     organizationId: string;
     role: string;
     organizationName: string;
+    organizationDescription: string | null;
   }[];
 } | null> {
   // 1. Try Bearer token (API token from CLI/SDK)
@@ -119,11 +125,17 @@ export async function getSessionUser(
       .where(eq(users.email, sandboxEmail))
       .limit(1);
     if (user) {
-      log.info({ email: sandboxEmail }, "sandbox auth bypass: auto-authenticated via VIAGEN_AUTH_EMAIL");
+      log.info(
+        { email: sandboxEmail },
+        "sandbox auth bypass: auto-authenticated via VIAGEN_AUTH_EMAIL",
+      );
       const memberships = await fetchMemberships(user.id);
       return { user, memberships };
     }
-    log.warn({ email: sandboxEmail }, "sandbox auth bypass: VIAGEN_AUTH_EMAIL set but user not found");
+    log.warn(
+      { email: sandboxEmail },
+      "sandbox auth bypass: VIAGEN_AUTH_EMAIL set but user not found",
+    );
   }
 
   return null;
@@ -171,7 +183,11 @@ export async function requireAuth(request: Request) {
 
   return {
     user: session.user,
-    org: { id: membership.organizationId, name: membership.organizationName },
+    org: {
+      id: membership.organizationId,
+      name: membership.organizationName,
+      description: membership.organizationDescription ?? null,
+    },
     role: membership.role,
     memberships: session.memberships,
   };

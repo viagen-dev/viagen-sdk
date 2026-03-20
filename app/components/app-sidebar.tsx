@@ -1,44 +1,30 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useSearchParams } from "react-router";
 import {
   CheckCircle2,
+  Inbox,
+  Bot,
   Plus,
   Box,
   FolderKanban,
   ChevronDown,
   ChevronRight,
-  GitBranch,
-  Moon,
-  Sun,
-  Settings,
-  CreditCard,
-  LogOut,
 } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
-import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import { ThemeToggle } from "~/components/theme-toggle";
 
 interface AppSidebarProps {
   environments: Array<{ id: string; name: string }>;
-  projects: Array<{ id: string; name: string; taskPrefix: string | null }>;
+  projects: Array<{
+    id: string;
+    name: string;
+    taskPrefix: string | null;
+    isDefault: boolean;
+  }>;
   currentOrgName: string;
   orgPickerTrigger: React.ReactNode;
   selectedEnvironmentId?: string | null;
   onEnvironmentSelect?: (environmentId: string) => void;
-  user: {
-    name: string | null;
-    email: string;
-    avatarUrl: string | null;
-  };
-  onLogout: () => void;
 }
 
 export function AppSidebar({
@@ -48,58 +34,87 @@ export function AppSidebar({
   orgPickerTrigger,
   selectedEnvironmentId,
   onEnvironmentSelect,
-  user,
-  onLogout,
 }: AppSidebarProps) {
   const location = useLocation();
   const [projectsExpanded, setProjectsExpanded] = useState(true);
   const [environmentsExpanded, setEnvironmentsExpanded] = useState(false);
 
-  const sortedProjects = [...projects].sort((a, b) =>
-    a.name.localeCompare(b.name),
-  );
+  const sortedProjects = [...projects].sort((a, b) => {
+    if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
 
   const sortedEnvironments = [...environments].sort((a, b) =>
     a.name.localeCompare(b.name),
   );
 
-  const isTasksActive = location.pathname === "/tasks";
-
-  const userInitials = user.name
-    ? user.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
-    : user.email[0].toUpperCase();
+  const isInboxActive = location.pathname === "/inbox";
+  const [searchParams] = useSearchParams();
+  const activeProjectId = location.pathname.startsWith("/projects/")
+    ? location.pathname.split("/")[2]
+    : (searchParams.get("projectId") ?? null);
+  const isTasksActive =
+    (location.pathname === "/tasks" ||
+      location.pathname.startsWith("/tasks/") ||
+      /\/environments\/[^/]+\/tasks\//.test(location.pathname)) &&
+    !activeProjectId;
+  const isSessionsActive = location.pathname === "/sessions";
 
   return (
     <aside className="flex h-full w-[217px] shrink-0 flex-col border-r border-border bg-background p-4">
       {/* Org picker */}
       <div className="mb-4">{orgPickerTrigger}</div>
 
-      {/* My tasks */}
-      <Button
-        variant="ghost"
-        size="sm"
-        asChild
-        className={cn(
-          "w-full justify-start gap-2",
-          isTasksActive && "bg-accent text-accent-foreground",
-        )}
-      >
-        <Link to="/tasks">
-          <CheckCircle2 className="size-4" />
-          <span>My tasks</span>
-        </Link>
-      </Button>
+      {/* Inbox + My tasks + My team */}
+      <div className="flex flex-col gap-0.5">
+        <Button
+          variant="ghost"
+          size="sm"
+          asChild
+          className={cn(
+            "w-full justify-start gap-2",
+            isInboxActive && "bg-accent text-accent-foreground",
+          )}
+        >
+          <Link to="/inbox">
+            <Inbox className="size-4" />
+            <span>Inbox</span>
+          </Link>
+        </Button>
 
-      {/* Divider */}
-      <div className="my-3 border-t border-border" />
+        <Button
+          variant="ghost"
+          size="sm"
+          asChild
+          className={cn(
+            "w-full justify-start gap-2",
+            isTasksActive && "bg-accent text-accent-foreground",
+          )}
+        >
+          <Link to="/tasks">
+            <CheckCircle2 className="size-4" />
+            <span>My tasks</span>
+          </Link>
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          asChild
+          className={cn(
+            "w-full justify-start gap-2",
+            isSessionsActive && "bg-accent text-accent-foreground",
+          )}
+        >
+          <Link to="/sessions">
+            <Bot className="size-4" />
+            <span>My sessions</span>
+          </Link>
+        </Button>
+      </div>
 
       {/* Projects section */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 mt-4">
         <button
           type="button"
           onClick={() => setProjectsExpanded((prev) => !prev)}
@@ -123,7 +138,7 @@ export function AppSidebar({
                 asChild
                 className={cn(
                   "w-full justify-start gap-2",
-                  location.pathname === `/projects/${proj.id}` &&
+                  activeProjectId === proj.id &&
                     "bg-accent text-accent-foreground",
                 )}
               >
@@ -137,11 +152,8 @@ export function AppSidebar({
         )}
       </div>
 
-      {/* Divider */}
-      <div className="my-3 border-t border-border" />
-
       {/* Environments section */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 mt-4">
         <button
           type="button"
           onClick={() => setEnvironmentsExpanded((prev) => !prev)}
@@ -191,63 +203,6 @@ export function AppSidebar({
 
       {/* Spacer pushes footer to bottom */}
       <div className="flex-1" />
-
-      {/* Bottom footer: theme toggle + user avatar */}
-      <div className="border-t border-border pt-3">
-        <div className="flex items-center justify-between px-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-accent cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring w-full min-w-0">
-                <Avatar className="size-7 shrink-0">
-                  {user.avatarUrl ? (
-                    <AvatarImage src={user.avatarUrl} alt={user.name ?? ""} />
-                  ) : null}
-                  <AvatarFallback className="text-xs">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="truncate text-sm font-medium">
-                  {user.name ?? user.email}
-                </span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-48">
-              <div className="px-2 py-1.5">
-                <p className="text-xs font-medium truncate">
-                  {user.name ?? ""}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {user.email}
-                </p>
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/settings" className="flex items-center gap-2">
-                  <Settings className="size-3.5" />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/billing" className="flex items-center gap-2">
-                  <CreditCard className="size-3.5" />
-                  Billing
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={onLogout}
-                className="flex items-center gap-2"
-              >
-                <LogOut className="size-3.5" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <ThemeToggle />
-        </div>
-      </div>
     </aside>
   );
 }

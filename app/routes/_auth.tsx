@@ -10,28 +10,32 @@ import { Button } from "~/components/ui/button";
 import {
   Plus,
   Check,
-  ChevronsUpDown,
-  ArrowLeft,
   ChevronDown,
+  ArrowLeftRight,
+  Settings,
+  Moon,
+  Sun,
+  CreditCard,
+  LogOut,
+  UserRound,
 } from "lucide-react";
 import { AppSidebar } from "~/components/app-sidebar";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "~/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "~/components/ui/command";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 
 import { db } from "~/lib/db/index.server";
-import { environments as environmentsTable, projects as projectsTable } from "~/lib/db/schema";
+import {
+  environments as environmentsTable,
+  projects as projectsTable,
+} from "~/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function loader({ request }: { request: Request }) {
@@ -75,7 +79,12 @@ export async function loader({ request }: { request: Request }) {
     .where(eq(environmentsTable.organizationId, auth.org.id));
 
   const orgProjects = await db
-    .select({ id: projectsTable.id, name: projectsTable.name, taskPrefix: projectsTable.taskPrefix })
+    .select({
+      id: projectsTable.id,
+      name: projectsTable.name,
+      taskPrefix: projectsTable.taskPrefix,
+      isDefault: projectsTable.isDefault,
+    })
     .from(projectsTable)
     .where(eq(projectsTable.organizationId, auth.org.id));
 
@@ -105,22 +114,39 @@ interface LoaderData {
     name: string | null;
     avatarUrl: string | null;
   };
-  currentOrg: { id: string; name: string };
+  currentOrg: { id: string; name: string; description: string | null };
   organizations: { id: string; name: string; role: string }[];
   integrations: { github: boolean; vercel: boolean; claude: boolean };
   environments: { id: string; name: string }[];
-  projects: { id: string; name: string; taskPrefix: string | null }[];
+  projects: {
+    id: string;
+    name: string;
+    taskPrefix: string | null;
+    isDefault: boolean;
+  }[];
 }
 
 export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
-  const { user, currentOrg, organizations, integrations, environments, projects } =
-    loaderData;
+  const {
+    user,
+    currentOrg,
+    organizations,
+    integrations,
+    environments,
+    projects,
+  } = loaderData;
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [teamOpen, setTeamOpen] = useState(false);
+  const [teamOpen, setTeamOpen] = useState(false); // kept for potential future use
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const toggleSidebar = () => setSidebarOpen((v) => !v);
+
+  // Persist the last visited path so we can restore it on next visit
+  useEffect(() => {
+    const path = location.pathname + location.search;
+    document.cookie = `viagen-last-path=${encodeURIComponent(path)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+  }, [location.pathname, location.search]);
 
   // Auto-switch org when ?org= is in the URL (e.g. from invite emails)
   useEffect(() => {
@@ -158,192 +184,156 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
     navigate("/login");
   };
 
-  const isProjectsIndex = location.pathname === "/dashboard";
-  const isTasksPage = location.pathname === "/tasks";
-  const isTaskDetailPage = /^\/environments\/[^/]+\/tasks\/[^/]+/.test(
-    location.pathname,
-  );
-  const isProjectDetailPage = /^\/projects\/[^/]+/.test(location.pathname);
-
-  // Pages that show the sidebar
-  const showSidebar = isProjectsIndex || isTasksPage || isTaskDetailPage || isProjectDetailPage;
+  // ── Theme toggle state (mirrors ThemeToggle component logic) ──────────
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  useEffect(() => {
+    const stored =
+      (localStorage.getItem("viagen-theme") as "light" | "dark") || "light";
+    setTheme(stored);
+  }, []);
+  const toggleTheme = () => {
+    const next = theme === "light" ? "dark" : "light";
+    setTheme(next);
+    document.documentElement.classList.toggle("dark", next === "dark");
+    localStorage.setItem("viagen-theme", next);
+  };
 
   // The org picker trigger rendered inside the sidebar
   const orgPickerTrigger = (
-    <Popover open={teamOpen} onOpenChange={setTeamOpen}>
-      <PopoverTrigger asChild>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           size="sm"
-          role="combobox"
-          aria-expanded={teamOpen}
           className="w-full justify-start gap-1.5 font-medium"
         >
           <span className="truncate">{currentOrg.name}</span>
           <ChevronDown className="ml-auto size-3.5 opacity-50 shrink-0" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Search teams..." />
-          <CommandList>
-            <CommandEmpty>No teams found.</CommandEmpty>
-            <CommandGroup>
-              {organizations.map((org) => (
-                <CommandItem
-                  key={org.id}
-                  value={org.name}
-                  onSelect={() => handleOrgSwitch(org.id)}
-                >
-                  {org.name}
-                  <Check
-                    className={cn(
-                      "ml-auto size-3.5",
-                      currentOrg.id === org.id ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                </CommandItem>
-              ))}
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup>
-              <CommandItem
-                value="Create team"
-                onSelect={() => handleOrgSwitch("__add_team__")}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-52" align="start">
+        {/* Switch teams submenu */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="flex items-center gap-2">
+            <ArrowLeftRight className="size-3.5" />
+            Switch teams
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-48">
+            {organizations.map((org) => (
+              <DropdownMenuItem
+                key={org.id}
+                onSelect={() => handleOrgSwitch(org.id)}
+                className="flex items-center gap-2"
               >
-                <Plus className="size-3.5" />
-                Create team
-              </CommandItem>
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-
-  // Non-sidebar pages: show a minimal top bar with back button + org switcher
-  const nonSidebarTopBar = !showSidebar && (
-    <header className="fixed top-0 right-0 left-0 z-50 border-b border-border bg-background">
-      <div className="flex h-[52px] items-center px-4 gap-3">
-        <Button variant="ghost" size="icon-sm" onClick={() => navigate(-1)}>
-          <ArrowLeft className="size-4" />
-        </Button>
-
-        <Popover open={teamOpen} onOpenChange={setTeamOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              role="combobox"
-              aria-expanded={teamOpen}
-              className="gap-1.5 font-medium"
+                <Check
+                  className={cn(
+                    "size-3.5 shrink-0",
+                    currentOrg.id === org.id ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <span className="truncate">{org.name}</span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => handleOrgSwitch("__add_team__")}
+              className="flex items-center gap-2"
             >
-              {currentOrg.name}
-              <ChevronsUpDown className="size-3.5 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[200px] p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Search teams..." />
-              <CommandList>
-                <CommandEmpty>No teams found.</CommandEmpty>
-                <CommandGroup>
-                  {organizations.map((org) => (
-                    <CommandItem
-                      key={org.id}
-                      value={org.name}
-                      onSelect={() => handleOrgSwitch(org.id)}
-                    >
-                      {org.name}
-                      <Check
-                        className={cn(
-                          "ml-auto size-3.5",
-                          currentOrg.id === org.id
-                            ? "opacity-100"
-                            : "opacity-0",
-                        )}
-                      />
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-                <CommandSeparator />
-                <CommandGroup>
-                  <CommandItem
-                    value="Create team"
-                    onSelect={() => handleOrgSwitch("__add_team__")}
-                  >
-                    <Plus className="size-3.5" />
-                    Create team
-                  </CommandItem>
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </div>
-    </header>
+              <Plus className="size-3.5" />
+              Create team
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+
+        <DropdownMenuSeparator />
+
+        {/* Settings, Profile & Billing */}
+        <DropdownMenuItem asChild>
+          <Link to="/teams" className="flex items-center gap-2">
+            <Settings className="size-3.5" />
+            Settings
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/settings" className="flex items-center gap-2">
+            <UserRound className="size-3.5" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/billing" className="flex items-center gap-2">
+            <CreditCard className="size-3.5" />
+            Billing
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
+        {/* Theme toggle */}
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault();
+            toggleTheme();
+          }}
+          className="flex items-center gap-2"
+        >
+          {theme === "light" ? (
+            <>
+              <Moon className="size-3.5" />
+              Switch to dark mode
+            </>
+          ) : (
+            <>
+              <Sun className="size-3.5" />
+              Switch to light mode
+            </>
+          )}
+        </DropdownMenuItem>
+
+        {/* Log out */}
+        <DropdownMenuItem
+          variant="destructive"
+          onSelect={handleLogout}
+          className="flex items-center gap-2"
+        >
+          <LogOut className="size-3.5" />
+          Log out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 
   return (
     <SidebarProvider value={{ sidebarOpen, toggleSidebar }}>
       <div className="flex min-h-svh overflow-hidden">
-        {nonSidebarTopBar}
-
-        {/* Left sidebar — only on dashboard and tasks pages */}
-        {showSidebar && (
-          <div
-            className={cn(
-              "fixed top-0 left-0 h-svh z-40 transition-transform duration-200",
-              sidebarOpen ? "translate-x-0" : "-translate-x-full",
-            )}
-          >
-            <AppSidebar
-              environments={environments}
-              projects={projects}
-              currentOrgName={currentOrg.name}
-              orgPickerTrigger={orgPickerTrigger}
-              user={user}
-              onLogout={handleLogout}
-              onEnvironmentSelect={(environmentId: string) => {
-                navigate(`/dashboard?filterApp=${environmentId}`);
-              }}
-            />
-          </div>
-        )}
-
-        {/* Main content area */}
-        <main
+        {/* Sidebar — always shown */}
+        <div
           className={cn(
-            "flex-1 min-w-0 overflow-hidden bg-muted/30 transition-[margin] duration-200",
-            showSidebar && sidebarOpen && "ml-[217px]",
-            showSidebar && !sidebarOpen && "ml-0",
-            !showSidebar && "mt-[52px]",
+            "fixed top-0 left-0 h-svh z-40 transition-transform duration-200",
+            sidebarOpen ? "translate-x-0" : "-translate-x-full",
           )}
         >
-          {/* /tasks — full-bleed, no padding (page manages its own layout) */}
-          {isTasksPage ? (
-            <div className="h-svh flex flex-col min-w-0 overflow-hidden">
-              <Outlet />
-            </div>
-          ) : /* task detail page — full bleed, page manages its own layout */
-          isTaskDetailPage ? (
-            <div className="h-svh flex flex-col min-w-0 overflow-hidden">
-              <Outlet />
-            </div>
-          ) : /* /dashboard — full-width with padding */
-          isProjectsIndex || isProjectDetailPage ? (
-            <div className="w-full px-6 py-8">
-              <Outlet />
-            </div>
-          ) : /* /settings — full-width, no max constraint */
-          location.pathname === "/settings" ? (
-            <Outlet />
-          ) : (
-            /* All other auth pages — centered with max-width */
-            <div className="mx-auto w-full max-w-[1200px] px-6 py-8">
-              <Outlet />
-            </div>
+          <AppSidebar
+            environments={environments}
+            projects={projects}
+            currentOrgName={currentOrg.name}
+            orgPickerTrigger={orgPickerTrigger}
+            onEnvironmentSelect={(environmentId: string) => {
+              navigate(`/dashboard?filterApp=${environmentId}`);
+            }}
+          />
+        </div>
+
+        {/* Main content area — full bleed, each page owns its layout */}
+        <main
+          className={cn(
+            "flex-1 min-w-0 overflow-hidden bg-background transition-[margin] duration-200",
+            sidebarOpen ? "ml-[217px]" : "ml-0",
           )}
+        >
+          <div className="h-svh flex flex-col min-w-0 overflow-hidden">
+            <Outlet />
+          </div>
         </main>
       </div>
     </SidebarProvider>

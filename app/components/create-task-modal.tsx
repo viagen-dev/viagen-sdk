@@ -188,10 +188,7 @@ export function CreateTaskModal({
             <div className="px-5 pb-1">
               <p className="text-xs text-muted-foreground">
                 Connect your{" "}
-                <Link
-                  to="/settings?tab=settings"
-                  className="underline font-medium"
-                >
+                <Link to="/teams" className="underline font-medium">
                   Claude API key
                 </Link>{" "}
                 to get started.

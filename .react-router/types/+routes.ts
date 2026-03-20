@@ -66,7 +66,16 @@ type Pages = {
   "/billing": {
     params: {};
   };
+  "/inbox": {
+    params: {};
+  };
   "/tasks": {
+    params: {};
+  };
+  "/sessions": {
+    params: {};
+  };
+  "/teams": {
     params: {};
   };
   "/projects/:id": {
@@ -107,6 +116,35 @@ type Pages = {
   };
   "/api/projects": {
     params: {};
+  };
+  "/api/projects/:id/tasks": {
+    params: {
+      "id": string;
+    };
+  };
+  "/api/projects/:id/tasks/:taskId": {
+    params: {
+      "id": string;
+      "taskId": string;
+    };
+  };
+  "/api/projects/:id/tasks/:taskId/merge": {
+    params: {
+      "id": string;
+      "taskId": string;
+    };
+  };
+  "/api/projects/:id/tasks/:taskId/cancel": {
+    params: {
+      "id": string;
+      "taskId": string;
+    };
+  };
+  "/api/projects/:id/tasks/:taskId/attachments": {
+    params: {
+      "id": string;
+      "taskId": string;
+    };
   };
   "/api/environments": {
     params: {};
@@ -231,7 +269,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/privacy" | "/terms" | "/company" | "/request-invite" | "/onboarding" | "/cli/authorize" | "/dashboard" | "/environments/new" | "/environments/:id/settings" | "/environments/:id/deploys" | "/environments/:id/tasks/:taskId" | "/settings" | "/data" | "/billing" | "/tasks" | "/projects/:id" | "/api/auth/invite" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/profile" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/environments" | "/api/environments/sync" | "/api/environments/:id" | "/api/environments/:id/claude" | "/api/environments/:id/secrets" | "/api/environments/:id/vercel-sync" | "/api/environments/:id/sandbox" | "/api/sandbox/callback" | "/api/environments/:id/workspaces/:workspaceId/logs" | "/api/databases" | "/api/environments/:id/status" | "/api/environments/:id/tasks" | "/api/environments/:id/tasks/:taskId" | "/api/environments/:id/tasks/:taskId/merge" | "/api/environments/:id/tasks/:taskId/cancel" | "/api/environments/:id/tasks/:taskId/delete" | "/api/environments/:id/tasks/:taskId/attachments" | "/api/tasks" | "/api/environments/:id/deployments" | "/api/vercel/environments" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
+    page: "/" | "/login" | "/privacy" | "/terms" | "/company" | "/request-invite" | "/onboarding" | "/cli/authorize" | "/dashboard" | "/environments/new" | "/environments/:id/settings" | "/environments/:id/deploys" | "/environments/:id/tasks/:taskId" | "/settings" | "/data" | "/billing" | "/inbox" | "/tasks" | "/sessions" | "/teams" | "/projects/:id" | "/api/auth/invite" | "/api/auth/login/:provider" | "/api/auth/callback/:provider" | "/api/auth/me" | "/api/auth/profile" | "/api/auth/logout" | "/api/auth/tokens" | "/api/orgs" | "/api/orgs/members" | "/api/projects" | "/api/projects/:id/tasks" | "/api/projects/:id/tasks/:taskId" | "/api/projects/:id/tasks/:taskId/merge" | "/api/projects/:id/tasks/:taskId/cancel" | "/api/projects/:id/tasks/:taskId/attachments" | "/api/environments" | "/api/environments/sync" | "/api/environments/:id" | "/api/environments/:id/claude" | "/api/environments/:id/secrets" | "/api/environments/:id/vercel-sync" | "/api/environments/:id/sandbox" | "/api/sandbox/callback" | "/api/environments/:id/workspaces/:workspaceId/logs" | "/api/databases" | "/api/environments/:id/status" | "/api/environments/:id/tasks" | "/api/environments/:id/tasks/:taskId" | "/api/environments/:id/tasks/:taskId/merge" | "/api/environments/:id/tasks/:taskId/cancel" | "/api/environments/:id/tasks/:taskId/delete" | "/api/environments/:id/tasks/:taskId/attachments" | "/api/tasks" | "/api/environments/:id/deployments" | "/api/vercel/environments" | "/api/github/repos" | "/api/integrations/github/start" | "/api/integrations/github" | "/api/integrations/vercel/start" | "/api/integrations/vercel/callback" | "/api/integrations/vercel" | "/api/integrations/status" | "/api/claude-key";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -267,7 +305,7 @@ type RouteFiles = {
   };
   "routes/_auth.tsx": {
     id: "routes/_auth";
-    page: "/dashboard" | "/environments/new" | "/environments/:id/settings" | "/environments/:id/deploys" | "/environments/:id/tasks/:taskId" | "/settings" | "/data" | "/billing" | "/tasks" | "/projects/:id";
+    page: "/dashboard" | "/environments/new" | "/environments/:id/settings" | "/environments/:id/deploys" | "/environments/:id/tasks/:taskId" | "/settings" | "/data" | "/billing" | "/inbox" | "/tasks" | "/sessions" | "/teams" | "/projects/:id";
   };
   "routes/_auth.environments.tsx": {
     id: "routes/_auth.environments";
@@ -301,9 +339,21 @@ type RouteFiles = {
     id: "routes/_auth.billing";
     page: "/billing";
   };
+  "routes/_auth.inbox.tsx": {
+    id: "routes/_auth.inbox";
+    page: "/inbox";
+  };
   "routes/_auth.tasks.tsx": {
     id: "routes/_auth.tasks";
     page: "/tasks";
+  };
+  "routes/_auth.sessions.tsx": {
+    id: "routes/_auth.sessions";
+    page: "/sessions";
+  };
+  "routes/_auth.teams.tsx": {
+    id: "routes/_auth.teams";
+    page: "/teams";
   };
   "routes/_auth.projects.$id.tsx": {
     id: "routes/_auth.projects.$id";
@@ -348,6 +398,26 @@ type RouteFiles = {
   "routes/api.projects.ts": {
     id: "routes/api.projects";
     page: "/api/projects";
+  };
+  "routes/api.projects.$id.tasks.ts": {
+    id: "routes/api.projects.$id.tasks";
+    page: "/api/projects/:id/tasks";
+  };
+  "routes/api.projects.$id.tasks.$taskId.ts": {
+    id: "routes/api.projects.$id.tasks.$taskId";
+    page: "/api/projects/:id/tasks/:taskId";
+  };
+  "routes/api.projects.$id.tasks.$taskId.merge.ts": {
+    id: "routes/api.projects.$id.tasks.$taskId.merge";
+    page: "/api/projects/:id/tasks/:taskId/merge";
+  };
+  "routes/api.projects.$id.tasks.$taskId.cancel.ts": {
+    id: "routes/api.projects.$id.tasks.$taskId.cancel";
+    page: "/api/projects/:id/tasks/:taskId/cancel";
+  };
+  "routes/api.projects.$id.tasks.$taskId.attachments.ts": {
+    id: "routes/api.projects.$id.tasks.$taskId.attachments";
+    page: "/api/projects/:id/tasks/:taskId/attachments";
   };
   "routes/api.environments.ts": {
     id: "routes/api.environments";
@@ -482,7 +552,10 @@ type RouteModules = {
   "routes/_auth.settings": typeof import("./app/routes/_auth.settings.tsx");
   "routes/_auth.data": typeof import("./app/routes/_auth.data.tsx");
   "routes/_auth.billing": typeof import("./app/routes/_auth.billing.tsx");
+  "routes/_auth.inbox": typeof import("./app/routes/_auth.inbox.tsx");
   "routes/_auth.tasks": typeof import("./app/routes/_auth.tasks.tsx");
+  "routes/_auth.sessions": typeof import("./app/routes/_auth.sessions.tsx");
+  "routes/_auth.teams": typeof import("./app/routes/_auth.teams.tsx");
   "routes/_auth.projects.$id": typeof import("./app/routes/_auth.projects.$id.tsx");
   "routes/api.auth.invite": typeof import("./app/routes/api.auth.invite.ts");
   "routes/api.auth.login.$provider": typeof import("./app/routes/api.auth.login.$provider.ts");
@@ -494,6 +567,11 @@ type RouteModules = {
   "routes/api.orgs": typeof import("./app/routes/api.orgs.ts");
   "routes/api.orgs.members": typeof import("./app/routes/api.orgs.members.ts");
   "routes/api.projects": typeof import("./app/routes/api.projects.ts");
+  "routes/api.projects.$id.tasks": typeof import("./app/routes/api.projects.$id.tasks.ts");
+  "routes/api.projects.$id.tasks.$taskId": typeof import("./app/routes/api.projects.$id.tasks.$taskId.ts");
+  "routes/api.projects.$id.tasks.$taskId.merge": typeof import("./app/routes/api.projects.$id.tasks.$taskId.merge.ts");
+  "routes/api.projects.$id.tasks.$taskId.cancel": typeof import("./app/routes/api.projects.$id.tasks.$taskId.cancel.ts");
+  "routes/api.projects.$id.tasks.$taskId.attachments": typeof import("./app/routes/api.projects.$id.tasks.$taskId.attachments.ts");
   "routes/api.environments": typeof import("./app/routes/api.environments.ts");
   "routes/api.environments.sync": typeof import("./app/routes/api.environments.sync.ts");
   "routes/api.environments.$id": typeof import("./app/routes/api.environments.$id.ts");
