@@ -52,6 +52,8 @@ export async function action({ request }: { request: Request }) {
       vercelOrgId: body.vercelOrgId ?? null,
       githubRepo: body.githubRepo ?? null,
       templateId: body.templateId ?? null,
+      ...(body.kind && { kind: body.kind }),
+      ...(body.domain !== undefined && { domain: body.domain ?? null }),
     })
     .returning();
 
@@ -59,5 +61,5 @@ export async function action({ request }: { request: Request }) {
     { orgId: org.id, environmentId: app.id, appName: app.name },
     "app created",
   );
-  return Response.json({ app }, { status: 201 });
+  return Response.json({ environment: app }, { status: 201 });
 }

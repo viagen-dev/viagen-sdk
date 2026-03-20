@@ -45,11 +45,22 @@ try {
     [userA.id, orgA.id],
   )
 
+  // Seed a default project (for task grouping)
   const {
     rows: [testProject],
   } = await client.query(
-    `INSERT INTO projects (organization_id, name, template_id)
-     VALUES ($1, 'Test Project', 'react-router')
+    `INSERT INTO projects (organization_id, name, is_default)
+     VALUES ($1, 'Test Project', true)
+     RETURNING id`,
+    [orgA.id],
+  )
+
+  // Seed an environment (the primary entity tests interact with)
+  const {
+    rows: [testEnvironment],
+  } = await client.query(
+    `INSERT INTO environments (organization_id, name, template_id)
+     VALUES ($1, 'Test Environment', 'react-router')
      RETURNING id`,
     [orgA.id],
   )
@@ -59,9 +70,9 @@ try {
   const callbackTokenHash = createHash('sha256').update(callbackToken).digest('hex')
 
   await client.query(
-    `INSERT INTO tasks (project_id, prompt, status, branch, created_by, callback_token_hash, started_at)
-     VALUES ($1, 'Seeded callback test task', 'running', 'test-callback', $2, $3, NOW())`,
-    [testProject.id, userA.id, callbackTokenHash],
+    `INSERT INTO tasks (environment_id, project_id, prompt, status, branch, created_by, callback_token_hash, started_at)
+     VALUES ($1, $2, 'Seeded callback test task', 'running', 'test-callback', $3, $4, NOW())`,
+    [testEnvironment.id, testProject.id, userA.id, callbackTokenHash],
   )
 
 

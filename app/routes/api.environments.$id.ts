@@ -25,7 +25,7 @@ export async function loader({
     return Response.json({ error: "App not found" }, { status: 404 });
   }
 
-  return Response.json({ app });
+  return Response.json({ environment: app });
 }
 
 export async function action({
@@ -57,6 +57,8 @@ export async function action({
       updates.vercelOrgId = body.vercelOrgId ?? null;
     if ("githubRepo" in body) updates.githubRepo = body.githubRepo ?? null;
     if ("taskPrefix" in body) updates.taskPrefix = body.taskPrefix ?? null;
+    if ("kind" in body) updates.kind = body.kind;
+    if ("domain" in body) updates.domain = body.domain ?? null;
 
     if (Object.keys(updates).length === 0) {
       return Response.json({ error: "No updates provided" }, { status: 400 });
@@ -76,7 +78,7 @@ export async function action({
       { environmentId: id, updates: Object.keys(updates) },
       "app updated",
     );
-    return Response.json({ app });
+    return Response.json({ environment: app });
   }
 
   if (request.method === "DELETE") {
