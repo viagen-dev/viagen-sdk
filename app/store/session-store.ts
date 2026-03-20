@@ -39,6 +39,6 @@ export const useSessionStore = create<SessionStoreState>()(
         partialize: (state) => ({ collapsed: state.collapsed }),
       },
     ),
-    { name: "session-store" },
+    { name: "session-store", enabled: true },
   ),
 );

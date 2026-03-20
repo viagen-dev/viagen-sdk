@@ -236,7 +236,7 @@ export const useTaskStore = create<TaskState>()(
         partialize: (state) => ({ collapsed: state.collapsed }),
       },
     ),
-    { name: "task-store" },
+    { name: "task-store", enabled: true },
   ),
 );
 
