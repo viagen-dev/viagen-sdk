@@ -18,7 +18,25 @@ export async function loader({ request }: { request: Request }) {
       ?.split("=")
       .slice(1)
       .join("=");
-    const destination = lastPath ? decodeURIComponent(lastPath) : "/dashboard";
+    const decoded = lastPath ? decodeURIComponent(lastPath) : null;
+    // Only restore paths for stable top-level routes — skip detail pages
+    // (projects, environments, tasks) that may no longer exist.
+    const SAFE_PREFIXES = [
+      "/dashboard",
+      "/tasks",
+      "/inbox",
+      "/sessions",
+      "/settings",
+      "/billing",
+      "/teams",
+      "/data",
+    ];
+    const isSafe =
+      decoded &&
+      SAFE_PREFIXES.some(
+        (prefix) => decoded === prefix || decoded.startsWith(prefix + "?"),
+      );
+    const destination = isSafe ? decoded : "/dashboard";
     throw redirect(destination);
   }
   return null;
