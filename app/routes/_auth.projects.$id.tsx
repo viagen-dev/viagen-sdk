@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { useProjectStore } from "~/store/project-store";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 import {
   Ellipsis,
@@ -356,12 +357,15 @@ export default function ProjectDetail({
   }));
 
   // ── Overview tab state ──────────────────────────────────────────────────
+  const updateProjectStore = useProjectStore((s) => s.updateProject);
   const [editTitle, setEditTitle] = useState(project.name);
   const [editDescription, setEditDescription] = useState(
     project.description ?? "",
   );
+  const [editPrefix, setEditPrefix] = useState(project.taskPrefix ?? "");
   const [savingTitle, setSavingTitle] = useState(false);
   const [savingDescription, setSavingDescription] = useState(false);
+  const [savingPrefix, setSavingPrefix] = useState(false);
   const [defaultEnvId, setDefaultEnvId] = useState<string | null>(
     project.defaultEnvironmentId,
   );
@@ -379,6 +383,7 @@ export default function ProjectDetail({
   useEffect(() => {
     setEditTitle(project.name);
     setEditDescription(project.description ?? "");
+    setEditPrefix(project.taskPrefix ?? "");
     setDefaultEnvId(project.defaultEnvironmentId);
     setAttachments(loaderData.attachments);
     setSessions(loaderData.sessions ?? []);
@@ -482,6 +487,7 @@ export default function ProjectDetail({
         setEditTitle(project.name);
       } else {
         console.log("[ProjectDetail] Title saved:", data.project?.name);
+        updateProjectStore(project.id, { name: trimmed });
         toast.success("Project title updated");
       }
     } catch (err) {
@@ -491,7 +497,7 @@ export default function ProjectDetail({
     } finally {
       setSavingTitle(false);
     }
-  }, [editTitle, project.id, project.name]);
+  }, [editTitle, project.id, project.name, updateProjectStore]);
 
   // ── Save description ──────────────────────────────────────────────────
   const saveDescription = useCallback(async () => {
@@ -524,6 +530,36 @@ export default function ProjectDetail({
       setSavingDescription(false);
     }
   }, [editDescription, project.id, project.description]);
+
+  // ── Save task prefix ───────────────────────────────────────────────────
+  const savePrefix = useCallback(async () => {
+    const trimmed = editPrefix.trim().toUpperCase().slice(0, 10);
+    const original = project.taskPrefix ?? "";
+    if (trimmed === original) return;
+
+    setSavingPrefix(true);
+    try {
+      const res = await fetch("/api/projects", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: project.id, taskPrefix: trimmed || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Failed to save prefix");
+        setEditPrefix(original);
+      } else {
+        setEditPrefix(trimmed);
+        updateProjectStore(project.id, { taskPrefix: trimmed || null });
+      }
+    } catch {
+      toast.error("Failed to save prefix");
+      setEditPrefix(original);
+    } finally {
+      setSavingPrefix(false);
+    }
+  }, [editPrefix, project.id, project.taskPrefix, updateProjectStore]);
 
   // ── Save default environment ──────────────────────────────────────────
   const saveDefaultEnvironment = useCallback(
@@ -931,6 +967,38 @@ export default function ProjectDetail({
                 {savingDescription && (
                   <Loader2 className="absolute right-0 top-1 size-3.5 animate-spin text-muted-foreground" />
                 )}
+              </div>
+            )}
+
+            {/* Task ID prefix */}
+            {!project.isDefault && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-36 shrink-0">
+                  Task ID prefix
+                </span>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={editPrefix}
+                    onChange={(e) =>
+                      setEditPrefix(e.target.value.toUpperCase().slice(0, 10))
+                    }
+                    onBlur={savePrefix}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                      if (e.key === "Escape") {
+                        setEditPrefix(project.taskPrefix ?? "");
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    placeholder="e.g. SDK"
+                    disabled={savingPrefix}
+                    className="w-24 border-0 bg-transparent px-0 text-sm text-muted-foreground shadow-none focus:outline-none focus-visible:outline-none placeholder:text-muted-foreground/40"
+                  />
+                  {savingPrefix && (
+                    <Loader2 className="absolute right-0 top-1/2 -translate-y-1/2 size-3.5 animate-spin text-muted-foreground" />
+                  )}
+                </div>
               </div>
             )}
 
@@ -1421,22 +1489,39 @@ export default function ProjectDetail({
 
                       {/* Actions */}
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {isRunning && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="shadow-none h-7 px-2.5 text-xs"
-                            asChild
-                          >
-                            <a
-                              href={session.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                        {isRunning && session.url && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="shadow-none h-7 px-2.5 text-xs"
+                              asChild
                             >
-                              <ExternalLink className="size-3 mr-1" />
-                              Open
-                            </a>
-                          </Button>
+                              <a
+                                href={`${session.url}/via/iframe`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <Bot className="size-3 mr-1" />
+                                Chat
+                              </a>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="shadow-none h-7 px-2.5 text-xs"
+                              asChild
+                            >
+                              <a
+                                href={session.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <ExternalLink className="size-3 mr-1" />
+                                Preview
+                              </a>
+                            </Button>
+                          </>
                         )}
                         {(isRunning || isProvisioning) && (
                           <Button

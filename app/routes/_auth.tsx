@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { SidebarProvider } from "~/lib/sidebar-context";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
+import { useProjectStore } from "~/store/project-store";
 import { requireAuth } from "~/lib/session.server";
 import { listOrgSecrets } from "~/lib/infisical.server";
 import { log } from "~/lib/logger.server";
@@ -141,6 +142,22 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
   const [teamOpen, setTeamOpen] = useState(false); // kept for potential future use
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const toggleSidebar = () => setSidebarOpen((v) => !v);
+
+  // Seed project store from loader data so sidebar is reactive to renames
+  const setProjects = useProjectStore((s) => s.setProjects);
+  useEffect(() => {
+    setProjects(projects.map((p) => ({ ...p, description: null, defaultEnvironmentId: null })));
+  }, [projects, setProjects]);
+
+  // Read from store for reactive sidebar
+  const storeProjects = useProjectStore((s) => s.projects);
+  const sidebarProjects = useMemo(
+    () =>
+      storeProjects.length > 0
+        ? storeProjects.map((p) => ({ id: p.id, name: p.name, taskPrefix: p.taskPrefix, isDefault: p.isDefault }))
+        : projects,
+    [storeProjects, projects],
+  );
 
   // Persist the last visited path so we can restore it on next visit
   useEffect(() => {
@@ -315,7 +332,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
         >
           <AppSidebar
             environments={environments}
-            projects={projects}
+            projects={sidebarProjects}
             currentOrgName={currentOrg.name}
             orgPickerTrigger={orgPickerTrigger}
           />

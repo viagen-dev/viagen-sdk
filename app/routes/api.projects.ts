@@ -37,6 +37,7 @@ async function handleUpdate(request: Request) {
     id?: string;
     name?: string;
     description?: string;
+    taskPrefix?: string | null;
     defaultEnvironmentId?: string | null;
   } = {};
   try {
@@ -93,6 +94,8 @@ async function handleUpdate(request: Request) {
   if (body.name !== undefined) updates.name = body.name.trim();
   if (body.description !== undefined)
     updates.description = body.description ?? null;
+  if (body.taskPrefix !== undefined)
+    updates.taskPrefix = body.taskPrefix?.trim().toUpperCase().slice(0, 10) || null;
   if (body.defaultEnvironmentId !== undefined)
     updates.defaultEnvironmentId = body.defaultEnvironmentId ?? null;
 

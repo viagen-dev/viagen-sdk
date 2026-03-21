@@ -3,13 +3,17 @@ import { create } from "zustand";
 export interface ProjectRecord {
   id: string;
   name: string;
+  description: string | null;
   taskPrefix: string | null;
+  isDefault: boolean;
+  defaultEnvironmentId: string | null;
 }
 
 interface ProjectState {
   projects: ProjectRecord[];
   loaded: boolean;
   setProjects: (projects: ProjectRecord[]) => void;
+  updateProject: (id: string, updates: Partial<ProjectRecord>) => void;
   fetchProjects: () => Promise<void>;
 }
 
@@ -18,6 +22,13 @@ export const useProjectStore = create<ProjectState>()((set) => ({
   loaded: false,
 
   setProjects: (projects) => set({ projects, loaded: true }),
+
+  updateProject: (id, updates) =>
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === id ? { ...p, ...updates } : p,
+      ),
+    })),
 
   fetchProjects: async () => {
     try {
