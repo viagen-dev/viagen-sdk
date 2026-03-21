@@ -27,6 +27,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-plugin:
+    needs: publish-sdk  # plugin depends on viagen-sdk — publish SDK first
     runs-on: ubuntu-latest
     defaults:
       run:
