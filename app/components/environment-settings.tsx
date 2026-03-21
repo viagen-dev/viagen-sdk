@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouteLoaderData, useNavigate } from "react-router";
-import { Sparkles, TriangleAlert } from "lucide-react";
+import { Sparkles, Terminal, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -28,6 +28,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "~/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { ResourcePicker } from "~/components/resource-picker";
 
 // ---------------------------------------------------------------------------
@@ -43,6 +50,8 @@ interface AppRecord {
   githubRepo: string | null;
   taskPrefix: string | null;
   vercelEnvSync: Record<string, boolean> | null;
+  sandboxCommand: string | null;
+  sandboxTimeout: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -199,6 +208,11 @@ export function EnvironmentSettingsPanel({
   const [orgSecrets, setOrgSecrets] = useState<SecretEntry[]>([]);
   const [secretsLoading, setSecretsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Sandbox config state
+  const [sandboxCommand, setSandboxCommand] = useState(app.sandboxCommand ?? "");
+  const [sandboxTimeout, setSandboxTimeout] = useState<number | null>(app.sandboxTimeout);
+  const [savingSandboxConfig, setSavingSandboxConfig] = useState(false);
 
   // Vercel sync state
   const [syncKeys, setSyncKeys] = useState<VercelSyncKey[]>([]);
@@ -535,6 +549,26 @@ export function EnvironmentSettingsPanel({
   const [confirmText, setConfirmText] = useState("");
 
   const canDelete = confirmText === app.name;
+
+  const saveSandboxConfig = async (field: string, value: string | number | null) => {
+    setSavingSandboxConfig(true);
+    try {
+      const res = await fetch(`/api/environments/${app.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to save");
+      }
+    } catch {
+      toast.error("Failed to save");
+    } finally {
+      setSavingSandboxConfig(false);
+    }
+  };
 
   const handleDeleteApp = async () => {
     if (!canDelete || deleting) return;
@@ -961,6 +995,72 @@ export function EnvironmentSettingsPanel({
               />
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ================================================================= */}
+      {/* Sandbox Configuration                                             */}
+      {/* ================================================================= */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Terminal className="size-4" /> Sandbox
+          </CardTitle>
+          <CardDescription>
+            Configure how sandboxes start and how long they run.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium">Preview command</label>
+            <Input
+              value={sandboxCommand}
+              onChange={(e) => setSandboxCommand(e.target.value)}
+              onBlur={() =>
+                saveSandboxConfig(
+                  "sandboxCommand",
+                  sandboxCommand.trim() || null,
+                )
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+              placeholder="npm run dev"
+              disabled={savingSandboxConfig}
+            />
+            <p className="text-xs text-muted-foreground">
+              The command used to start your app in sandboxes. Leave blank for the default.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium">Default duration</label>
+            <Select
+              value={sandboxTimeout ? String(sandboxTimeout) : "30"}
+              onValueChange={(val) => {
+                const mins = parseInt(val, 10);
+                setSandboxTimeout(mins);
+                saveSandboxConfig("sandboxTimeout", mins);
+              }}
+              disabled={savingSandboxConfig}
+            >
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="15">15 minutes</SelectItem>
+                <SelectItem value="30">30 minutes</SelectItem>
+                <SelectItem value="45">45 minutes</SelectItem>
+                <SelectItem value="60">1 hour *</SelectItem>
+                <SelectItem value="120">2 hours *</SelectItem>
+                <SelectItem value="180">3 hours *</SelectItem>
+                <SelectItem value="240">4 hours *</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              * Durations over 45 minutes require a Vercel Pro or Enterprise plan.
+            </p>
+          </div>
         </CardContent>
       </Card>
 

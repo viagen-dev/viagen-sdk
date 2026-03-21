@@ -59,6 +59,10 @@ export async function action({
     if ("taskPrefix" in body) updates.taskPrefix = body.taskPrefix ?? null;
     if ("kind" in body) updates.kind = body.kind;
     if ("domain" in body) updates.domain = body.domain ?? null;
+    if ("sandboxCommand" in body)
+      updates.sandboxCommand = body.sandboxCommand?.trim() || null;
+    if ("sandboxTimeout" in body)
+      updates.sandboxTimeout = body.sandboxTimeout ?? null;
 
     if (Object.keys(updates).length === 0) {
       return Response.json({ error: "No updates provided" }, { status: 400 });
