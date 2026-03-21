@@ -382,14 +382,6 @@ export default function SessionDetailPage({
           {isRunning && splitUrl && (
             <Button variant="outline" size="sm" asChild>
               <a href={splitUrl} target="_blank" rel="noopener noreferrer">
-                <Columns2 className="size-3.5 mr-1.5" />
-                Split view
-              </a>
-            </Button>
-          )}
-          {isRunning && splitUrl && (
-            <Button variant="outline" size="sm" asChild>
-              <a href={splitUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="size-3.5 mr-1.5" />
                 Open
               </a>

@@ -756,6 +756,19 @@ export default function ProjectDetail({
     }
   }, [project.id, firstEnvironmentId, navigate]);
 
+  function parseWsUrl(url: string): { domain: string; token: string } | null {
+    const match = url.match(/^(https?:\/\/[^/]+).*\/t\/([^/]+)$/);
+    if (!match) return null;
+    return { domain: match[1], token: match[2] };
+  }
+
+  function iframeUrl(url: string): string {
+    const parsed = parseWsUrl(url);
+    return parsed
+      ? `${parsed.domain}/via/iframe/t/${parsed.token}`
+      : `${url}/via/iframe`;
+  }
+
   function timeRemaining(expiresAt: string): string {
     const diff = new Date(expiresAt).getTime() - Date.now();
     if (diff <= 0) return "Expired";
@@ -946,7 +959,7 @@ export default function ProjectDetail({
                       e.currentTarget.blur();
                     }
                   }}
-                  placeholder="Add specs"
+                  placeholder="Add a description"
                   rows={1}
                   className="w-full border-0 bg-transparent px-0 text-sm text-muted-foreground shadow-none resize-none focus:outline-none focus-visible:outline-none placeholder:text-muted-foreground/40 min-h-8 leading-relaxed overflow-hidden"
                   disabled={savingDescription}
@@ -1476,7 +1489,7 @@ export default function ProjectDetail({
                             asChild
                           >
                             <a
-                              href={`${session.url}/via/iframe`}
+                              href={iframeUrl(session.url)}
                               target="_blank"
                               rel="noopener noreferrer"
                             >
