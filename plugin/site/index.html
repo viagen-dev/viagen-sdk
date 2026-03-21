@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            name="description"
+            content="Viagen is a Vite dev server plugin that embeds Claude Code into your app. Chat with Claude to build, edit, and fix your app in real time."
+        />
+        <title>viagen — Claude in your dev server on a sandbox</title>
+        <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+        <style>
+            :root {
+                --bg: #09090b;
+                --bg-secondary: #18181b;
+                --border: #27272a;
+                --border-hover: #3f3f46;
+                --text: #e4e4e7;
+                --text-muted: #a1a1aa;
+                --text-dim: #71717a;
+                --code-text: #d4d4d8;
+            }
+            [data-theme="light"] {
+                --bg: #ffffff;
+                --bg-secondary: #f4f4f5;
+                --border: #e4e4e7;
+                --border-hover: #d4d4d8;
+                --text: #18181b;
+                --text-muted: #52525b;
+                --text-dim: #71717a;
+                --code-text: #3f3f46;
+            }
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: var(--bg);
+                color: var(--text);
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                transition:
+                    background-color 0.2s,
+                    color 0.2s;
+            }
+            a {
+                color: var(--text-muted);
+                text-decoration: none;
+                transition: color 0.15s;
+            }
+            a:hover {
+                color: var(--text);
+            }
+            .container {
+                max-width: 640px;
+                width: 100%;
+                padding: 80px 24px 48px;
+                position: relative;
+            }
+            h1 {
+                font-family: ui-monospace, monospace;
+                font-size: 32px;
+                font-weight: 700;
+                letter-spacing: -0.02em;
+                margin-bottom: 4px;
+                color: var(--text);
+            }
+            .etymology {
+                font-family: ui-monospace, monospace;
+                font-size: 13px;
+                color: var(--text-dim);
+                margin-bottom: 16px;
+                font-style: italic;
+            }
+            .etymology span {
+                font-style: normal;
+                color: var(--text-muted);
+            }
+            .tagline {
+                font-size: 18px;
+                color: var(--text-muted);
+                line-height: 1.6;
+                margin-bottom: 40px;
+            }
+            .theme-toggle {
+                position: absolute;
+                top: 36px;
+                right: 41px;
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 4px;
+                color: var(--text-muted);
+                transition: color 0.15s;
+                display: flex;
+                align-items: center;
+            }
+            .theme-toggle:hover {
+                color: var(--text);
+            }
+            .theme-toggle svg {
+                width: 20px;
+                height: 20px;
+            }
+            .install {
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 16px 20px;
+                margin-bottom: 32px;
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+            }
+            .install code {
+                font-family: ui-monospace, monospace;
+                font-size: 14px;
+                color: var(--code-text);
+                white-space: pre;
+                line-height: 1.7;
+            }
+            .install button {
+                background: none;
+                border: 1px solid var(--border-hover);
+                color: var(--text-dim);
+                border-radius: 5px;
+                padding: 4px 10px;
+                font-size: 11px;
+                cursor: pointer;
+                font-family: inherit;
+                transition:
+                    border-color 0.15s,
+                    color 0.15s;
+            }
+            .install button:hover {
+                border-color: var(--text-dim);
+                color: var(--text);
+            }
+            section {
+                margin-bottom: 36px;
+            }
+            h2 {
+                font-size: 14px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: var(--text-dim);
+                margin-bottom: 12px;
+            }
+            pre {
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 16px 20px;
+                overflow-x: auto;
+            }
+            pre code {
+                font-family: ui-monospace, monospace;
+                font-size: 13px;
+                line-height: 1.7;
+                color: var(--text-muted);
+            }
+            .codeblock {
+                position: relative;
+            }
+            .codeblock pre code {
+                font-size: 14px;
+                color: var(--code-text);
+            }
+            .codeblock button {
+                position: absolute;
+                top: 16px;
+                right: 16px;
+                background: none;
+                border: 1px solid var(--border-hover);
+                color: var(--text-dim);
+                border-radius: 5px;
+                padding: 4px 10px;
+                font-size: 11px;
+                cursor: pointer;
+                font-family: inherit;
+                transition:
+                    border-color 0.15s,
+                    color 0.15s;
+            }
+            .codeblock button:hover {
+                border-color: var(--text-dim);
+                color: var(--text);
+            }
+            .features {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+            .feature {
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 16px;
+            }
+            .feature h3 {
+                font-size: 13px;
+                font-weight: 600;
+                margin-bottom: 4px;
+                color: var(--code-text);
+            }
+            .feature p {
+                font-size: 12px;
+                color: var(--text-dim);
+                line-height: 1.5;
+            }
+            .prereqs {
+                list-style: none;
+                padding: 0;
+            }
+            .prereqs li {
+                font-size: 14px;
+                color: var(--text-muted);
+                line-height: 1.6;
+                padding: 8px 0;
+                border-bottom: 1px solid var(--border);
+            }
+            .prereqs li:last-child {
+                border-bottom: none;
+            }
+            .prereqs a {
+                color: var(--text);
+                font-weight: 500;
+                text-decoration: underline;
+                text-underline-offset: 2px;
+                text-decoration-color: var(--border-hover);
+            }
+            .prereqs a:hover {
+                text-decoration-color: var(--text-dim);
+            }
+            .links {
+                display: flex;
+                gap: 20px;
+                margin-top: 48px;
+                padding-top: 24px;
+                border-top: 1px solid var(--border);
+                font-size: 13px;
+            }
+            .footer {
+                margin-top: 24px;
+                padding-top: 16px;
+                font-size: 12px;
+                color: var(--text-dim);
+                text-align: center;
+            }
+            .footer a {
+                color: var(--text-dim);
+            }
+            .footer a:hover {
+                color: var(--text-muted);
+            }
+            @media (max-width: 480px) {
+                .features {
+                    grid-template-columns: 1fr;
+                }
+                .container {
+                    padding: 48px 16px 32px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <button
+                class="theme-toggle"
+                id="themeToggle"
+                aria-label="Toggle theme"
+            >
+                <svg
+                    id="themeIcon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <path d="M12 2v2"></path>
+                    <path d="M12 20v2"></path>
+                    <path d="m4.93 4.93 1.41 1.41"></path>
+                    <path d="m17.66 17.66 1.41 1.41"></path>
+                    <path d="M2 12h2"></path>
+                    <path d="M20 12h2"></path>
+                    <path d="m6.34 17.66-1.41 1.41"></path>
+                    <path d="m19.07 4.93-1.41 1.41"></path>
+                </svg>
+            </button>
+            <h1>viagen</h1>
+            <p class="etymology">
+                /ˈviː.ə.dʒən/ <span>n.</span> vite + agent; also: travel
+                <span>(Portuguese)</span>
+            </p>
+            <p class="tagline">
+                A dev server plugin and cli tool that enables you to use Claude
+                Code in a sandbox — instantly.
+            </p>
+
+            <section>
+                <h2>Prerequisites</h2>
+                <ul class="prereqs">
+                    <li>
+                        <a href="https://claude.ai/signup">Claude</a> — Max,
+                        Pro, or API plan. The setup wizard handles auth.
+                    </li>
+                    <li>
+                        <a href="https://vercel.com/signup">Vercel</a> — Free
+                        plan works. Sandboxes last 45 min on Hobby, 5 hours on
+                        Pro.
+                    </li>
+                    <li>
+                        <a href="https://cli.github.com">GitHub CLI</a> —
+                        Enables git clone and push from sandboxes.
+                    </li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Quick Setup (Claude Code Plugin)</h2>
+                <div class="install" style="margin-bottom: 8px">
+                    <code>/plugin marketplace add viagen-dev/viagen-claude-plugin
+/plugin install viagen@viagen-marketplace</code>
+                    <button
+                        onclick="navigator.clipboard.writeText('/plugin marketplace add viagen-dev/viagen-claude-plugin\n/plugin install viagen@viagen-marketplace').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
+                    >
+                        Copy
+                    </button>
+                </div>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text);
+                        line-height: 1.8;
+                        margin: 0 0 14px;
+                    "
+                >
+                    We recommend installing in the project scope, so Claude can
+                    use the skill. You have to <b>Restart Claude Code</b> to
+                    run:
+                </p>
+                <div class="install" style="margin-bottom: 8px">
+                    <code>/viagen-install</code>
+                    <button
+                        onclick="navigator.clipboard.writeText('/viagen-install').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
+                    >
+                        Copy
+                    </button>
+                </div>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
+                    The plugin handles npm installation, vite config updates,
+                    and runs the setup wizard for you.
+                </p>
+            </section>
+
+            <section>
+                <h2>Manual Setup</h2>
+            </section>
+
+            <section>
+                <h2>Step 1 — Add viagen to your app</h2>
+                <div class="install">
+                    <code>npm install --save-dev viagen</code>
+                    <button
+                        onclick="navigator.clipboard.writeText('npm install --save-dev viagen').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
+                    >
+                        Copy
+                    </button>
+                </div>
+                <div class="codeblock">
+                    <button
+                        onclick="navigator.clipboard.writeText(`import { defineConfig } from 'vite'\nimport { viagen } from 'viagen'\n\nexport default defineConfig({\n  plugins: [viagen()],\n})`).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
+                    >
+                        Copy
+                    </button>
+                    <!-- prettier-ignore -->
+                    <pre><code>// vite.config.ts
+import { defineConfig } from 'vite'
+import { viagen } from 'viagen'
+
+export default defineConfig({
+  plugins: [viagen()],
+})</code></pre>
+                </div>
+            </section>
+
+            <section>
+                <h2>Step 2 — Setup</h2>
+                <div class="install">
+                    <code>npx viagen setup</code>
+                    <button
+                        onclick="navigator.clipboard.writeText('npx viagen setup').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
+                    >
+                        Copy
+                    </button>
+                </div>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
+                    The setup wizard authenticates with Claude, detects your
+                    GitHub and Vercel credentials, and captures your git remote
+                    info — all written to your local
+                    <code style="font-size: 12px; color: var(--code-text)"
+                        >.env</code
+                    >. This ensures sandboxes clone the correct repo instead of
+                    inferring it at runtime.
+                </p>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                        margin-top: 10px;
+                    "
+                >
+                    You can now run
+                    <code style="font-size: 12px; color: var(--code-text)"
+                        >npm run dev</code
+                    >
+                    to start the local dev server. At this point you can launch
+                    viagen and chat with Claude to make changes to your app.
+                </p>
+            </section>
+
+            <section>
+                <h2>Step 3 — Sandbox</h2>
+                <div class="install">
+                    <code>npx viagen sandbox</code>
+                    <button
+                        onclick="navigator.clipboard.writeText('npx viagen sandbox').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
+                    >
+                        Copy
+                    </button>
+                </div>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
+                    Deploys your dev server to a remote Vercel Sandbox — an
+                    isolated vm-like environment where Claude can read, write,
+                    and push code.
+                </p>
+                <pre
+                    style="margin-top: 16px"
+                ><code># Deploy on a specific branch
+npx viagen sandbox --branch feature/my-thing
+
+# Set a longer timeout (default: 30 min)
+npx viagen sandbox --timeout 60
+
+# Auto-send a prompt on load
+npx viagen sandbox --prompt "build me a landing page"
+
+# Stop a running sandbox
+npx viagen sandbox stop &lt;sandboxId&gt;</code></pre>
+            </section>
+
+
+            <section>
+                <h2>Vite Plugin Options</h2>
+                <pre><code>viagen({
+  position: 'bottom-right',  // toggle button position
+  model: 'sonnet',           // claude model
+  panelWidth: 375,           // chat panel width in px
+  overlay: true,             // fix button on error overlay
+  ui: true,                  // inject chat panel into pages
+  sandboxFiles: [...],       // copy files manually into sandbox
+  editable: ['src','conf'],  // files/dirs editable in the UI
+  systemPrompt: '...',       // custom system prompt (see below)
+  mcpServers: { ... },       // additional MCP servers for Claude
+})</code></pre>
+            </section>
+
+
+            <section>
+                <h2>Custom MCP Servers</h2>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
+                    Pass additional
+                    <a href="https://modelcontextprotocol.io">MCP server</a>
+                    configurations to give Claude access to custom tools:
+                </p>
+                <div class="codeblock" style="margin-top: 12px">
+                    <button
+                        onclick="navigator.clipboard.writeText(`viagen({\n  mcpServers: {\n    'my-db': {\n      command: 'npx',\n      args: ['-y', '@my-org/db-mcp-server'],\n      env: { DATABASE_URL: process.env.DATABASE_URL },\n    },\n  },\n})`).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
+                    >
+                        Copy
+                    </button>
+                    <pre><code>viagen({
+  mcpServers: {
+    'my-db': {
+      command: 'npx',
+      args: ['-y', '@my-org/db-mcp-server'],
+      env: { DATABASE_URL: process.env.DATABASE_URL },
+    },
+  },
+})</code></pre>
+                </div>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                        margin-top: 12px;
+                    "
+                >
+                    These are merged with viagen's built-in platform tools
+                    (when connected). User-provided servers take precedence if
+                    names collide.
+                </p>
+            </section>
+
+            <section>
+                <h2>Editable Files</h2>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
+                    Add a file editor panel to the chat UI:
+                </p>
+                <div class="codeblock" style="margin-top: 12px">
+                    <button
+                        onclick="navigator.clipboard.writeText(`viagen({\n  editable: ['src/components', 'vite.config.ts']\n})`).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
+                    >
+                        Copy
+                    </button>
+                    <pre><code>viagen({
+  editable: ['src/components', 'vite.config.ts']
+})</code></pre>
+                </div>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                        margin-top: 12px;
+                    "
+                >
+                    Paths can be files or directories (directories include all
+                    files within). The editor appears as a "Files" tab in the
+                    chat panel with a collapsible directory tree, syntax
+                    highlighting, and image preview.
+                </p>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                        margin-top: 12px;
+                    "
+                >
+                    The default system prompt tells Claude it's embedded in a
+                    Vite dev server, that file edits trigger HMR, and how to
+                    check server logs. Recent build errors are automatically
+                    appended to give Claude context about what went wrong.
+                </p>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                        margin-top: 12px;
+                    "
+                >
+                    To customize the prompt, replace it entirely or extend the
+                    default:
+                </p>
+                <div class="codeblock" style="margin-top: 12px">
+                    <button
+                        onclick="navigator.clipboard.writeText(`import { viagen, DEFAULT_SYSTEM_PROMPT } from 'viagen'\n\nviagen({\n  // Replace entirely\n  systemPrompt: 'You are a React expert. Only use TypeScript.',\n\n  // Or extend the default\n  systemPrompt: DEFAULT_SYSTEM_PROMPT + '\\nAlways use Tailwind for styling.',\n})`).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
+                    >
+                        Copy
+                    </button>
+                    <!-- prettier-ignore -->
+                    <pre><code>import { viagen, DEFAULT_SYSTEM_PROMPT } from 'viagen'
+
+viagen({
+  // Replace entirely
+  systemPrompt: 'You are a React expert. Only use TypeScript.',
+
+  // Or extend the default
+  systemPrompt: DEFAULT_SYSTEM_PROMPT + '\nAlways use Tailwind for styling.',
+})</code></pre>
+                </div>
+            </section>
+
+            <section>
+                <h2>API</h2>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                    "
+                >
+                    Every viagen endpoint is available as an API. Build your own
+                    UI, integrate with CI, or script Claude from the command
+                    line.
+                </p>
+                <pre
+                    style="margin-top: 16px"
+                ><code>POST /via/chat        — send a message, streamed SSE response
+POST /via/chat/reset  — clear conversation history
+GET  /via/health      — check API key status
+GET  /via/error       — latest build error (if any)
+GET  /via/ui          — standalone chat interface
+GET  /via/iframe      — split view (app + chat side by side)
+GET  /via/files       — list editable files (when configured)
+GET  /via/file?path=  — read file content
+POST /via/file        — write file content { path, content }
+GET  /via/file/raw    — serve raw file (images, etc.) with correct MIME type
+GET  /via/git/status  — list changed files (git status)
+GET  /via/git/diff    — full diff, or single file with ?path=
+GET  /via/git/branch  — current branch, remote URL, open PR info
+GET  /via/logs        — dev server log entries, optional ?since=&lt;timestamp&gt;</code></pre>
+                <p
+                    style="
+                        font-size: 15px;
+                        color: var(--text-muted);
+                        line-height: 1.8;
+                        margin-top: 16px;
+                    "
+                >
+                    When
+                    <code style="font-size: 12px; color: var(--code-text)"
+                        >VIAGEN_AUTH_TOKEN</code
+                    >
+                    is set (always on in sandboxes), pass the token as a
+                    <code style="font-size: 12px; color: var(--code-text)"
+                        >Bearer</code
+                    >
+                    header,
+                    <code style="font-size: 12px; color: var(--code-text)"
+                        >/t/:token</code
+                    >
+                    path segment, or
+                    <code style="font-size: 12px; color: var(--code-text)"
+                        >?token=</code
+                    >
+                    query param.
+                </p>
+                <pre style="margin-top: 16px"><code># With curl
+curl -X POST http://localhost:5173/via/chat \
+  -H "Authorization: Bearer $VIAGEN_AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "add a hello world route"}'
+
+# Or pass the token in the URL path (sets a session cookie)
+open "http://localhost:5173/via/ui/t/$VIAGEN_AUTH_TOKEN"
+
+# ?token= query param also works (fallback)
+open "http://localhost:5173/via/ui?token=$VIAGEN_AUTH_TOKEN"</code></pre>
+            </section>
+
+            <div class="links">
+                <a href="/platform.html">Platform</a>
+                <a href="https://github.com/viagen-dev/viagen">GitHub</a>
+                <a href="https://www.npmjs.com/package/viagen">npm</a>
+                <a href="https://github.com/viagen-dev/viagen/blob/main/LICENSE"
+                    >MIT License</a
+                >
+                <a href="/privacy.html">Privacy Policy</a>
+            </div>
+        </div>
+        <script>
+            const themeToggle = document.getElementById("themeToggle");
+            const themeIcon = document.getElementById("themeIcon");
+            const html = document.documentElement;
+
+            const sunIcon = `<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path>`;
+            const moonIcon = `<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>`;
+
+            function getSystemTheme() {
+                return window.matchMedia("(prefers-color-scheme: light)")
+                    .matches
+                    ? "light"
+                    : "dark";
+            }
+
+            function setTheme(theme) {
+                if (theme === "light") {
+                    html.setAttribute("data-theme", "light");
+                    themeIcon.innerHTML = moonIcon;
+                } else {
+                    html.removeAttribute("data-theme");
+                    themeIcon.innerHTML = sunIcon;
+                }
+                sessionStorage.setItem("theme", theme);
+            }
+
+            const savedTheme = sessionStorage.getItem("theme");
+            const initialTheme = savedTheme || getSystemTheme();
+            setTheme(initialTheme);
+
+            themeToggle.addEventListener("click", () => {
+                const currentTheme =
+                    html.getAttribute("data-theme") === "light"
+                        ? "light"
+                        : "dark";
+                const newTheme = currentTheme === "light" ? "dark" : "light";
+                setTheme(newTheme);
+            });
+        </script>
+    </body>
+</html>

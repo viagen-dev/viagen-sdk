@@ -251,11 +251,7 @@ export async function action({ request }: { request: Request }) {
     status: body.status,
   };
 
-  // Only consume the callback token on completion — review status
-  // needs the token to remain valid so the agent can report completion later.
-  if (body.status === "completed") {
-    updates.callbackTokenHash = null;
-  }
+  // Callback token stays valid until it expires (5h) — no longer nullified on completion.
 
   // Only set completedAt when actually completed, not when entering review
   if (body.status === "completed") {

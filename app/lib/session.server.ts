@@ -68,11 +68,12 @@ async function fetchMemberships(userId: string) {
     .where(eq(orgMembers.userId, userId));
 }
 
-/** Check if this request comes from an API client (Bearer token or JSON accept). */
+/** Check if this request comes from an API client (Bearer token, JSON accept, or /api/ path). */
 function isApiRequest(request: Request): boolean {
   return (
     request.headers.has("Authorization") ||
-    request.headers.get("Accept")?.includes("application/json") === true
+    request.headers.get("Accept")?.includes("application/json") === true ||
+    new URL(request.url).pathname.startsWith("/api/")
   );
 }
 
@@ -205,12 +206,21 @@ async function validateSandboxToken(
 
   // Find any task with this callback token hash
   const [task] = await db
-    .select({ createdBy: tasks.createdBy })
+    .select({
+      createdBy: tasks.createdBy,
+      callbackTokenExpiresAt: tasks.callbackTokenExpiresAt,
+    })
     .from(tasks)
     .where(eq(tasks.callbackTokenHash, tokenHash))
     .limit(1);
 
   if (!task) return null;
+
+  // Reject expired callback tokens
+  if (task.callbackTokenExpiresAt && task.callbackTokenExpiresAt < new Date()) {
+    log.info("sandbox token auth: callback token expired");
+    return null;
+  }
 
   const [user] = await db
     .select()

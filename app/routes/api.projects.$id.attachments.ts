@@ -58,11 +58,11 @@ export async function action({
   params: { id: string };
   request: Request;
 }) {
+  const { user, org } = await requireAuth(request);
+
   if (request.method !== "POST" && request.method !== "DELETE") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
-
-  const { user, org } = await requireAuth(request);
   const { id: projectId } = params;
 
   log.debug(

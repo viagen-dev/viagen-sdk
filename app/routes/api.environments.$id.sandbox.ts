@@ -459,7 +459,7 @@ export async function action({
       envMap["VIAGEN_AUTH_EMAIL"] = user.email;
       envMap["VIAGEN_SESSION_START"] = String(Math.floor(Date.now() / 1000));
       envMap["VIAGEN_SESSION_TIMEOUT"] = String(timeoutMinutes * 60);
-      envMap["VIAGEN_PROJECT_ID"] = id;
+      envMap["VIAGEN_ENVIRONMENT_ID"] = id;
       envMap["VIAGEN_MODEL"] = model;
       envMap["VIAGEN_PREVIEW"] = "true";
 
@@ -475,9 +475,13 @@ export async function action({
             type: tasks.type,
             prompt: tasks.prompt,
             prUrl: tasks.prUrl,
+            projectId: tasks.projectId,
           })
           .from(tasks)
           .where(eq(tasks.id, taskId));
+        if (taskRow?.projectId) {
+          envMap["VIAGEN_PROJECT_ID"] = taskRow.projectId;
+        }
         if (taskRow?.type) {
           envMap["VIAGEN_TASK_TYPE"] = reviewMode ? "review" : taskRow.type;
         }
@@ -698,6 +702,9 @@ GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (th
           .update(tasks)
           .set({
             callbackTokenHash: tokenHash,
+            callbackTokenExpiresAt: new Date(
+              Date.now() + 5 * 60 * 60 * 1000,
+            ),
             status: "running",
             workspaceId: workspace.id,
             startedAt: new Date(),

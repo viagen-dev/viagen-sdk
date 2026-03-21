@@ -140,8 +140,8 @@ describe.skipIf(!TOKEN)('sandbox callback', () => {
       expect(data.task.prUrl).toBe('https://github.com/test/repo/pull/42')
       expect(data.task.result).toBe('Added the feature successfully')
       expect(data.task.completedAt).toBeTruthy()
-      // Token should be consumed (nullified)
-      expect(data.task.callbackTokenHash).toBeNull()
+      // Token stays valid until expiry (5h) — no longer nullified on completion
+      expect(data.task.callbackTokenHash).toBeTruthy()
     })
 
     it('returns the task unchanged if already finalized', async () => {
@@ -151,7 +151,6 @@ describe.skipIf(!TOKEN)('sandbox callback', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Use any token — task is already finalized so it short-circuits before token check
           Authorization: `Bearer ${CALLBACK_TOKEN}`,
         },
         body: JSON.stringify({
@@ -161,8 +160,8 @@ describe.skipIf(!TOKEN)('sandbox callback', () => {
         }),
       })
 
-      // Already finalized — token was consumed, so this should be 401
-      expect(res.status).toBe(401)
+      // Already finalized — short-circuits with 200 and returns existing task
+      expect(res.status).toBe(200)
     })
   })
 })

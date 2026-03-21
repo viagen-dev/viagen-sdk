@@ -70,8 +70,8 @@ try {
   const callbackTokenHash = createHash('sha256').update(callbackToken).digest('hex')
 
   await client.query(
-    `INSERT INTO tasks (environment_id, project_id, prompt, status, branch, created_by, callback_token_hash, started_at)
-     VALUES ($1, $2, 'Seeded callback test task', 'running', 'test-callback', $3, $4, NOW())`,
+    `INSERT INTO tasks (environment_id, project_id, prompt, status, branch, created_by, callback_token_hash, callback_token_expires_at, started_at)
+     VALUES ($1, $2, 'Seeded callback test task', 'running', 'test-callback', $3, $4, NOW() + INTERVAL '5 hours', NOW())`,
     [testEnvironment.id, testProject.id, userA.id, callbackTokenHash],
   )
 

@@ -74,12 +74,12 @@ export async function loader({ request }: { request: Request }) {
 }
 
 export async function action({ request }: { request: Request }) {
+  const { org } = await requireAuth(request);
+
   if (request.method !== "POST") {
     log.warn({ method: request.method }, "sessions action: method not allowed");
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
-
-  const { org } = await requireAuth(request);
 
   let body: { workspaceId?: string };
   try {

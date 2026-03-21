@@ -18,6 +18,9 @@ export async function loader({ request }: { request: Request }) {
 }
 
 export async function action({ request }: { request: Request }) {
+  // Auth first — ensures 401 before any method-specific logic
+  await requireAuth(request);
+
   const method = request.method;
 
   if (method === "POST") return handleCreate(request);

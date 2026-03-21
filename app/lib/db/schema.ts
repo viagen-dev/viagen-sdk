@@ -211,6 +211,9 @@ export const tasks = pgTable("tasks", {
   completedAt: timestamp("completed_at", { withTimezone: true }),
   prUrl: varchar("pr_url", { length: 2048 }),
   callbackTokenHash: varchar("callback_token_hash", { length: 64 }),
+  callbackTokenExpiresAt: timestamp("callback_token_expires_at", {
+    withTimezone: true,
+  }),
   durationMs: integer("duration_ms"),
   inputTokens: integer("input_tokens"),
   outputTokens: integer("output_tokens"),

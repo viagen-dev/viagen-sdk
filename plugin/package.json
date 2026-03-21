@@ -1,0 +1,55 @@
+{
+  "name": "viagen",
+  "version": "0.1.0",
+  "description": "Vite dev server plugin that exposes endpoints for chatting with Claude Code SDK",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "viagen": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "vite --config site/vite.config.ts site",
+    "preview": "vite preview --config site/vite.config.ts site",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "vite": ">=4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/connect": "^3.4.38",
+    "@types/node": "^25.2.3",
+    "connect": "^3.7.0",
+    "tailwindcss": "^4.1.18",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.50",
+    "@anthropic-ai/claude-code": "^2.1.42",
+    "@vercel/sandbox": "^1",
+    "agent-browser": "^0.20.12",
+    "lucide-react": "^0.564.0",
+    "simple-git": "^3.31.1",
+    "viagen-sdk": "^0.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/viagen-dev/viagen-sdk"
+  }
+}
