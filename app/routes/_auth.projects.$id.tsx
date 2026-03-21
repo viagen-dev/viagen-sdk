@@ -453,14 +453,6 @@ export default function ProjectDetail({
   const toggleActivity = (label: string) =>
     setActivityCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
 
-  // Compute a short display ID for the project
-  const projectDisplayId = (() => {
-    const shortId =
-      (parseInt(project.id.replace(/-/g, "").slice(0, 4), 16) % 9000) + 1000;
-    return project.taskPrefix
-      ? `${project.taskPrefix}-${shortId}`
-      : `PR-${shortId}`;
-  })();
 
   // ── Save title ────────────────────────────────────────────────────────
   const saveTitle = useCallback(async () => {
@@ -902,11 +894,6 @@ export default function ProjectDetail({
         {/* Overview tab */}
         <TabsContent value="overview" className="flex-1 mt-0 overflow-y-auto">
           <div className="max-w-2xl mx-auto px-8 py-10 flex flex-col gap-6">
-            {/* Project ID badge */}
-            <span className="text-sm font-medium text-muted-foreground">
-              {projectDisplayId}
-            </span>
-
             {/* Title */}
             {project.isDefault ? (
               <h2 className="text-2xl font-semibold leading-snug">
