@@ -864,7 +864,7 @@ export function TaskDetailPanel({
   // Close button: in page variant, navigate back to dashboard
   const handleClose = () => {
     if (variant === "page") {
-      navigate("/dashboard");
+      navigate("/tasks");
     } else {
       onClose();
     }

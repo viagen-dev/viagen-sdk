@@ -331,7 +331,7 @@ export default function MyTasksPage({
         task.projectId,
       );
       navigate(
-        `/environments/${task.environmentId}/tasks/${task.id}?from=tasks`,
+        `/projects/${task.projectId}/tasks/${task.id}?from=tasks`,
       );
     },
     [navigate],
@@ -416,7 +416,7 @@ export default function MyTasksPage({
       task.vercelProjectName = resolvedEnv.vercelProjectName;
       useTaskStore.getState().setTask(task);
       navigate(
-        `/environments/${task.environmentId}/tasks/${task.id}?from=tasks`,
+        `/projects/${task.projectId}/tasks/${task.id}?from=tasks`,
       );
     } catch {
       toast.error("Failed to create task");

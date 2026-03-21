@@ -719,9 +719,7 @@ export default function ProjectDetail({
         return;
       }
       console.log("[ProjectDetail] Task created:", data.task?.id);
-      navigate(
-        `/environments/${data.task.environmentId}/tasks/${data.task.id}?from=project&projectId=${project.id}`,
-      );
+      navigate(`/projects/${project.id}/tasks/${data.task.id}`);
     } catch (err) {
       console.error("[ProjectDetail] Create task error:", err);
       toast.error("Failed to create task");

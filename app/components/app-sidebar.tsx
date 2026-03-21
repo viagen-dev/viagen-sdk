@@ -38,8 +38,6 @@ interface AppSidebarProps {
   }>;
   currentOrgName: string;
   orgPickerTrigger: React.ReactNode;
-  selectedEnvironmentId?: string | null;
-  onEnvironmentSelect?: (environmentId: string) => void;
 }
 
 export function AppSidebar({
@@ -47,8 +45,6 @@ export function AppSidebar({
   projects,
   currentOrgName,
   orgPickerTrigger,
-  selectedEnvironmentId,
-  onEnvironmentSelect,
 }: AppSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -297,15 +293,17 @@ export function AppSidebar({
                 key={env.id}
                 variant="ghost"
                 size="sm"
+                asChild
                 className={cn(
                   "w-full justify-start gap-2",
-                  selectedEnvironmentId === env.id &&
+                  location.pathname === `/environments/${env.id}/settings` &&
                     "bg-accent text-accent-foreground",
                 )}
-                onClick={() => onEnvironmentSelect?.(env.id)}
               >
-                <Box className="size-4" />
-                <span className="truncate">{env.name}</span>
+                <Link to={`/environments/${env.id}/settings`}>
+                  <Box className="size-4" />
+                  <span className="truncate">{env.name}</span>
+                </Link>
               </Button>
             ))}
           </div>

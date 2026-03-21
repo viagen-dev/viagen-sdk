@@ -318,9 +318,6 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
             projects={projects}
             currentOrgName={currentOrg.name}
             orgPickerTrigger={orgPickerTrigger}
-            onEnvironmentSelect={(environmentId: string) => {
-              navigate(`/dashboard?filterApp=${environmentId}`);
-            }}
           />
         </div>
 

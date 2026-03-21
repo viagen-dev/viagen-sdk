@@ -42,6 +42,10 @@ export default [
     route("sessions/:id", "routes/_auth.sessions.$id.tsx"),
     route("teams", "routes/_auth.teams.tsx"),
     route("projects/:id", "routes/_auth.projects.$id.tsx"),
+    route(
+      "projects/:id/tasks/:taskId",
+      "routes/_auth.projects.$id_.tasks.$taskId.tsx",
+    ),
   ]),
 
   // Resource routes (REST API for SDK)

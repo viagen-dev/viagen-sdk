@@ -559,7 +559,7 @@ export function EnvironmentSettingsPanel({
         for (const w of data.warnings) toast.warning(w);
       }
       toast.success("App deleted");
-      navigate("/dashboard");
+      navigate("/tasks");
     } catch {
       toast.error("Failed to delete app");
     } finally {

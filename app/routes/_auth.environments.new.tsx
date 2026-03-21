@@ -340,7 +340,7 @@ export default function NewApp() {
         return;
       }
 
-      navigate("/dashboard");
+      navigate("/tasks");
     } catch {
       setError("Something went wrong");
     } finally {
