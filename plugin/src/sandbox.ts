@@ -373,7 +373,7 @@ export async function deploySandbox(
       sandboxId: sandbox.sandboxId,
       mode: useGit ? "git" : "upload",
       streamLogs: (opts) => devServer.logs(opts),
-      stop: () => sandbox.stop(),
+      stop: async () => { await sandbox.stop(); },
     };
   } catch (err) {
     // Clean up on failure
