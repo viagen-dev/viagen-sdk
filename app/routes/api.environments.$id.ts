@@ -56,7 +56,6 @@ export async function action({
     if ("vercelOrgId" in body)
       updates.vercelOrgId = body.vercelOrgId ?? null;
     if ("githubRepo" in body) updates.githubRepo = body.githubRepo ?? null;
-    if ("taskPrefix" in body) updates.taskPrefix = body.taskPrefix ?? null;
     if ("kind" in body) updates.kind = body.kind;
     if ("domain" in body) updates.domain = body.domain ?? null;
     if ("sandboxCommand" in body)

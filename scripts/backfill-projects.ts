@@ -28,7 +28,6 @@ async function main() {
       .values({
         organizationId: env.organizationId,
         name: env.name,
-        taskPrefix: env.taskPrefix,
       })
       .returning();
 

@@ -81,8 +81,24 @@ export function viagen(options?: ViagenOptions): Plugin {
     name: "viagen",
     config(_, { mode }) {
       const e = loadEnv(mode, process.cwd(), "");
+      const serverConfig: Record<string, unknown> = {};
+
       if (e["VIAGEN_AUTH_TOKEN"] || e["VIAGEN_USER_TOKEN"]) {
-        return { server: { host: true, allowedHosts: true as const } };
+        serverConfig.host = true;
+        serverConfig.allowedHosts = true as const;
+      }
+
+      // When an app command is configured, the child process is the "real" app
+      // and gets the natural port. The viagen chat server (this Vite instance)
+      // moves to a dedicated internal port so it doesn't collide.
+      if (e["VIAGEN_APP_COMMAND"] && !process.env["__VIAGEN_CHILD"]) {
+        const viagenPort = parseInt(e["VIAGEN_SERVER_PORT"] || "5199", 10);
+        serverConfig.port = viagenPort;
+        serverConfig.strictPort = true;
+      }
+
+      if (Object.keys(serverConfig).length > 0) {
+        return { server: serverConfig };
       }
     },
     configResolved(config) {
@@ -97,6 +113,10 @@ export function viagen(options?: ViagenOptions): Plugin {
       debug("init", "plugin initializing");
       debug("init", `projectRoot: ${projectRoot}`);
       debug("init", `mode: ${config.mode}`);
+      debug("init", `server port: ${config.server.port}`);
+      debug("init", `VIAGEN_APP_COMMAND: ${env["VIAGEN_APP_COMMAND"] || "(not set)"}`);
+      debug("init", `VIAGEN_APP_PORT: ${env["VIAGEN_APP_PORT"] || "(not set)"}`);
+      debug("init", `__VIAGEN_CHILD: ${process.env["__VIAGEN_CHILD"] || "no"}`);
       debug("init", `ANTHROPIC_API_KEY: ${env["ANTHROPIC_API_KEY"] ? "set (" + env["ANTHROPIC_API_KEY"].slice(0, 8) + "...)" : "NOT SET"}`);
       debug("init", `CLAUDE_ACCESS_TOKEN: ${env["CLAUDE_ACCESS_TOKEN"] ? "set" : "NOT SET"}`);
       debug("init", `GITHUB_TOKEN: ${env["GITHUB_TOKEN"] ? "set" : "NOT SET"}`);

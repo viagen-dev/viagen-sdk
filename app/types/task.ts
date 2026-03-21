@@ -17,7 +17,6 @@ export interface Environment {
   id: string;
   name: string;
   templateId: string | null;
-  taskPrefix: string | null;
   vercelProjectId: string | null;
   vercelProjectName: string | null;
   githubRepo: string | null;

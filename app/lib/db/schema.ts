@@ -73,7 +73,6 @@ export const environments = pgTable("environments", {
   kind: varchar("kind", { length: 64 }).notNull().default("app"),
   domain: varchar("domain", { length: 255 }),
   templateId: varchar("template_id", { length: 64 }),
-  taskPrefix: varchar("task_prefix", { length: 10 }),
   vercelEnvSync: jsonb("vercel_env_sync").$type<Record<string, boolean>>(),
   sandboxCommand: varchar("sandbox_command", { length: 512 }),
   sandboxTimeout: integer("sandbox_timeout"),
