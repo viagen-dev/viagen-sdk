@@ -272,7 +272,7 @@ export function EnvironmentSettingsPanel({
       });
       if (!res.ok) throw new Error("Failed to load secrets");
       const data = await res.json();
-      setAppSecrets(data.project ?? []);
+      setAppSecrets(data.app ?? []);
       setOrgSecrets(data.org ?? []);
     } catch {
       setError("Failed to load secrets");
