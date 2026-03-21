@@ -1493,8 +1493,8 @@ export default function ProjectDetail({
                               target="_blank"
                               rel="noopener noreferrer"
                             >
-                              <Bot className="size-3 mr-1" />
-                              Chat
+                              <ExternalLink className="size-3 mr-1" />
+                              Open
                             </a>
                           </Button>
                         )}

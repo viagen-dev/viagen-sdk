@@ -387,9 +387,9 @@ export default function SessionDetailPage({
               </a>
             </Button>
           )}
-          {isRunning && session.url && (
+          {isRunning && splitUrl && (
             <Button variant="outline" size="sm" asChild>
-              <a href={session.url} target="_blank" rel="noopener noreferrer">
+              <a href={splitUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="size-3.5 mr-1.5" />
                 Open
               </a>
@@ -596,25 +596,15 @@ export default function SessionDetailPage({
                 see your app and the workspace side-by-side.
               </p>
               <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="default" size="sm" asChild>
-                  <a
-                    href={session.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink className="size-3.5 mr-1.5" />
-                    Open workspace
-                  </a>
-                </Button>
                 {splitUrl && (
-                  <Button variant="outline" size="sm" asChild>
+                  <Button variant="default" size="sm" asChild>
                     <a
                       href={splitUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <Columns2 className="size-3.5 mr-1.5" />
-                      Split view
+                      <ExternalLink className="size-3.5 mr-1.5" />
+                      Open
                     </a>
                   </Button>
                 )}
