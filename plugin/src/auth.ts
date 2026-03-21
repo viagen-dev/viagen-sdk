@@ -25,21 +25,26 @@ function buildWaitPage(targetUrl: string): string {
 <html><head><meta charset="utf-8"><title>Loading…</title>
 <style>
   body { margin: 0; display: flex; align-items: center; justify-content: center;
-         height: 100vh; background: #0a0a0a; color: #888; font-family: system-ui; }
-  .spinner { width: 20px; height: 20px; border: 2px solid #333; border-top-color: #f97316;
+         height: 100vh; background: #f5f5f5; color: #666; font-family: system-ui; }
+  .spinner { width: 20px; height: 20px; border: 2px solid #ddd; border-top-color: #888;
              border-radius: 50%; animation: spin .6s linear infinite; margin-right: 12px; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0a0a0a; color: #888; }
+    .spinner { border-color: #333; border-top-color: #999; }
+  }
 </style></head>
-<body><div class="spinner"></div><span>Starting dev server…</span>
+<body><div class="spinner"></div><span>Starting dev server\u2026</span>
 <script>
 (async () => {
   const target = ${JSON.stringify(targetUrl)};
+  // Probe /@vite/client — it goes through Vite's transform pipeline and
+  // only succeeds once the dev server is fully initialized. Static routes
+  // like /via/iframe return 200 too early.
   for (let i = 0; i < 60; i++) {
     try {
-      const r = await fetch(target, { credentials: 'same-origin' });
-      const text = await r.text();
-      // Vite is ready when we get a non-empty HTML response
-      if (r.ok && text.length > 0) { window.location.replace(target); return; }
+      const r = await fetch('/@vite/client', { credentials: 'same-origin' });
+      if (r.ok) { window.location.replace(target); return; }
     } catch {}
     await new Promise(r => setTimeout(r, 500));
   }

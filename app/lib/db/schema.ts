@@ -75,6 +75,7 @@ export const environments = pgTable("environments", {
   templateId: varchar("template_id", { length: 64 }),
   vercelEnvSync: jsonb("vercel_env_sync").$type<Record<string, boolean>>(),
   sandboxCommand: varchar("sandbox_command", { length: 512 }),
+  sandboxRootDir: varchar("sandbox_root_dir", { length: 512 }),
   sandboxTimeout: integer("sandbox_timeout"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()

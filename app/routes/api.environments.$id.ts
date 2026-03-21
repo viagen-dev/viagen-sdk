@@ -60,6 +60,8 @@ export async function action({
     if ("domain" in body) updates.domain = body.domain ?? null;
     if ("sandboxCommand" in body)
       updates.sandboxCommand = body.sandboxCommand?.trim() || null;
+    if ("sandboxRootDir" in body)
+      updates.sandboxRootDir = body.sandboxRootDir?.trim() || null;
     if ("sandboxTimeout" in body)
       updates.sandboxTimeout = body.sandboxTimeout ?? null;
 

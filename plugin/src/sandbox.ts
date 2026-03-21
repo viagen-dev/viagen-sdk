@@ -49,6 +49,8 @@ interface DeploySandboxOptions {
   envVars?: Record<string, string>;
   /** Initial prompt to auto-send in the chat UI on load. */
   prompt?: string;
+  /** Subdirectory to use as the working directory (for monorepos). */
+  rootDir?: string;
 }
 
 interface DeploySandboxResult {
@@ -187,6 +189,12 @@ export async function deploySandbox(
 ): Promise<DeploySandboxResult> {
   const token = randomUUID();
   const useGit = !!opts.git;
+  const rootDir = opts.rootDir ?? null;
+  const rootPrefix = rootDir ? `${rootDir}/` : "";
+
+  if (rootDir) {
+    console.log(`  Monorepo root dir: ${rootDir}`);
+  }
 
   const timeoutMs = (opts.timeoutMinutes ?? 30) * 60 * 1000;
 
@@ -330,14 +338,17 @@ export async function deploySandbox(
     const envLines = Object.entries(envMap).map(([k, v]) => `${k}=${v}`);
     await sandbox.writeFiles([
       {
-        path: ".env",
+        path: `${rootPrefix}.env`,
         content: Buffer.from(envLines.join("\n")),
       },
     ]);
 
     // Install dependencies — capture output for error reporting
     const dots = startDots("  Installing dependencies");
-    const install = await sandbox.runCommand("npm", ["install"]);
+    const installCmd = rootDir
+      ? `cd ${rootDir} && npm install`
+      : "npm install";
+    const install = await sandbox.runCommand("bash", ["-c", installCmd]);
     dots.stop();
     if (install.exitCode !== 0) {
       const stderr = await install.stderr();
@@ -348,9 +359,12 @@ export async function deploySandbox(
     // Start dev server (detached so it runs in background)
     // The viagen plugin sets server.host=true when VIAGEN_AUTH_TOKEN is present,
     // so we don't pass --host here (which would break non-Vite dev servers).
+    const devCmd = rootDir
+      ? `cd ${rootDir} && npm run dev`
+      : "npm run dev";
     const devServer = await sandbox.runCommand({
-      cmd: "npm",
-      args: ["run", "dev"],
+      cmd: "bash",
+      args: ["-c", devCmd],
       detached: true,
     });
 

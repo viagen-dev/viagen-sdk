@@ -818,6 +818,9 @@ async function sandbox(args: string[], options?: SandboxRunOptions) {
     console.log(`  Repo:   ${deployGit.remoteUrl}`);
     console.log(`  Branch: ${deployGit.branch}`);
   }
+  if (env["SANDBOX_ROOT_DIR"]) {
+    console.log(`  Root:   ${env["SANDBOX_ROOT_DIR"]}`);
+  }
 
   // Spinner while sandbox deploys
   const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -852,6 +855,7 @@ async function sandbox(args: string[], options?: SandboxRunOptions) {
       : undefined,
     timeoutMinutes,
     prompt,
+    rootDir: env["SANDBOX_ROOT_DIR"] || undefined,
   });
 
   clearInterval(spinner);

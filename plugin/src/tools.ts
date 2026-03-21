@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { debug } from "./debug";
 import {
   createSdkMcpServer,
   tool,
@@ -23,6 +24,8 @@ export function createViagenTools(
 ): McpSdkServerConfigWithInstance {
   const { client, projectId, processManager } = config;
   const taskId = process.env["VIAGEN_TASK_ID"];
+
+  debug("tools", `MCP tools created (projectId: ${projectId}, taskId: ${taskId || "none"})`);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tools: any[] = [
@@ -60,6 +63,7 @@ export function createViagenTools(
           .describe("PR review outcome — e.g. 'pass', 'flag', or 'fail'."),
       },
       async (args) => {
+        debug("tools", `viagen_update_task called (taskId: ${args.taskId || taskId || "none"}, status: ${args.status || "none"}, projectId: ${projectId})`);
         const id = args.taskId || taskId;
         if (!id) {
           return {
@@ -98,15 +102,25 @@ export function createViagenTools(
           .describe("Filter tasks by status."),
       },
       async (args) => {
-        const tasks = await client.tasks.list(projectId, args.status);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify(tasks, null, 2),
-            },
-          ],
-        };
+        debug("tools", `viagen_list_tasks called (projectId: ${projectId}, status: ${args.status || "all"})`);
+        try {
+          const tasks = await client.tasks.list(projectId, args.status);
+          debug("tools", `viagen_list_tasks returned ${tasks.length} tasks`);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(tasks, null, 2),
+              },
+            ],
+          };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Unknown error";
+          debug("tools", `viagen_list_tasks FAILED: ${message}`);
+          return {
+            content: [{ type: "text" as const, text: `Error listing tasks: ${message}` }],
+          };
+        }
       },
     ),
 
@@ -117,6 +131,7 @@ export function createViagenTools(
         taskId: z.string().describe("The task ID to retrieve."),
       },
       async (args) => {
+        debug("tools", `viagen_get_task called (projectId: ${projectId}, taskId: ${args.taskId})`);
         const task = await client.tasks.get(projectId, args.taskId);
         return {
           content: [
@@ -146,6 +161,7 @@ export function createViagenTools(
           .describe("Task type: 'task' for code changes, 'plan' for implementation plans."),
       },
       async (args) => {
+        debug("tools", `viagen_create_task called (projectId: ${projectId}, type: ${args.type || "task"})`);
         const task = await client.tasks.create(projectId, {
           prompt: args.prompt,
           branch: args.branch,
@@ -235,14 +251,49 @@ Constraints:
 
 /**
  * System prompt addition for task-aware sandbox sessions.
+ * Builds a context-rich prompt so the agent knows it's connected to viagen.
  */
-export const TASK_TOOLS_PROMPT = `
-You have access to viagen platform tools for task management:
-- viagen_list_tasks: List tasks in this project (optionally filter by status)
-- viagen_get_task: Get full details of a specific task
-- viagen_create_task: Create follow-up tasks for work you identify
-- viagen_update_task: Update a task's status ('review' or 'completed'). Accepts an optional taskId — defaults to the current task if one is set.
-- viagen_restart_preview: Restart the preview server (e.g. after installing packages or changing configs). Optionally provide a new command.
+export function buildTaskToolsPrompt(opts: {
+  projectId: string;
+  taskId?: string;
+  branch?: string;
+  hasProcessManager?: boolean;
+}): string {
+  const parts: string[] = [];
 
-Use these to understand project context and create follow-up work when appropriate.
-`;
+  parts.push(`
+## Viagen Platform
+
+You are connected to the viagen development platform. This session is part of a viagen project (ID: ${opts.projectId}).${opts.taskId ? ` You are currently working on task ${opts.taskId}.` : ""}${opts.branch ? ` Current branch: ${opts.branch}.` : ""}
+
+When users ask about the project, tasks, work history, or anything related to the viagen platform — **always use your viagen MCP tools** to answer. Do NOT try to grep the codebase or guess — the platform is your source of truth for project and task information.
+
+### Available viagen tools
+
+- **viagen_list_tasks** — List tasks in this project. Filter by status: ready, running, validating, completed, timed_out. Call this when users ask "what tasks are there?", "what's been done?", "what's pending?", etc.
+- **viagen_get_task** — Get full details of a specific task including its prompt, status, branch, PR URL, and results.
+- **viagen_create_task** — Create a new task. Use when you identify follow-up work or when the user asks you to create a task.
+- **viagen_update_task** — Update a task's status. Use 'review' after creating a PR, 'completed' when fully done. Defaults to the current task if one is set.`);
+
+  if (opts.hasProcessManager) {
+    parts.push(`
+- **viagen_restart_preview** — Restart the app preview server. Use after installing packages, changing configs, or when the preview is broken.`);
+  }
+
+  parts.push(`
+
+### How to respond to platform questions
+
+- "What tasks are there?" → call viagen_list_tasks, summarize the results conversationally
+- "What's the status of task X?" → call viagen_get_task with the ID
+- "What work has been done?" → call viagen_list_tasks with status "completed" or "validating"
+- "What's pending?" → call viagen_list_tasks with status "ready"
+- "Tell me about this project" → call viagen_list_tasks (no filter) to give an overview of all work
+
+Always present the results in a friendly, conversational way — not raw JSON.`);
+
+  return parts.join("");
+}
+
+// Keep the old export name for backwards compat during transition
+export const TASK_TOOLS_PROMPT = buildTaskToolsPrompt({ projectId: "unknown" });

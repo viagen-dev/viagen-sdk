@@ -19,7 +19,7 @@ import {
   PLAN_SYSTEM_PROMPT,
   PLAN_MODE_DISALLOWED_TOOLS,
   planModeCanUseTool,
-  TASK_TOOLS_PROMPT,
+  buildTaskToolsPrompt,
 } from "./tools";
 import { createViagen, type ViagenClient } from "viagen-sdk";
 import { ProcessManager } from "./process-manager";
@@ -227,9 +227,10 @@ export function viagen(options?: ViagenOptions): Plugin {
       const platformUrl = env["VIAGEN_PLATFORM_URL"] || "https://app.viagen.dev";
       const projectId = env["VIAGEN_PROJECT_ID"];
       let viagenClient: ViagenClient | null = null;
+      const orgId = env["VIAGEN_ORG_ID"];
       if (platformToken) {
-        viagenClient = createViagen({ token: platformToken, baseUrl: platformUrl });
-        debug("server", `platform client created (baseUrl: ${platformUrl})`);
+        viagenClient = createViagen({ token: platformToken, baseUrl: platformUrl, orgId });
+        debug("server", `platform client created (baseUrl: ${platformUrl}, orgId: ${orgId || "none — will use default org"})`);
       }
 
       const hasEditor = !!(options?.editable && options.editable.length > 0);
@@ -257,9 +258,14 @@ export function viagen(options?: ViagenOptions): Plugin {
         res.end();
       });
 
-      server.middlewares.use("/via/iframe", (_req, res) => {
+      server.middlewares.use("/via/iframe", (req, res) => {
+        // When a separate app process is running, the preview is on a
+        // different port/domain. Check for ?appUrl= query param first
+        // (set by the platform), then fall back to same-origin embed.
+        const url = new URL(req.url || "/", "http://localhost");
+        const appUrl = url.searchParams.get("appUrl") || undefined;
         res.setHeader("Content-Type", "text/html");
-        res.end(buildIframeHtml({ panelWidth: opts.panelWidth }));
+        res.end(buildIframeHtml({ panelWidth: opts.panelWidth, appUrl }));
       });
 
       // Preview script + feedback task creation — only when VIAGEN_PREVIEW=true
@@ -388,7 +394,12 @@ export function viagen(options?: ViagenOptions): Plugin {
         debug("server", "plan mode active — restricting tools");
         systemPrompt = PLAN_SYSTEM_PROMPT;
       } else if (hasPlatformContext) {
-        systemPrompt = (systemPrompt || "") + TASK_TOOLS_PROMPT;
+        systemPrompt = (systemPrompt || "") + buildTaskToolsPrompt({
+          projectId: projectId!,
+          taskId: env["VIAGEN_TASK_ID"] || undefined,
+          branch: env["VIAGEN_BRANCH"] || undefined,
+          hasProcessManager: !!processManager,
+        });
       }
 
       const chatSession = new ChatSession({

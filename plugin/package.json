@@ -45,7 +45,7 @@
     "agent-browser": "^0.20.12",
     "lucide-react": "^0.564.0",
     "simple-git": "^3.31.1",
-    "viagen-sdk": "^0.1.0"
+    "viagen-sdk": "^0.1.2"
   },
   "license": "MIT",
   "repository": {

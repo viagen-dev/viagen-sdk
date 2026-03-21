@@ -51,6 +51,7 @@ interface AppRecord {
   taskPrefix: string | null;
   vercelEnvSync: Record<string, boolean> | null;
   sandboxCommand: string | null;
+  sandboxRootDir: string | null;
   sandboxTimeout: number | null;
   createdAt: string;
   updatedAt: string;
@@ -211,6 +212,7 @@ export function EnvironmentSettingsPanel({
 
   // Sandbox config state
   const [sandboxCommand, setSandboxCommand] = useState(app.sandboxCommand ?? "");
+  const [sandboxRootDir, setSandboxRootDir] = useState(app.sandboxRootDir ?? "");
   const [sandboxTimeout, setSandboxTimeout] = useState<number | null>(app.sandboxTimeout);
   const [savingSandboxConfig, setSavingSandboxConfig] = useState(false);
 
@@ -1030,6 +1032,28 @@ export function EnvironmentSettingsPanel({
             />
             <p className="text-xs text-muted-foreground">
               The command used to start your app in sandboxes. Leave blank for the default.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium">Root directory</label>
+            <Input
+              value={sandboxRootDir}
+              onChange={(e) => setSandboxRootDir(e.target.value)}
+              onBlur={() =>
+                saveSandboxConfig(
+                  "sandboxRootDir",
+                  sandboxRootDir.trim() || null,
+                )
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+              placeholder="e.g. packages/web"
+              disabled={savingSandboxConfig}
+            />
+            <p className="text-xs text-muted-foreground">
+              For monorepos, the subdirectory to use as the working directory. Leave blank if the project is at the repo root.
             </p>
           </div>
 

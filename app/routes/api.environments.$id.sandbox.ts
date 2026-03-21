@@ -342,9 +342,29 @@ export async function action({
     const start = Date.now();
 
     // 1. Create sandbox with git source
+    // When a separate app command is configured, expose both the app port
+    // (5173) and the viagen chat server port (5199) so they can be
+    // restarted independently (e.g. during viagen dependency updates).
+    const sandboxCommand = app.sandboxCommand ?? envVars["VIAGEN_APP_COMMAND"] ?? null;
+    const sandboxRootDir = app.sandboxRootDir ?? envVars["SANDBOX_ROOT_DIR"] ?? null;
+    const viagenServerPort = 5199;
+
+    log.info(
+      {
+        environmentId: id,
+        sandboxCommand,
+        sandboxRootDir,
+        sandboxCommandSource: app.sandboxCommand ? "db" : envVars["VIAGEN_APP_COMMAND"] ? "env" : "none",
+        sandboxRootDirSource: app.sandboxRootDir ? "db" : envVars["SANDBOX_ROOT_DIR"] ? "env" : "none",
+      },
+      "sandbox config resolved",
+    );
+    const appPort = 5173;
+    const ports = sandboxCommand ? [appPort, viagenServerPort] : [appPort];
+
     const sandbox = await Sandbox.create({
       runtime: "node22",
-      ports: [5173],
+      ports,
       timeout: timeoutMs,
       ...(githubToken
         ? {
@@ -422,15 +442,17 @@ export async function action({
       }
 
       // 2b. Download task attachments into sandbox
+      // For monorepos, scope paths under the root dir
+      const attPrefix = sandboxRootDir ? `${sandboxRootDir}/` : "";
       if (attachmentRows.length > 0) {
-        await sandbox.runCommand("mkdir", ["-p", ".viagen/attachments"]);
+        await sandbox.runCommand("mkdir", ["-p", `${attPrefix}.viagen/attachments`]);
         for (const att of attachmentRows) {
           try {
             const resp = await fetch(att.blobUrl);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const buf = Buffer.from(await resp.arrayBuffer());
             await sandbox.writeFiles([
-              { path: `.viagen/attachments/${att.filename}`, content: buf },
+              { path: `${attPrefix}.viagen/attachments/${att.filename}`, content: buf },
             ]);
             log.info(
               { taskId, filename: att.filename, size: buf.length },
@@ -446,7 +468,7 @@ export async function action({
         // Exclude attachments dir from git
         await sandbox.runCommand("bash", [
           "-c",
-          "echo '.viagen/' >> .gitignore",
+          `echo '.viagen/' >> ${attPrefix}.gitignore`,
         ]);
       }
 
@@ -460,6 +482,7 @@ export async function action({
       envMap["VIAGEN_SESSION_START"] = String(Math.floor(Date.now() / 1000));
       envMap["VIAGEN_SESSION_TIMEOUT"] = String(timeoutMinutes * 60);
       envMap["VIAGEN_ENVIRONMENT_ID"] = id;
+      envMap["VIAGEN_ORG_ID"] = org.id;
       envMap["VIAGEN_MODEL"] = model;
       envMap["VIAGEN_PREVIEW"] = "true";
 
@@ -621,6 +644,15 @@ GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (th
         envMap["VIAGEN_BRANCH"] = branch;
       }
 
+      // When a separate sandbox command is configured, the viagen Vite
+      // server moves to port 5199 and spawns the app as a detached child.
+      // This lets them restart independently (critical for viagen updates).
+      if (sandboxCommand) {
+        envMap["VIAGEN_APP_COMMAND"] = sandboxCommand;
+        envMap["VIAGEN_APP_PORT"] = String(appPort);
+        envMap["VIAGEN_SERVER_PORT"] = String(viagenServerPort);
+      }
+
       if (app.vercelOrgId) envMap["VERCEL_ORG_ID"] = app.vercelOrgId;
       if (app.vercelProjectId)
         envMap["VERCEL_PROJECT_ID"] = app.vercelProjectId;
@@ -632,15 +664,18 @@ GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (th
       const envLines = Object.entries(envMap).map(
         ([k, v]) => `${k}=${escapeEnvValue(v)}`,
       );
+      // For monorepos, all project-relative paths are prefixed with the root dir
+      const rootPrefix = sandboxRootDir ? `${sandboxRootDir}/` : "";
+
       await sandbox.writeFiles([
-        { path: ".env", content: Buffer.from(envLines.join("\n") + "\n") },
+        { path: `${rootPrefix}.env`, content: Buffer.from(envLines.join("\n") + "\n") },
       ]);
 
       // 5. Install dependencies (include dev so viagen plugin loads)
-      const install = await sandbox.runCommand("npm", [
-        "install",
-        "--include=dev",
-      ]);
+      const installCmd = sandboxRootDir
+        ? `cd ${sandboxRootDir} && npm install --include=dev`
+        : "npm install --include=dev";
+      const install = await sandbox.runCommand("bash", ["-c", installCmd]);
       if (install.exitCode !== 0) {
         const stderr = await install.stderr();
         throw new Error(
@@ -649,8 +684,10 @@ GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (th
       }
 
       // 6. Start dev server with supervisor (auto-restarts on crash)
+      const cdLine = sandboxRootDir ? `cd ${sandboxRootDir}` : "";
       const supervisorScript = [
         "#!/bin/bash",
+        ...(cdLine ? [cdLine] : []),
         "while true; do",
         "  npm run dev -- --host 0.0.0.0",
         '  echo "[supervisor] dev server exited, restarting in 1s..."',
@@ -660,32 +697,44 @@ GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (th
       ].join("\n");
 
       await sandbox.writeFiles([
-        { path: "_supervisor.sh", content: Buffer.from(supervisorScript) },
+        { path: `${rootPrefix}_supervisor.sh`, content: Buffer.from(supervisorScript) },
       ]);
 
       // Ensure supervisor script doesn't show up in git diffs
       await sandbox.runCommand("bash", [
         "-c",
-        "echo '_supervisor.sh' >> .gitignore",
+        `echo '_supervisor.sh' >> ${rootPrefix}.gitignore`,
       ]);
 
       await sandbox.runCommand({
         cmd: "bash",
-        args: ["_supervisor.sh"],
+        args: [`${rootPrefix}_supervisor.sh`],
         env: envMap,
         detached: true,
       });
 
       // 7. Update workspace record to "running" with real URL
-      const baseUrl = sandbox.domain(5173);
+      // When using a separate app command, /via/* routes live on the viagen
+      // server port and the app preview lives on the app port.
+      const viagenBaseUrl = sandboxCommand
+        ? sandbox.domain(viagenServerPort)
+        : sandbox.domain(appPort);
+      const appBaseUrl = sandbox.domain(appPort);
+      // For iframe mode, pass appUrl so the iframe embeds the app from the
+      // correct domain (different port = different Vercel subdomain).
+      const iframeAppParam = sandboxCommand
+        ? `?appUrl=${encodeURIComponent(`${appBaseUrl}/t/${token}`)}`
+        : "";
       const url = prompt
-        ? `${baseUrl}/via/iframe/t/${token}`
-        : `${baseUrl}/t/${token}`;
+        ? `${viagenBaseUrl}/via/iframe/t/${token}${iframeAppParam}`
+        : `${viagenBaseUrl}/t/${token}`;
       log.info(
         {
           environmentId: id,
-          baseUrl,
+          viagenBaseUrl,
+          appBaseUrl: sandboxCommand ? appBaseUrl : "(same as viagen)",
           hasToken: !!token,
+          hasSandboxCommand: !!sandboxCommand,
           envKeysWritten: Object.keys(envMap).length,
         },
         "sandbox URL constructed",
