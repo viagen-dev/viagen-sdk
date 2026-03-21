@@ -21,6 +21,7 @@ import {
   ExternalLink,
   Square,
   Box,
+  X,
 } from "lucide-react";
 
 const NO_PROJECT_DESCRIPTION =
@@ -641,6 +642,40 @@ export default function ProjectDetail({
     [project.id],
   );
 
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<
+    string | null
+  >(null);
+
+  const handleAttachmentDelete = useCallback(
+    async (attachmentId: string) => {
+      console.log("[ProjectDetail] Deleting attachment:", attachmentId);
+      setDeletingAttachmentId(attachmentId);
+      try {
+        const res = await fetch(`/api/projects/${project.id}/attachments`, {
+          method: "DELETE",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ attachmentId }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          console.error("[ProjectDetail] Attachment delete failed:", data.error);
+          toast.error(data.error ?? "Failed to delete attachment");
+        } else {
+          console.log("[ProjectDetail] Attachment deleted:", attachmentId);
+          setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+          toast.success("Attachment removed");
+        }
+      } catch (err) {
+        console.error("[ProjectDetail] Attachment delete error:", err);
+        toast.error("Failed to delete attachment");
+      } finally {
+        setDeletingAttachmentId(null);
+      }
+    },
+    [project.id],
+  );
+
   const toggleCollapsed = (key: string) =>
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -1078,18 +1113,33 @@ export default function ProjectDetail({
                 {attachments.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {attachments.map((att) => (
-                      <a
+                      <span
                         key={att.id}
-                        href={att.blobUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background text-sm hover:bg-muted/50 transition-colors"
                       >
                         <FileText className="size-4 text-muted-foreground shrink-0" />
-                        <span className="max-w-50 truncate">
+                        <a
+                          href={att.blobUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="max-w-50 truncate hover:underline"
+                        >
                           {att.filename}
-                        </span>
-                      </a>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleAttachmentDelete(att.id)}
+                          disabled={deletingAttachmentId === att.id}
+                          className="ml-1 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                          title="Remove attachment"
+                        >
+                          {deletingAttachmentId === att.id ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <X className="size-3.5" />
+                          )}
+                        </button>
+                      </span>
                     ))}
                   </div>
                 )}
