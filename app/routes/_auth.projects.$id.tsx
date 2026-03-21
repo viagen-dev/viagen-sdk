@@ -1469,59 +1469,34 @@ export default function ProjectDetail({
                       </div>
 
                       {/* Time remaining / created */}
-                      <div className="flex flex-col items-end shrink-0 gap-0.5">
-                        {isRunning && remaining && (
-                          <span
-                            className={cn(
-                              "text-xs",
-                              isExpired
-                                ? "text-red-500"
-                                : "text-muted-foreground",
-                            )}
-                          >
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {isRunning && remaining ? (
+                          <span className={isExpired ? "text-red-500" : ""}>
                             {remaining}
                           </span>
+                        ) : (
+                          timeAgo(session.createdAt)
                         )}
-                        <span className="text-xs text-muted-foreground">
-                          {timeAgo(session.createdAt)}
-                        </span>
-                      </div>
+                      </span>
 
                       {/* Actions */}
                       <div className="flex items-center gap-1.5 shrink-0">
                         {isRunning && session.url && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="shadow-none h-7 px-2.5 text-xs"
-                              asChild
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="shadow-none h-7 px-2.5 text-xs"
+                            asChild
+                          >
+                            <a
+                              href={`${session.url}/via/iframe`}
+                              target="_blank"
+                              rel="noopener noreferrer"
                             >
-                              <a
-                                href={`${session.url}/via/iframe`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <Bot className="size-3 mr-1" />
-                                Chat
-                              </a>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="shadow-none h-7 px-2.5 text-xs"
-                              asChild
-                            >
-                              <a
-                                href={session.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <ExternalLink className="size-3 mr-1" />
-                                Preview
-                              </a>
-                            </Button>
-                          </>
+                              <Bot className="size-3 mr-1" />
+                              Chat
+                            </a>
+                          </Button>
                         )}
                         {(isRunning || isProvisioning) && (
                           <Button
