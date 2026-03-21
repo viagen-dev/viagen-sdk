@@ -14,6 +14,7 @@ import { db } from "~/lib/db/index.server";
 import { environments, tasks, projects } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { log } from "~/lib/logger.server";
+import { findProject } from "~/lib/project-lookup.server";
 import { getSecret } from "~/lib/infisical.server";
 import { parsePrUrl, isPrMerged } from "~/lib/github.server";
 import { TaskDetailPanel, shortTaskId } from "~/components/task-detail-panel";
@@ -31,43 +32,10 @@ export async function loader({
   const { org, memberships } = await requireAuth(request);
   const projectId = params.id;
 
-  // Verify project belongs to org
-  let [project] = await db
-    .select()
-    .from(projects)
-    .where(
-      and(eq(projects.id, projectId), eq(projects.organizationId, org.id)),
-    );
+  // Verify project belongs to org (supports slug or UUID)
+  const project = await findProject(org.id, projectId);
 
   if (!project) {
-    // Project not found for current org — check if user is a member of the owning org
-    const [projectAny] = await db
-      .select()
-      .from(projects)
-      .where(eq(projects.id, projectId));
-
-    if (projectAny) {
-      const membershipForOrg = memberships.find(
-        (m) => m.organizationId === projectAny.organizationId,
-      );
-      if (membershipForOrg) {
-        log.info(
-          { projectId, fromOrgId: org.id, toOrgId: projectAny.organizationId },
-          "project task detail: switching org context",
-        );
-        const url = new URL(request.url);
-        throw redirect(url.pathname + url.search, {
-          headers: {
-            "Set-Cookie": serializeCookie(
-              "viagen-org",
-              projectAny.organizationId,
-              { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "Lax" },
-            ),
-          },
-        });
-      }
-    }
-
     log.warn(
       { projectId, orgId: org.id },
       "project task detail: project not found or not in org",
@@ -149,6 +117,7 @@ export async function loader({
   return {
     project: {
       id: project.id,
+      slug: project.slug ?? null,
       name: project.name,
       taskPrefix: project.taskPrefix ?? null,
     },
@@ -165,7 +134,7 @@ export async function loader({
 }
 
 interface LoaderData {
-  project: { id: string; name: string; taskPrefix: string | null };
+  project: { id: string; slug: string | null; name: string; taskPrefix: string | null };
   task: {
     id: string;
     environmentId: string;
@@ -212,7 +181,7 @@ export default function ProjectTaskDetailPage({
     if (from === "tasks") {
       navigate("/tasks");
     } else {
-      navigate(`/projects/${loaderData.project.id}?tab=tasks`);
+      navigate(`/projects/${loaderData.project.slug ?? loaderData.project.id}?tab=tasks`);
     }
   };
 
@@ -230,7 +199,7 @@ export default function ProjectTaskDetailPage({
             </Link>
           ) : (
             <Link
-              to={`/projects/${loaderData.project.id}?tab=tasks`}
+              to={`/projects/${loaderData.project.slug ?? loaderData.project.id}?tab=tasks`}
               className="text-base font-semibold hover:text-muted-foreground transition-colors whitespace-nowrap shrink-0"
             >
               {loaderData.project.name}

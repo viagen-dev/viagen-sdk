@@ -92,6 +92,7 @@ export const projects = pgTable("projects", {
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 32 }),
   description: text("description"),
   taskPrefix: varchar("task_prefix", { length: 10 }),
   githubRepo: varchar("github_repo", { length: 255 }),

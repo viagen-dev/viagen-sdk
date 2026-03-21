@@ -22,6 +22,7 @@ import {
   TASK_TOOLS_PROMPT,
 } from "./tools";
 import { createViagen, type ViagenClient } from "viagen-sdk";
+import { ProcessManager } from "./process-manager";
 import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 
 export interface ViagenOptions {
@@ -320,6 +321,26 @@ export function viagen(options?: ViagenOptions): Plugin {
       const resolvedModel = env["VIAGEN_MODEL"] || opts.model;
       debug("server", `creating ChatSession (model: ${resolvedModel})`);
 
+      // Preview process manager — when VIAGEN_APP_COMMAND is set, spawn the
+      // app as a separate child process that can be restarted independently.
+      let processManager: ProcessManager | undefined;
+      const appCommand = env["VIAGEN_APP_COMMAND"];
+      const isChildProcess = process.env["__VIAGEN_CHILD"] === "1";
+      if (isChildProcess) {
+        debug("server", "skipping process manager (running as child process)");
+      } else if (appCommand) {
+        const appPort = parseInt(env["VIAGEN_APP_PORT"] || "5173", 10);
+        debug("server", `preview process manager enabled: "${appCommand}" on port ${appPort}`);
+        logBuffer.push("info", `[viagen] Preview process manager: ${appCommand} (port ${appPort})`);
+        processManager = new ProcessManager({
+          command: appCommand,
+          cwd: projectRoot,
+          logBuffer,
+          appPort,
+        });
+        processManager.start();
+      }
+
       // MCP tools — created when platform client and environment ID are available
       let mcpServers: Record<string, McpServerConfig> | undefined;
       const hasPlatformContext = !!(viagenClient && projectId);
@@ -328,6 +349,7 @@ export function viagen(options?: ViagenOptions): Plugin {
         const viagenMcp = createViagenTools({
           client: viagenClient!,
           projectId: projectId!,
+          processManager,
         });
         mcpServers = { [viagenMcp.name]: viagenMcp };
       }

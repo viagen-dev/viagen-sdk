@@ -33,6 +33,7 @@ interface AppSidebarProps {
   projects: Array<{
     id: string;
     name: string;
+    slug: string | null;
     taskPrefix: string | null;
     isDefault: boolean;
   }>;
@@ -211,11 +212,11 @@ export function AppSidebar({
                 asChild
                 className={cn(
                   "w-full justify-start gap-2",
-                  activeProjectId === proj.id &&
+                  (activeProjectId === proj.id || activeProjectId === proj.slug) &&
                     "bg-accent text-accent-foreground",
                 )}
               >
-                <Link to={`/projects/${proj.id}`}>
+                <Link to={`/projects/${proj.slug ?? proj.id}`}>
                   {proj.isDefault ? (
                     <SquareDashed className="size-4" />
                   ) : (

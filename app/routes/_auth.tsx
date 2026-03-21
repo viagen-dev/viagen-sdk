@@ -83,6 +83,7 @@ export async function loader({ request }: { request: Request }) {
     .select({
       id: projectsTable.id,
       name: projectsTable.name,
+      slug: projectsTable.slug,
       taskPrefix: projectsTable.taskPrefix,
       isDefault: projectsTable.isDefault,
     })
@@ -122,6 +123,7 @@ interface LoaderData {
   projects: {
     id: string;
     name: string;
+    slug: string | null;
     taskPrefix: string | null;
     isDefault: boolean;
   }[];
@@ -146,7 +148,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
   // Seed project store from loader data so sidebar is reactive to renames
   const setProjects = useProjectStore((s) => s.setProjects);
   useEffect(() => {
-    setProjects(projects.map((p) => ({ ...p, description: null, defaultEnvironmentId: null })));
+    setProjects(projects.map((p) => ({ ...p, slug: p.slug ?? null, description: null, defaultEnvironmentId: null })));
   }, [projects, setProjects]);
 
   // Read from store for reactive sidebar
@@ -154,7 +156,7 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
   const sidebarProjects = useMemo(
     () =>
       storeProjects.length > 0
-        ? storeProjects.map((p) => ({ id: p.id, name: p.name, taskPrefix: p.taskPrefix, isDefault: p.isDefault }))
+        ? storeProjects.map((p) => ({ id: p.id, name: p.name, slug: p.slug ?? null, taskPrefix: p.taskPrefix, isDefault: p.isDefault }))
         : projects,
     [storeProjects, projects],
   );

@@ -6,10 +6,12 @@ import {
   type CanUseTool,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { ViagenClient } from "viagen-sdk";
+import type { ProcessManager } from "./process-manager";
 
 export interface ViagenToolsConfig {
   client: ViagenClient;
   projectId: string;
+  processManager?: ProcessManager;
 }
 
 /**
@@ -19,7 +21,7 @@ export interface ViagenToolsConfig {
 export function createViagenTools(
   config: ViagenToolsConfig,
 ): McpSdkServerConfigWithInstance {
-  const { client, projectId } = config;
+  const { client, projectId, processManager } = config;
   const taskId = process.env["VIAGEN_TASK_ID"];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,6 +163,35 @@ export function createViagenTools(
     ),
   ];
 
+  // Add restart tool if process manager is available (sandbox mode with separate preview)
+  if (processManager) {
+    tools.push(
+      tool(
+        "viagen_restart_preview",
+        "Restart the preview server. Use after installing packages, changing configs, or when the preview is broken. Optionally provide a new command to run.",
+        {
+          command: z
+            .string()
+            .optional()
+            .describe("New command to use for the preview server (e.g. 'npm run build && npm run start'). If omitted, restarts with the current command."),
+        },
+        async (args) => {
+          try {
+            const result = await processManager.restart(args.command);
+            return {
+              content: [{ type: "text" as const, text: result }],
+            };
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Unknown error";
+            return {
+              content: [{ type: "text" as const, text: `Error restarting preview: ${message}` }],
+            };
+          }
+        },
+      ),
+    );
+  }
+
   return createSdkMcpServer({ name: "viagen", tools });
 }
 
@@ -211,6 +242,7 @@ You have access to viagen platform tools for task management:
 - viagen_get_task: Get full details of a specific task
 - viagen_create_task: Create follow-up tasks for work you identify
 - viagen_update_task: Update a task's status ('review' or 'completed'). Accepts an optional taskId — defaults to the current task if one is set.
+- viagen_restart_preview: Restart the preview server (e.g. after installing packages or changing configs). Optionally provide a new command.
 
 Use these to understand project context and create follow-up work when appropriate.
 `;

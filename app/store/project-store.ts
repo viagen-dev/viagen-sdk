@@ -3,6 +3,7 @@ import { create } from "zustand";
 export interface ProjectRecord {
   id: string;
   name: string;
+  slug: string | null;
   description: string | null;
   taskPrefix: string | null;
   isDefault: boolean;

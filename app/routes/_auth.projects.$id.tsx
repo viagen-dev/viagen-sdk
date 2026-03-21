@@ -80,6 +80,7 @@ import {
 } from "~/lib/db/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { log } from "~/lib/logger.server";
+import { findProject } from "~/lib/project-lookup.server";
 
 // ── Status grouping helpers ───────────────────────────────────────────────
 
@@ -147,12 +148,7 @@ export async function loader({
 }) {
   const { org } = await requireAuth(request);
 
-  const [project] = await db
-    .select()
-    .from(projects)
-    .where(
-      and(eq(projects.id, params.id), eq(projects.organizationId, org.id)),
-    );
+  const project = await findProject(org.id, params.id);
 
   if (!project) {
     log.warn({ projectId: params.id }, "project detail: not found");
@@ -267,6 +263,7 @@ export async function loader({
   return {
     project: {
       id: project.id,
+      slug: project.slug ?? null,
       name: project.name,
       description: project.description ?? null,
       taskPrefix: project.taskPrefix,
@@ -332,6 +329,7 @@ export default function ProjectDetail({
   loaderData: {
     project: {
       id: string;
+      slug: string | null;
       name: string;
       description: string | null;
       taskPrefix: string | null;
@@ -782,7 +780,7 @@ export default function ProjectDetail({
         return;
       }
       console.log("[ProjectDetail] Task created:", data.task?.id);
-      navigate(`/projects/${project.id}/tasks/${data.task.id}`);
+      navigate(`/projects/${project.slug ?? project.id}/tasks/${data.task.id}`);
     } catch (err) {
       console.error("[ProjectDetail] Create task error:", err);
       toast.error("Failed to create task");

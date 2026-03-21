@@ -4,6 +4,55 @@ import { projects, environments } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { log } from "~/lib/logger.server";
 
+/**
+ * Generate a URL-safe slug for a project.
+ * Uses taskPrefix if set, otherwise derives from the name.
+ * Appends a numeric suffix if the slug already exists in the org.
+ */
+async function generateSlug(
+  orgId: string,
+  name: string,
+  taskPrefix?: string | null,
+  excludeProjectId?: string,
+): Promise<string> {
+  // Start with prefix or derive from name
+  let base = taskPrefix?.trim().toLowerCase();
+  if (!base) {
+    base = name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 24);
+  }
+  if (!base) base = "project";
+
+  // Check for uniqueness within org
+  let candidate = base;
+  let suffix = 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const existing = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.organizationId, orgId),
+          eq(projects.slug, candidate),
+          ...(excludeProjectId ? [eq(projects.id, excludeProjectId)] : []),
+        ),
+      )
+      .limit(1);
+
+    // If no match, or the only match is the project we're updating, we're good
+    if (existing.length === 0 || (excludeProjectId && existing[0].id === excludeProjectId)) {
+      return candidate;
+    }
+    suffix++;
+    candidate = `${base}-${suffix}`;
+  }
+}
+
 export async function loader({ request }: { request: Request }) {
   const { org } = await requireAuth(request);
 
@@ -99,6 +148,15 @@ async function handleUpdate(request: Request) {
   if (body.defaultEnvironmentId !== undefined)
     updates.defaultEnvironmentId = body.defaultEnvironmentId ?? null;
 
+  // Regenerate slug when name or prefix changes
+  if (updates.name !== undefined || updates.taskPrefix !== undefined) {
+    const newName = (updates.name as string) ?? existing.name;
+    const newPrefix = updates.taskPrefix !== undefined
+      ? (updates.taskPrefix as string | null)
+      : existing.taskPrefix;
+    updates.slug = await generateSlug(org.id, newName, newPrefix, existing.id);
+  }
+
   if (Object.keys(updates).length === 0) {
     log.debug(
       { orgId: org.id, projectId: body.id },
@@ -161,11 +219,14 @@ async function handleCreate(request: Request) {
     }
   }
 
+  const slug = await generateSlug(org.id, body.name.trim(), body.taskPrefix);
+
   const [project] = await db
     .insert(projects)
     .values({
       organizationId: org.id,
       name: body.name.trim(),
+      slug,
       taskPrefix: body.taskPrefix ?? null,
       githubRepo: body.githubRepo?.trim() ?? null,
       vercelProjectId: body.vercelProjectId?.trim() ?? null,
