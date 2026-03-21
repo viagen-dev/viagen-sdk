@@ -147,7 +147,11 @@ export async function loader({
   );
 
   return {
-    project,
+    project: {
+      id: project.id,
+      name: project.name,
+      taskPrefix: project.taskPrefix ?? null,
+    },
     task: {
       id: task.id,
       environmentId: task.environmentId,
@@ -161,7 +165,7 @@ export async function loader({
 }
 
 interface LoaderData {
-  project: { id: string; name: string };
+  project: { id: string; name: string; taskPrefix: string | null };
   task: {
     id: string;
     environmentId: string;
@@ -191,6 +195,7 @@ export default function ProjectTaskDetailPage({
   const livePrompt = liveTask?.prompt ?? loaderData.task.prompt;
 
   const taskId = shortTaskId(loaderData.task.id, {
+    prefix: loaderData.project.taskPrefix,
     environmentName: loaderData.project.name,
     taskNumber: loaderData.task.taskNumber,
   });
