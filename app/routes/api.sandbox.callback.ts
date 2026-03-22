@@ -290,7 +290,7 @@ export async function action({ request }: { request: Request }) {
   );
 
   // Notify org members when task is ready for review
-  if (body.status === "validating") {
+  if (body.status === "validating" && task.environmentId) {
     (async () => {
       try {
         const [app] = await db
@@ -299,7 +299,7 @@ export async function action({ request }: { request: Request }) {
             organizationId: environments.organizationId,
           })
           .from(environments)
-          .where(eq(environments.id, task.environmentId));
+          .where(eq(environments.id, task.environmentId!));
 
         if (!app) return;
 
@@ -313,7 +313,7 @@ export async function action({ request }: { request: Request }) {
           sendTaskReadyEmail({
             to: member.email,
             appName: app.name,
-            environmentId: task.environmentId,
+            environmentId: task.environmentId!,
             taskId: updated.id,
             taskPrompt: task.prompt,
             prUrl: body.prUrl,

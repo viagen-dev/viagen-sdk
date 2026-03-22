@@ -183,8 +183,7 @@ export const apiTokens = pgTable("api_tokens", {
 export const tasks = pgTable("tasks", {
   id: uuid("id").defaultRandom().primaryKey(),
   environmentId: uuid("environment_id")
-    .notNull()
-    .references(() => environments.id, { onDelete: "cascade" }),
+    .references(() => environments.id, { onDelete: "set null" }),
   projectId: uuid("project_id")
     .notNull()
     .references(() => projects.id, {

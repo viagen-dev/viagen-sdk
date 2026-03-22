@@ -136,7 +136,7 @@ export async function loader({ request }: { request: Request }) {
             sendTaskTimeoutEmail({
               to: member.email,
               appName: row.environmentName,
-              environmentId: row.environmentId,
+              environmentId: row.environmentId ?? "",
               taskId: row.id,
               taskPrompt: row.prompt,
             }).catch((err: unknown) =>
