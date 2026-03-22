@@ -785,6 +785,8 @@ GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (th
           hasToken: !!token,
           hasSandboxCommand: !!sandboxCommand,
           envKeysWritten: Object.keys(envMap).length,
+          routes: sandbox.routes,
+          requestedPorts: ports,
         },
         "sandbox URL constructed",
       );
