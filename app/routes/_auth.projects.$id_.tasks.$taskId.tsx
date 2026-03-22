@@ -124,6 +124,8 @@ export async function loader({
     task: {
       id: task.id,
       environmentId: task.environmentId ?? allEnvironments[0]?.id ?? "",
+      projectId: project.id,
+      status: task.status,
       title: task.title ?? null,
       prompt: task.prompt,
       taskNumber: task.taskNumber,

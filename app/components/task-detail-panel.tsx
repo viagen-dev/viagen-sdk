@@ -2343,6 +2343,14 @@ export function TaskDetailPanel({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {task && task.status !== "ready" && (
+                        <DropdownMenuItem
+                          onClick={() => openCancelModal(task)}
+                        >
+                          <RotateCcw className="size-3.5" />
+                          Reset Task
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         variant="destructive"
                         onClick={() => setDeleteOpen(true)}
