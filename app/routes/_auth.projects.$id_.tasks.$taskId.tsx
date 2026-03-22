@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { requireAuth, serializeCookie } from "~/lib/session.server";
+import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { environments, tasks, projects } from "~/lib/db/schema";
 import { eq, and } from "drizzle-orm";
