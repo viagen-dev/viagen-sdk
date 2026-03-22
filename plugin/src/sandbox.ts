@@ -62,6 +62,8 @@ interface DeploySandboxResult {
   sandboxId: string;
   /** Deployment mode used. */
   mode: "git" | "upload";
+  /** App URL (different subdomain in standalone mode, same as url otherwise). */
+  appUrl: string;
   /** Stream dev server logs. Yields { data, stream } entries. Call close() to stop. */
   streamLogs(opts?: { signal?: AbortSignal }): AsyncIterable<{ data: string; stream: string }>;
   /** Stop the sandbox. */
@@ -402,9 +404,13 @@ export async function deploySandbox(
       );
     }
 
+    // In standalone mode, the app is on a different subdomain
+    const appBaseUrl = hasAppCommand ? sandbox.domain(appPort) : baseUrl;
+
     return {
       url,
       token,
+      appUrl: appBaseUrl,
       sandboxId: sandbox.sandboxId,
       mode: useGit ? "git" : "upload",
       streamLogs: (opts) => devServer.logs(opts),
