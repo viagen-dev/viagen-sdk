@@ -3033,19 +3033,7 @@ export function TaskDetailPanel({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {(task.status === "running" ||
-                        task.status === "validating") && (
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => openCancelModal(task)}
-                        >
-                          <XCircle className="size-3.5" />
-                          Cancel Task
-                        </DropdownMenuItem>
-                      )}
-                      {(task.status === "completed" ||
-                        task.status === "timed_out" ||
-                        task.status === "validating") && (
+                      {task.status !== "ready" && (
                         <DropdownMenuItem
                           onClick={() => openCancelModal(task)}
                         >

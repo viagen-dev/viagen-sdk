@@ -41,14 +41,9 @@ export async function action({
     return Response.json({ error: "Task not found" }, { status: 404 });
   }
 
-  const resettableStatuses = ["running", "validating", "timed_out", "completed"];
-  if (!resettableStatuses.includes(task.status)) {
-    log.warn(
-      { userId: user.id, projectId, taskId, status: task.status },
-      "project cancel: task is not in a resettable state",
-    );
+  if (task.status === "ready") {
     return Response.json(
-      { error: `Cannot reset a task with status "${task.status}"` },
+      { error: "Task is already in ready state" },
       { status: 400 },
     );
   }
@@ -121,7 +116,8 @@ export async function action({
   };
 
   if (prClosed) updates.prUrl = null;
-  if (body.newBranch?.trim()) updates.branch = body.newBranch.trim();
+  // Always reset to a fresh branch unless explicitly provided
+  updates.branch = body.newBranch?.trim() || `feat-${Math.random().toString(36).slice(2, 8)}`;
 
   const [updated] = await db
     .update(tasks)
