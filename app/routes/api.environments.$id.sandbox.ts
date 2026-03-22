@@ -361,7 +361,9 @@ export async function action({
       "sandbox config resolved",
     );
     const appPort = parseInt(envVars["VIAGEN_APP_PORT"] || "5173", 10);
-    const ports = sandboxCommand ? [appPort, viagenServerPort] : [appPort];
+    // viagen server port first so the default subdomain routes to the
+    // chat/auth/iframe handler, not the raw app preview.
+    const ports = sandboxCommand ? [viagenServerPort, appPort] : [appPort];
 
     const sandbox = await Sandbox.create({
       runtime: "node22",
