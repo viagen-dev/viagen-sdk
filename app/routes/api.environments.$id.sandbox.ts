@@ -724,6 +724,42 @@ GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (th
         detached: true,
       });
 
+      // 6b. Wait for the dev server to start listening before returning the URL.
+      // Poll with a simple HTTP check against the app port.
+      const maxWaitMs = 60_000;
+      const pollInterval = 1_500;
+      const startWait = Date.now();
+      const healthUrl = `https://${sandbox.domain(appPort)}`;
+      let serverReady = false;
+
+      while (Date.now() - startWait < maxWaitMs) {
+        try {
+          const check = await fetch(healthUrl, {
+            signal: AbortSignal.timeout(3000),
+          });
+          // Any response (even 404) means the server is listening
+          if (check.status > 0) {
+            serverReady = true;
+            break;
+          }
+        } catch {
+          // Connection refused or timeout — keep polling
+        }
+        await new Promise((r) => setTimeout(r, pollInterval));
+      }
+
+      if (!serverReady) {
+        log.warn(
+          { environmentId: id, healthUrl, waitedMs: Date.now() - startWait },
+          "sandbox: dev server did not become ready within timeout, returning URL anyway",
+        );
+      } else {
+        log.info(
+          { environmentId: id, waitedMs: Date.now() - startWait },
+          "sandbox: dev server is ready",
+        );
+      }
+
       // 7. Update workspace record to "running" with real URL
       // When using a separate app command, /via/* routes live on the viagen
       // server port and the app preview lives on the app port.
