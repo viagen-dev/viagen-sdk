@@ -365,6 +365,13 @@ export function viagen(options?: ViagenOptions): Plugin {
           appPort,
         });
         processManager.start();
+
+        // Kill the child process when the parent exits (Ctrl+C)
+        const cleanup = () => {
+          processManager?.stop().finally(() => process.exit());
+        };
+        process.on("SIGINT", cleanup);
+        process.on("SIGTERM", cleanup);
       }
 
       // MCP tools — created when platform client and environment ID are available
