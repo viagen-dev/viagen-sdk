@@ -3038,7 +3038,8 @@ export function TaskDetailPanel({
                         </DropdownMenuItem>
                       )}
                       {(task.status === "completed" ||
-                        task.status === "timed_out") && (
+                        task.status === "timed_out" ||
+                        task.status === "validating") && (
                         <DropdownMenuItem
                           onClick={() => openCancelModal(task)}
                         >
