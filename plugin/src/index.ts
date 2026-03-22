@@ -380,7 +380,6 @@ export function viagen(options?: ViagenOptions): Plugin {
       const rawAppCmd = options?.standalone ? (env["VIAGEN_APP_COMMAND"] || process.env["VIAGEN_APP_COMMAND"]) : undefined;
       // Strip surrounding quotes — .env parsers (including Vite's loadEnv) may preserve them
       const appCommand = rawAppCmd?.replace(/^["']|["']$/g, "") || undefined;
-      const isChildProcess = process.env["__VIAGEN_CHILD"] === "1";
       if (isChildProcess) {
         debug("server", "skipping process manager (running as child process)");
       } else if (appCommand) {
