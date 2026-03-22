@@ -211,11 +211,19 @@ export async function deploySandbox(
       }
     : {};
 
+  // Determine which ports to expose.
+  // When VIAGEN_APP_COMMAND is set, viagen runs on VIAGEN_SERVER_PORT (default 5199)
+  // and the app runs on VIAGEN_APP_PORT (default 5173). Expose both.
+  // Without VIAGEN_APP_COMMAND, everything runs on one port.
+  const hasAppCommand = !!opts.envVars?.["VIAGEN_APP_COMMAND"];
+  const appPort = parseInt(opts.envVars?.["VIAGEN_APP_PORT"] || "5173", 10);
+  const serverPort = parseInt(opts.envVars?.["VIAGEN_SERVER_PORT"] || "5199", 10);
+  const sandboxPorts = hasAppCommand ? [serverPort, appPort] : [appPort];
   let sandbox: Awaited<ReturnType<typeof Sandbox.create>>;
   try {
     sandbox = await Sandbox.create({
       runtime: "node22",
-      ports: [5173],
+      ports: sandboxPorts,
       timeout: timeoutMs,
       ...sourceOpts,
     });
@@ -368,7 +376,9 @@ export async function deploySandbox(
       detached: true,
     });
 
-    const baseUrl = sandbox.domain(5173);
+    // Use the viagen server port for the base URL (auth + /via/* routes).
+    // When no app command, serverPort === appPort (single process).
+    const baseUrl = sandbox.domain(hasAppCommand ? serverPort : appPort);
     const url = `${baseUrl}/t/${token}`;
 
     // Wait for the dev server to be ready or fail
