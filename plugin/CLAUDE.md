@@ -15,4 +15,13 @@ We have tests now for the plugin source code. When you add new features to the p
 
 ### Releases
 
-To cut a release and publish to npm, make a release using the `gh` CLI tool. Be sure to bump the package version.
+**IMPORTANT: NEVER run `npm publish` directly.** Publishing is handled by GitHub Actions triggered by a GitHub release.
+
+To cut a release:
+1. Bump the version in `plugin/package.json` and `sdk/package.json`
+2. Commit and push to main
+3. Create a GitHub release using the `gh` CLI tool:
+   ```
+   gh release create v0.X.Y --title "v0.X.Y" --notes "release notes here"
+   ```
+   This triggers the CI pipeline which builds and publishes both packages to npm.
