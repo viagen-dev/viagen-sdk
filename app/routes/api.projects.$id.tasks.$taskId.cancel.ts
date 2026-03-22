@@ -34,21 +34,21 @@ export async function action({
   const [task] = await db
     .select()
     .from(tasks)
-    .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
+    .where(and(eq(tasks.id, taskId), eq(tasks.projectId, project.id)));
 
   if (!task) {
     log.warn({ userId: user.id, projectId, taskId }, "project cancel: task not found");
     return Response.json({ error: "Task not found" }, { status: 404 });
   }
 
-  const cancellableStatuses = ["running", "validating", "timed_out"];
-  if (!cancellableStatuses.includes(task.status)) {
+  const resettableStatuses = ["running", "validating", "timed_out", "completed"];
+  if (!resettableStatuses.includes(task.status)) {
     log.warn(
       { userId: user.id, projectId, taskId, status: task.status },
-      "project cancel: task is not in a cancellable state",
+      "project cancel: task is not in a resettable state",
     );
     return Response.json(
-      { error: `Cannot cancel a task with status "${task.status}"` },
+      { error: `Cannot reset a task with status "${task.status}"` },
       { status: 400 },
     );
   }

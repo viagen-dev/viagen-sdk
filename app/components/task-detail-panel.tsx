@@ -37,6 +37,7 @@ import {
   ShieldAlert,
   ShieldX,
   Paperclip,
+  RotateCcw,
 } from "lucide-react";
 import Markdown from "react-markdown";
 import { AnthropicIcon } from "~/components/icons/anthropic-icon";
@@ -3027,14 +3028,22 @@ export function TaskDetailPanel({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {(task.status === "running" ||
-                        task.status === "validating" ||
-                        task.status === "timed_out") && (
+                        task.status === "validating") && (
                         <DropdownMenuItem
                           variant="destructive"
                           onClick={() => openCancelModal(task)}
                         >
                           <XCircle className="size-3.5" />
                           Cancel Task
+                        </DropdownMenuItem>
+                      )}
+                      {(task.status === "completed" ||
+                        task.status === "timed_out") && (
+                        <DropdownMenuItem
+                          onClick={() => openCancelModal(task)}
+                        >
+                          <RotateCcw className="size-3.5" />
+                          Reset Task
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem
