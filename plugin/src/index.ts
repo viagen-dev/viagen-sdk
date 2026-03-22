@@ -97,6 +97,13 @@ export function viagen(options?: ViagenOptions): Plugin {
         serverConfig.strictPort = true;
       }
 
+      // When running as the child process, bind to VIAGEN_APP_PORT so the
+      // sandbox proxy (or parent iframe) can find us on the expected port.
+      if (process.env["__VIAGEN_CHILD"] && e["VIAGEN_APP_PORT"]) {
+        serverConfig.port = parseInt(e["VIAGEN_APP_PORT"], 10);
+        serverConfig.strictPort = true;
+      }
+
       if (Object.keys(serverConfig).length > 0) {
         return { server: serverConfig };
       }
