@@ -125,6 +125,11 @@ body {
   --sidebar-ring: oklch(0.439 0 0);
 }
 
+@keyframes router-shimmer {
+  from { background-position: -200% center; }
+  to { background-position: 200% center; }
+}
+
 @layer base {
   *,
   *::before,
