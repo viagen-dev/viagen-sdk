@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
-import { ChevronRight, Ellipsis, Trash2 } from "lucide-react";
+import { ChevronRight, Ellipsis, Trash2, RotateCcw } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { SidebarToggle } from "~/components/sidebar-toggle";
 import {
@@ -179,6 +179,25 @@ export default function ProjectTaskDetailPage({
       ? livePrompt.slice(0, 48).trimEnd() + "…"
       : livePrompt;
 
+  const handleReset = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/projects/${loaderData.project.id}/tasks/${loaderData.task.id}/cancel`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+      if (res.ok) {
+        window.location.reload();
+      }
+    } catch {
+      // silent
+    }
+  }, [loaderData.project.id, loaderData.task.id]);
+
   const handleClose = () => {
     if (from === "tasks") {
       navigate("/tasks");
@@ -218,6 +237,12 @@ export default function ProjectTaskDetailPage({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {liveTask && liveTask.status !== "ready" && (
+                <DropdownMenuItem onClick={handleReset}>
+                  <RotateCcw className="size-3.5" />
+                  Reset Task
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 variant="destructive"
                 onClick={() => deleteTriggerRef.current?.()}
