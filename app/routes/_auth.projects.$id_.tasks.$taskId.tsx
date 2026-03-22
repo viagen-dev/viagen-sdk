@@ -123,7 +123,7 @@ export async function loader({
     },
     task: {
       id: task.id,
-      environmentId: task.environmentId,
+      environmentId: task.environmentId ?? allEnvironments[0]?.id ?? "",
       title: task.title ?? null,
       prompt: task.prompt,
       taskNumber: task.taskNumber,
@@ -231,6 +231,7 @@ export default function ProjectTaskDetailPage({
       <div className="flex-1 min-h-0 overflow-hidden">
         <TaskDetailPanel
           environmentId={loaderData.task.environmentId}
+          projectId={loaderData.project.id}
           taskId={loaderData.task.id}
           open={true}
           onClose={handleClose}

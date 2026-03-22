@@ -495,11 +495,12 @@ export async function action({
       const redirectBase =
         process.env.AUTH_REDIRECT_BASE ?? "http://localhost:5173";
       envMap["VIAGEN_CALLBACK_URL"] = `${redirectBase}/api/sandbox/callback`;
+      let taskRow: { type: string; prompt: string; prUrl: string | null; projectId: string | null } | undefined;
       if (taskId) {
         envMap["VIAGEN_TASK_ID"] = taskId;
 
         // Look up task details for type and review mode
-        const [taskRow] = await db
+        [taskRow] = await db
           .select({
             type: tasks.type,
             prompt: tasks.prompt,
@@ -590,7 +591,10 @@ GITHUB_TOKEN is available in your environment for GitHub API calls via fetch.${r
         }
       }
 
-      if (prompt && !reviewMode) {
+      // Build VIAGEN_PROMPT: use the task's prompt from DB if we have a task,
+      // otherwise fall back to the prompt from the request body.
+      const effectivePrompt = (taskId && taskRow?.prompt) ? taskRow.prompt : prompt;
+      if (effectivePrompt && !reviewMode) {
         const callbackSnippet = taskId
           ? `
 
@@ -629,7 +633,7 @@ fetch(process.env.VIAGEN_CALLBACK_URL, {
             ? `\n\n## Attached Files\nThe following files have been provided as context for this task. They are located in .viagen/attachments/:\n${attachmentRows.map((a) => `- ${a.filename}`).join("\n")}\n\nRead these files before starting work — they contain important context for your task.`
             : "";
 
-        envMap["VIAGEN_PROMPT"] = `${prompt}.${attachmentSnippet}
+        envMap["VIAGEN_PROMPT"] = `${effectivePrompt}.${attachmentSnippet}
 
 When you need to manage tasks on the viagen platform, you have these MCP tools available:
 

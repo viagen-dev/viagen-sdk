@@ -21,6 +21,8 @@ interface TaskState {
   seedCollapsed: (defaults: Record<string, boolean>) => void;
   /** Fetch a single task by ID. Merges into the map. */
   fetchTask: (environmentId: string, taskId: string) => Promise<void>;
+  /** Fetch a single task by project ID. Merges into the map. */
+  fetchTaskByProject: (projectId: string, taskId: string) => Promise<void>;
   /** Fetch workspaces for a task. */
   fetchWorkspaces: (environmentId: string, taskId: string) => Promise<void>;
   /** Optimistically set / update a task in the store. */
@@ -119,6 +121,34 @@ export const useTaskStore = create<TaskState>()(
             if (data.task) {
               const existing = get().tasks[taskId];
               // Skip update if data is identical to avoid unnecessary re-renders
+              const merged = { ...existing, ...data.task };
+              if (
+                existing &&
+                JSON.stringify(existing) === JSON.stringify(merged)
+              )
+                return;
+              set((s) => ({
+                tasks: {
+                  ...s.tasks,
+                  [taskId]: { ...s.tasks[taskId], ...data.task },
+                },
+              }));
+            }
+          } catch {
+            // silently fail
+          }
+        },
+
+        fetchTaskByProject: async (projectId, taskId) => {
+          try {
+            const res = await fetch(
+              `/api/projects/${projectId}/tasks/${taskId}`,
+              { credentials: "include" },
+            );
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.task) {
+              const existing = get().tasks[taskId];
               const merged = { ...existing, ...data.task };
               if (
                 existing &&

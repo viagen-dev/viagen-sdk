@@ -267,6 +267,7 @@ export function GitHubIcon({ size = 12 }: { size?: number }) {
 
 export function TaskDetailPanel({
   environmentId,
+  projectId,
   taskId,
   open,
   onClose,
@@ -277,6 +278,7 @@ export function TaskDetailPanel({
   variant = "drawer",
 }: {
   environmentId: string;
+  projectId?: string;
   taskId: string;
   open: boolean;
   onClose: () => void;
@@ -372,10 +374,14 @@ export function TaskDetailPanel({
   const [teamMembersLoading, setTeamMembersLoading] = useState(false);
   const [teamMembersFetched, setTeamMembersFetched] = useState(false);
 
-  // Store fetch helpers
+  // Store fetch helpers — prefer project routes when projectId is available
   const refreshTask = useCallback(() => {
-    store.getState().fetchTask(environmentId, taskId);
-  }, [environmentId, taskId]);
+    if (projectId) {
+      store.getState().fetchTaskByProject(projectId, taskId);
+    } else {
+      store.getState().fetchTask(environmentId, taskId);
+    }
+  }, [environmentId, projectId, taskId]);
 
   const refreshWorkspaces = useCallback(() => {
     store.getState().fetchWorkspaces(environmentId, taskId);
