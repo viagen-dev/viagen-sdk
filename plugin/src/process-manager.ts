@@ -97,15 +97,7 @@ export class ProcessManager {
 
     this.child = spawn(this.command, [], {
       cwd: this.cwd,
-      env: {
-        ...process.env,
-        ...this.env,
-        PORT: String(this.appPort),
-        __VIAGEN_CHILD: "1",
-        // Don't pass auth token to child — the app shouldn't require auth.
-        // Auth is handled by the standalone viagen server in front.
-        VIAGEN_AUTH_TOKEN: "",
-      },
+      env: { ...process.env, ...this.env, PORT: String(this.appPort), __VIAGEN_CHILD: "1" },
       stdio: ["ignore", stdoutFd, stderrFd],
       shell: true,
       // Detached so the app survives if the viagen chat server restarts
