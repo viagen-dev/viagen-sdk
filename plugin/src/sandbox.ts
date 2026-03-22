@@ -364,12 +364,22 @@ export async function deploySandbox(
       throw new Error(`npm install failed (exit ${install.exitCode})`);
     }
 
-    // Start dev server (detached so it runs in background)
-    // The viagen plugin sets server.host=true when VIAGEN_AUTH_TOKEN is present,
-    // so we don't pass --host here (which would break non-Vite dev servers).
-    const devCmd = rootDir
-      ? `cd ${rootDir} && npm run dev`
-      : "npm run dev";
+    // Start dev server (detached so it runs in background).
+    // When VIAGEN_APP_COMMAND is set, use `viagen serve` to run viagen as
+    // a standalone server that spawns the app as a child process. This avoids
+    // the double-instance problem where viagen-inside-Astro/Vite spawns
+    // another Astro/Vite via the process manager.
+    // Without VIAGEN_APP_COMMAND, just run `npm run dev` directly (single-process mode).
+    let devCmd: string;
+    if (hasAppCommand) {
+      devCmd = rootDir
+        ? `cd ${rootDir} && npx viagen serve`
+        : "npx viagen serve";
+    } else {
+      devCmd = rootDir
+        ? `cd ${rootDir} && npm run dev`
+        : "npm run dev";
+    }
     const devServer = await sandbox.runCommand({
       cmd: "bash",
       args: ["-c", devCmd],
@@ -377,7 +387,8 @@ export async function deploySandbox(
     });
 
     // Use the viagen server port for the base URL (auth + /via/* routes).
-    // When no app command, serverPort === appPort (single process).
+    // In standalone mode (viagen serve), viagen runs on serverPort.
+    // In single-process mode, everything is on appPort.
     const baseUrl = sandbox.domain(hasAppCommand ? serverPort : appPort);
     const url = `${baseUrl}/t/${token}`;
 

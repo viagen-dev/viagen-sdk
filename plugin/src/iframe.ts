@@ -1,6 +1,9 @@
-export function buildIframeHtml(opts: { panelWidth: number; appUrl?: string }): string {
+export function buildIframeHtml(opts: { panelWidth: number; appUrl?: string; standaloneAppPort?: number }): string {
   const pw = opts.panelWidth;
-  const appSrc = opts.appUrl ?? '/?_viagen_embed=1';
+  // In standalone mode, the app is on a separate port. We use a placeholder
+  // that gets resolved client-side (the host/domain is only known in the browser).
+  const standalonePort = opts.standaloneAppPort;
+  const appSrc = opts.appUrl ?? (standalonePort ? '__STANDALONE__' : '/?_viagen_embed=1');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -78,7 +81,13 @@ export function buildIframeHtml(opts: { panelWidth: number; appUrl?: string }): 
       }
       // Set iframe srcs — now Vite should be ready
       chatFrame.src = '/via/ui';
-      appFrame.src = ${JSON.stringify(appSrc)};
+      var rawAppSrc = ${JSON.stringify(appSrc)};
+      if (rawAppSrc === '__STANDALONE__') {
+        // Standalone mode: app is on a different port on the same host
+        appFrame.src = location.protocol + '//' + location.hostname + ':' + ${JSON.stringify(standalonePort || 5173)};
+      } else {
+        appFrame.src = rawAppSrc;
+      }
       // Hide loading overlay once chat frame loads
       chatFrame.addEventListener('load', function() {
         loading.classList.add('hidden');

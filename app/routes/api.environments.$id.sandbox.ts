@@ -697,12 +697,18 @@ GITHUB_TOKEN is available in your environment for GitHub API calls via fetch (th
       }
 
       // 6. Start dev server with supervisor (auto-restarts on crash)
+      // When a sandbox command is configured, use `viagen serve` so viagen
+      // runs as a standalone server and spawns the app as a child process.
+      // This avoids double-instance issues with frameworks like Astro/Next.
       const cdLine = sandboxRootDir ? `cd ${sandboxRootDir}` : "";
+      const startCmd = sandboxCommand
+        ? "npx viagen serve"
+        : "npm run dev -- --host 0.0.0.0";
       const supervisorScript = [
         "#!/bin/bash",
         ...(cdLine ? [cdLine] : []),
         "while true; do",
-        "  npm run dev -- --host 0.0.0.0",
+        `  ${startCmd}`,
         '  echo "[supervisor] dev server exited, restarting in 1s..."',
         "  sleep 1",
         "done",

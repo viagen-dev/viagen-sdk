@@ -54,11 +54,19 @@ export interface ViagenOptions {
   mcpServers?: Record<string, McpServerConfig>;
   /** Enable verbose debug logging. Also enabled by VIAGEN_DEBUG=1 in .env. */
   debug?: boolean;
+  /**
+   * Standalone mode — viagen runs its own bare Vite server, separate from the
+   * user's app. No script injection, no HTML transforms. Serves `/` as the
+   * chat UI. The app runs as a child process via the process manager.
+   * @internal Used by `viagen serve`.
+   */
+  standalone?: boolean;
 }
 
 export { DEFAULT_SYSTEM_PROMPT } from "./chat";
 
 export { deploySandbox, type GitInfo } from "./sandbox";
+export { startStandaloneServer, type StandaloneOptions } from "./standalone";
 
 export function viagen(options?: ViagenOptions): Plugin {
   const opts = {
@@ -88,23 +96,10 @@ export function viagen(options?: ViagenOptions): Plugin {
         serverConfig.allowedHosts = true as const;
       }
 
-      // When an app command is configured, the child process is the "real" app
-      // and gets the natural port. The viagen chat server (this Vite instance)
-      // moves to a dedicated internal port so it doesn't collide.
-      if (e["VIAGEN_APP_COMMAND"] && !process.env["__VIAGEN_CHILD"]) {
-        const viagenPort = parseInt(e["VIAGEN_SERVER_PORT"] || "5199", 10);
-        serverConfig.port = viagenPort;
-        serverConfig.strictPort = true;
-      }
-
-      // When running as the child process, bind to VIAGEN_APP_PORT so the
-      // sandbox proxy (or parent iframe) can find us on the expected port.
-      // Check both loadEnv (.env files) and process.env (inherited from parent).
-      const childAppPort = e["VIAGEN_APP_PORT"] || process.env["VIAGEN_APP_PORT"] || process.env["PORT"];
-      if (process.env["__VIAGEN_CHILD"] && childAppPort) {
-        serverConfig.port = parseInt(childAppPort, 10);
-        serverConfig.strictPort = true;
-      }
+      // Port manipulation is NOT done in embedded mode — viagen runs on
+      // whatever port the user's Vite/Astro server picks. VIAGEN_APP_COMMAND
+      // and VIAGEN_APP_PORT are only meaningful in standalone mode
+      // (`viagen serve`), where the port is set by startStandaloneServer.
 
       if (Object.keys(serverConfig).length > 0) {
         return { server: serverConfig };
@@ -135,7 +130,7 @@ export function viagen(options?: ViagenOptions): Plugin {
       debug("init", `VIAGEN_PROMPT: ${env["VIAGEN_PROMPT"] ? `"${env["VIAGEN_PROMPT"].slice(0, 80)}..."` : "(not set)"}`);
       debug("init", `VIAGEN_TASK_ID: ${env["VIAGEN_TASK_ID"] || "(not set)"}`);
       debug("init", `model: ${env["VIAGEN_MODEL"] || opts.model}`);
-      debug("init", `ui: ${opts.ui}, overlay: ${opts.overlay}, position: ${opts.position}`);
+      debug("init", `ui: ${opts.ui}, overlay: ${opts.overlay}, position: ${opts.position}, standalone: ${!!options?.standalone}`);
 
       logBuffer.init(projectRoot);
       wrapLogger(config.logger, logBuffer);
@@ -152,6 +147,9 @@ export function viagen(options?: ViagenOptions): Plugin {
       );
     },
     transformIndexHtml(_html, ctx) {
+      // Standalone mode — no injection into HTML pages
+      if (options?.standalone) return [];
+
       const tags: Array<{ tag: string; children: string; injectTo: "body" }> = [];
 
       if (opts.ui) {
@@ -243,6 +241,22 @@ export function viagen(options?: ViagenOptions): Plugin {
       }
 
       const hasEditor = !!(options?.editable && options.editable.length > 0);
+
+      // Standalone mode — serve chat UI at root
+      if (options?.standalone) {
+        const appPort = parseInt(env["VIAGEN_APP_PORT"] || process.env["VIAGEN_APP_PORT"] || "5173", 10);
+        server.middlewares.use((req, res, next) => {
+          const url = new URL(req.url || "/", "http://localhost");
+          if (url.pathname === "/" || url.pathname === "") {
+            // Check for ?appUrl= param or build from app port
+            const appUrl = url.searchParams.get("appUrl") || undefined;
+            res.setHeader("Content-Type", "text/html");
+            res.end(buildIframeHtml({ panelWidth: opts.panelWidth, appUrl, standaloneAppPort: appPort }));
+            return;
+          }
+          next();
+        });
+      }
 
       // Client script — served as a JS file for SSR injection
       const clientJs = buildClientScript({
@@ -356,10 +370,13 @@ export function viagen(options?: ViagenOptions): Plugin {
       const resolvedModel = env["VIAGEN_MODEL"] || opts.model;
       debug("server", `creating ChatSession (model: ${resolvedModel})`);
 
-      // Preview process manager — when VIAGEN_APP_COMMAND is set, spawn the
-      // app as a separate child process that can be restarted independently.
+      // Process manager — only in standalone mode (`viagen serve`).
+      // VIAGEN_APP_COMMAND is ignored when viagen runs as an embedded Vite plugin
+      // (npm run dev) to avoid spawning a duplicate dev server.
       let processManager: ProcessManager | undefined;
-      const appCommand = env["VIAGEN_APP_COMMAND"];
+      const rawAppCmd = options?.standalone ? (env["VIAGEN_APP_COMMAND"] || process.env["VIAGEN_APP_COMMAND"]) : undefined;
+      // Strip surrounding quotes — .env parsers (including Vite's loadEnv) may preserve them
+      const appCommand = rawAppCmd?.replace(/^["']|["']$/g, "") || undefined;
       const isChildProcess = process.env["__VIAGEN_CHILD"] === "1";
       if (isChildProcess) {
         debug("server", "skipping process manager (running as child process)");
@@ -480,8 +497,9 @@ export function viagen(options?: ViagenOptions): Plugin {
       }
 
       // Post-middleware: inject scripts into SSR-rendered HTML
-      // Runs after Vite's internal transformIndexHtml middleware
-      if (opts.ui || previewEnabled) {
+      // Runs after Vite's internal transformIndexHtml middleware.
+      // Skip in standalone mode — there's no user HTML to inject into.
+      if (!options?.standalone && (opts.ui || previewEnabled)) {
         return () => {
           if (opts.ui) {
             server.middlewares.use(createInjectionMiddleware());

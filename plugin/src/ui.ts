@@ -190,6 +190,25 @@ export function buildUiHtml(opts?: {
       animation: none;
       color: #525252;
     }
+    .thinking-indicator {
+      display: flex;
+      gap: 4px;
+      padding: 12px 14px;
+      align-items: center;
+    }
+    .thinking-indicator .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #a3a3a3;
+      animation: thinking-bounce 1.4s ease-in-out infinite;
+    }
+    .thinking-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
+    .thinking-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes thinking-bounce {
+      0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+      40% { opacity: 1; transform: scale(1); }
+    }
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.4; }
@@ -1595,7 +1614,24 @@ export function buildUiHtml(opts?: {
       scrollToBottom();
     }
 
+    function showThinkingIndicator() {
+      removeThinkingIndicator();
+      var container = getContainer();
+      var div = document.createElement('div');
+      div.className = 'msg msg-assistant thinking-indicator';
+      div.id = 'thinking-indicator';
+      div.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+      container.appendChild(div);
+      scrollToBottom();
+    }
+
+    function removeThinkingIndicator() {
+      var el = document.getElementById('thinking-indicator');
+      if (el) el.remove();
+    }
+
     function appendText(text, parentToolUseId) {
+      removeThinkingIndicator();
       var last = chatLog[chatLog.length - 1];
       if (last && last.type === 'text') {
         last.content += text;
@@ -1626,6 +1662,7 @@ export function buildUiHtml(opts?: {
     var activeToolUseId = null;
 
     function addToolBlock(name, input, toolUseId) {
+      removeThinkingIndicator();
       currentTextSpan = null;
       if (name === 'EnterPlanMode' || name === 'ExitPlanMode') {
         // Silent — internal Claude workflow state, not shown in UI
@@ -1767,6 +1804,7 @@ export function buildUiHtml(opts?: {
         }
       }
 
+      removeThinkingIndicator();
       closeToolGroup();
       closeAllTaskGroups('completed');
       hideActivity(lastUsage);
@@ -1792,7 +1830,7 @@ export function buildUiHtml(opts?: {
       sendStartTime = Date.now();
       toolCount = 0;
       showActivity();
-      scrollToBottom();
+      showThinkingIndicator();
 
       await sendRaw(text);
     }

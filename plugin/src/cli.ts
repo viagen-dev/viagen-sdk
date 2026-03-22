@@ -6,6 +6,7 @@ import { homedir } from "node:os";
 import { deploySandbox, stopSandbox, collectFiles } from "./sandbox";
 import { oauthMaxFlow, oauthConsoleFlow, refreshAccessToken } from "./oauth";
 import type { GitInfo } from "./sandbox";
+import { startStandaloneServer } from "./standalone";
 import {
   createViagen,
   ViagenApiError,
@@ -26,7 +27,11 @@ function loadDotenv(dir: string): Record<string, string> {
     const idx = trimmed.indexOf("=");
     if (idx === -1) continue;
     const key = trimmed.slice(0, idx).trim();
-    const val = trimmed.slice(idx + 1).trim();
+    let val = trimmed.slice(idx + 1).trim();
+    // Strip surrounding quotes (single or double)
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
     vars[key] = val;
   }
   return vars;
@@ -596,6 +601,43 @@ function dev() {
   // Forward signals to child
   process.on("SIGINT", () => child.kill("SIGINT"));
   process.on("SIGTERM", () => child.kill("SIGTERM"));
+}
+
+// ─── serve command ──────────────────────────────────────────────
+
+async function serve(args: string[]) {
+  const cwd = process.cwd();
+  const dotenv = loadDotenv(cwd);
+  // Set dotenv values into process.env so viagen plugin picks them up
+  for (const [key, val] of Object.entries(dotenv)) {
+    if (!process.env[key]) process.env[key] = val;
+  }
+
+  const port = parseFlag(args, "--port");
+  const appCommand = parseFlag(args, "--app-command") || process.env["VIAGEN_APP_COMMAND"];
+  const appPort = parseFlag(args, "--app-port");
+
+  if (!appCommand) {
+    console.error("Error: No app command. Set VIAGEN_APP_COMMAND in .env or use --app-command.");
+    process.exit(1);
+  }
+
+  // Enable debug from env
+  if (process.env["VIAGEN_DEBUG"] === "1") {
+    const { setDebug } = await import("./debug");
+    setDebug(true);
+  }
+
+  await startStandaloneServer({
+    cwd,
+    port: port ? parseInt(port, 10) : undefined,
+    appCommand,
+    appPort: appPort ? parseInt(appPort, 10) : undefined,
+  });
+
+  // Keep process alive
+  process.on("SIGINT", () => process.exit(0));
+  process.on("SIGTERM", () => process.exit(0));
 }
 
 // ─── sandbox command ─────────────────────────────────────────────
@@ -1627,11 +1669,17 @@ function help() {
   console.log("  tasks get <id>                 Show task details");
   console.log("  tasks run <id>                 Run a task in a sandbox");
   console.log("  dev                            Start Vite and open the split view");
+  console.log("  serve                          Run viagen as a standalone server");
   console.log("  setup                          Set up .env with API keys and tokens");
   console.log("  sandbox [-b branch] [-t min]   Deploy your project to a Vercel Sandbox");
   console.log("  sandbox stop <id>              Stop a running sandbox");
   console.log("  sync                           Push local credentials to the platform");
   console.log("  help                           Show this help message");
+  console.log("");
+  console.log("Serve options:");
+  console.log("  --port <port>            Viagen server port (default: VIAGEN_SERVER_PORT or 5199)");
+  console.log("  --app-command <cmd>      App command (default: VIAGEN_APP_COMMAND from .env)");
+  console.log("  --app-port <port>        App port (default: VIAGEN_APP_PORT or 5173)");
   console.log("");
   console.log("Sandbox options:");
   console.log("  -b, --branch <name>   Branch to clone (default: current branch)");
@@ -1711,6 +1759,9 @@ async function main() {
     await tasks(args.slice(1));
   } else if (command === "dev") {
     dev();
+    return;
+  } else if (command === "serve") {
+    await serve(args.slice(1));
     return;
   } else if (command === "setup") {
     await setup();

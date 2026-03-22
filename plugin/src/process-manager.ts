@@ -132,13 +132,22 @@ export class ProcessManager {
 
       // Auto-restart on crash (but not if we're doing a deliberate restart)
       if (!this.restarting && code !== 0 && code !== null) {
-        this.restartCount++;
-        if (this.restartCount <= 3) {
-          const delay = this.restartCount * 2000;
-          this.logBuffer.push("warn", `[viagen:pm] Auto-restarting in ${delay / 1000}s (attempt ${this.restartCount}/3)`);
-          setTimeout(() => this.start(), delay);
+        // Check if the crash was a port conflict (EADDRINUSE) — these never
+        // self-resolve, so retrying just wastes time and spams logs.
+        if (this.lastStderrContainsPortConflict()) {
+          this.logBuffer.push("error",
+            `[viagen:pm] App failed due to port conflict. ` +
+            `If viagen is installed as a Vite/Astro plugin, remove VIAGEN_APP_COMMAND from .env — ` +
+            `it causes a duplicate dev server that competes for ports.`);
         } else {
-          this.logBuffer.push("error", `[viagen:pm] App crashed ${this.restartCount} times, giving up`);
+          this.restartCount++;
+          if (this.restartCount <= 3) {
+            const delay = this.restartCount * 2000;
+            this.logBuffer.push("warn", `[viagen:pm] Auto-restarting in ${delay / 1000}s (attempt ${this.restartCount}/3)`);
+            setTimeout(() => this.start(), delay);
+          } else {
+            this.logBuffer.push("error", `[viagen:pm] App crashed ${this.restartCount} times, giving up`);
+          }
         }
       }
     });
@@ -323,6 +332,20 @@ export class ProcessManager {
       if (existsSync(this.pidFile)) unlinkSync(this.pidFile);
     } catch {
       // best effort
+    }
+  }
+
+  /** Check if recent stderr output contains a port-in-use error. */
+  private lastStderrContainsPortConflict(): boolean {
+    try {
+      if (!existsSync(this.stderrLog)) return false;
+      const content = readFileSync(this.stderrLog, "utf-8");
+      // Check the last 2KB for port conflict indicators
+      const tail = content.slice(-2048);
+      return /port\s+\d+\s+is\s+already\s+in\s+use/i.test(tail) ||
+             /EADDRINUSE/i.test(tail);
+    } catch {
+      return false;
     }
   }
 
