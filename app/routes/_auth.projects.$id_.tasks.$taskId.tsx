@@ -43,11 +43,11 @@ export async function loader({
     throw Response.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Verify task exists in this project
+  // Verify task exists in this project (use resolved UUID, not the slug from params)
   let [task] = await db
     .select()
     .from(tasks)
-    .where(and(eq(tasks.id, params.taskId), eq(tasks.projectId, projectId)));
+    .where(and(eq(tasks.id, params.taskId), eq(tasks.projectId, project.id)));
 
   if (!task) {
     log.warn(
