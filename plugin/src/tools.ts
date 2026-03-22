@@ -85,6 +85,9 @@ export function createViagenTools(
           };
         } catch (err) {
           const message = err instanceof Error ? err.message : "Unknown error";
+          const status = (err as any)?.status;
+          const detail = (err as any)?.detail;
+          debug("tools", `viagen_update_task FAILED: ${status || "?"} ${message}${detail ? ` (${detail})` : ""}`);
           return {
             content: [{ type: "text" as const, text: `Error updating task: ${message}` }],
           };
@@ -132,15 +135,25 @@ export function createViagenTools(
       },
       async (args) => {
         debug("tools", `viagen_get_task called (projectId: ${projectId}, taskId: ${args.taskId})`);
-        const task = await client.tasks.get(projectId, args.taskId);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify(task, null, 2),
-            },
-          ],
-        };
+        try {
+          const task = await client.tasks.get(projectId, args.taskId);
+          debug("tools", `viagen_get_task success (status: ${task.status})`);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(task, null, 2),
+              },
+            ],
+          };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Unknown error";
+          const status = (err as any)?.status;
+          debug("tools", `viagen_get_task FAILED: ${status || "?"} ${message}`);
+          return {
+            content: [{ type: "text" as const, text: `Error getting task: ${message}` }],
+          };
+        }
       },
     ),
 
@@ -161,20 +174,31 @@ export function createViagenTools(
           .describe("Task type: 'task' for code changes, 'plan' for implementation plans."),
       },
       async (args) => {
-        debug("tools", `viagen_create_task called (projectId: ${projectId}, type: ${args.type || "task"})`);
-        const task = await client.tasks.create(projectId, {
-          prompt: args.prompt,
-          branch: args.branch,
-          type: args.type,
-        });
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify(task, null, 2),
-            },
-          ],
-        };
+        debug("tools", `viagen_create_task called (projectId: ${projectId}, type: ${args.type || "task"}, prompt: "${args.prompt.slice(0, 80)}...")`);
+        try {
+          const task = await client.tasks.create(projectId, {
+            prompt: args.prompt,
+            branch: args.branch,
+            type: args.type,
+          });
+          debug("tools", `viagen_create_task success (taskId: ${task.id})`);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(task, null, 2),
+              },
+            ],
+          };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Unknown error";
+          const status = (err as any)?.status;
+          const detail = (err as any)?.detail;
+          debug("tools", `viagen_create_task FAILED: ${status || "?"} ${message}${detail ? ` (${detail})` : ""}`);
+          return {
+            content: [{ type: "text" as const, text: `Error creating task: ${message}` }],
+          };
+        }
       },
     ),
   ];

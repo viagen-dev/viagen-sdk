@@ -319,7 +319,7 @@ export async function action({
   // ── Build sandbox ───────────────────────────────────
   const token = randomUUID();
   const tokenHash = createHash("sha256").update(token).digest("hex");
-  const timeoutMinutes = 45;
+  const timeoutMinutes = app.sandboxTimeout ?? 45;
   const timeoutMs = timeoutMinutes * 60 * 1000;
 
   // Compute session number scoped to project (if a project is linked)
@@ -485,6 +485,12 @@ export async function action({
       envMap["VIAGEN_ORG_ID"] = org.id;
       envMap["VIAGEN_MODEL"] = model;
       envMap["VIAGEN_PREVIEW"] = "true";
+      envMap["VIAGEN_DEBUG"] = "1";
+
+      // Always set project ID if provided (sessions may not have a task)
+      if (projectId) {
+        envMap["VIAGEN_PROJECT_ID"] = projectId;
+      }
 
       const redirectBase =
         process.env.AUTH_REDIRECT_BASE ?? "http://localhost:5173";

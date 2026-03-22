@@ -707,7 +707,7 @@ async function sandbox(args: string[], options?: SandboxRunOptions) {
         branch: envBranch || "main",
         userName: envUserName || "viagen",
         userEmail: envUserEmail || "noreply@viagen.dev",
-        isDirty: false, // can't know from env, assume clean
+        isDirty: (() => { try { return execSync("git status --porcelain", { cwd, encoding: "utf-8" }).trim().length > 0; } catch { return false; } })()
       }
     : getGitInfo(cwd);
 
@@ -754,8 +754,8 @@ async function sandbox(args: string[], options?: SandboxRunOptions) {
       token: githubToken,
     });
 
-    // Only offer dirty-tree options when using runtime detection (not .env)
-    if (!envRemoteUrl && gitInfo.isDirty && !branchOverride) {
+    // Offer dirty-tree options when there are uncommitted changes
+    if (gitInfo.isDirty && !branchOverride) {
       console.log("");
       console.log("Your working tree has uncommitted changes.");
       console.log("");
