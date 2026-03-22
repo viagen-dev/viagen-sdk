@@ -220,13 +220,16 @@ export function viagen(options?: ViagenOptions): Plugin {
         }
       }
 
-      // Auth middleware — only when VIAGEN_AUTH_TOKEN is set (sandbox mode)
+      // Auth middleware — only on the viagen server, never on the child app.
+      // The child reads VIAGEN_AUTH_TOKEN from .env via loadEnv, but auth
+      // should only protect the chat/AI interface, not the user's app.
+      const isChildProcess = process.env["__VIAGEN_CHILD"] === "1";
       const authToken = env["VIAGEN_AUTH_TOKEN"];
-      if (authToken) {
+      if (authToken && !isChildProcess) {
         debug("server", "auth middleware enabled (VIAGEN_AUTH_TOKEN set)");
         server.middlewares.use(createAuthMiddleware(authToken));
       } else {
-        debug("server", "auth middleware DISABLED (no VIAGEN_AUTH_TOKEN)");
+        debug("server", `auth middleware DISABLED (${isChildProcess ? "child process" : "no VIAGEN_AUTH_TOKEN"})`);
       }
 
       // Platform SDK client — used for task CRUD and usage reporting
