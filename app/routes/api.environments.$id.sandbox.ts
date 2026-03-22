@@ -356,10 +356,11 @@ export async function action({
         sandboxRootDir,
         sandboxCommandSource: app.sandboxCommand ? "db" : envVars["VIAGEN_APP_COMMAND"] ? "env" : "none",
         sandboxRootDirSource: app.sandboxRootDir ? "db" : envVars["SANDBOX_ROOT_DIR"] ? "env" : "none",
+        appPort: envVars["VIAGEN_APP_PORT"] || "5173 (default)",
       },
       "sandbox config resolved",
     );
-    const appPort = 5173;
+    const appPort = parseInt(envVars["VIAGEN_APP_PORT"] || "5173", 10);
     const ports = sandboxCommand ? [appPort, viagenServerPort] : [appPort];
 
     const sandbox = await Sandbox.create({
