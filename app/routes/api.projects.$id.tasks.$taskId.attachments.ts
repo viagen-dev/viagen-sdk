@@ -4,6 +4,7 @@ import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, tasks, taskAttachments } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
+import { findProject } from "~/lib/project-lookup.server";
 
 const MAX_ATTACHMENTS = 3;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -16,17 +17,14 @@ export async function loader({
   request: Request;
 }) {
   const { user, org } = await requireAuth(request);
-  const { id: projectId, taskId } = params;
+  const { taskId } = params;
 
-  const [project] = await db
-    .select({ id: projects.id })
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.organizationId, org.id)));
-
+  const project = await findProject(org.id, params.id);
   if (!project) {
-    log.warn({ userId: user.id, projectId }, "project attachments list: project not found or not in org");
+    log.warn({ userId: user.id, projectIdOrSlug: params.id }, "project attachments list: project not found or not in org");
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
+  const projectId = project.id;
 
   const [task] = await db
     .select({ id: tasks.id })
@@ -59,17 +57,14 @@ export async function action({
   }
 
   const { user, org } = await requireAuth(request);
-  const { id: projectId, taskId } = params;
+  const { taskId } = params;
 
-  const [project] = await db
-    .select({ id: projects.id })
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.organizationId, org.id)));
-
+  const project = await findProject(org.id, params.id);
   if (!project) {
-    log.warn({ userId: user.id, projectId }, "project attachments action: project not found or not in org");
+    log.warn({ userId: user.id, projectIdOrSlug: params.id }, "project attachments action: project not found or not in org");
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
+  const projectId = project.id;
 
   const [task] = await db
     .select({ id: tasks.id, status: tasks.status })

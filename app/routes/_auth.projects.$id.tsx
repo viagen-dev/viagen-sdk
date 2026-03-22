@@ -780,7 +780,7 @@ export default function ProjectDetail({
         return;
       }
       console.log("[ProjectDetail] Task created:", data.task?.id);
-      navigate(`/projects/${project.slug ?? project.id}/tasks/${data.task.id}`);
+      navigate(`/projects/${project.slug ?? project.id}/tasks/${data.task.taskNumber ?? data.task.id}`);
     } catch (err) {
       console.error("[ProjectDetail] Create task error:", err);
       toast.error("Failed to create task");
@@ -1216,7 +1216,7 @@ export default function ProjectDetail({
                             return (
                               <Link
                                 key={task.id}
-                                to={`/environments/${task.environmentId}/tasks/${task.id}?from=project&projectId=${project.id}`}
+                                to={`/projects/${project.slug ?? project.id}/tasks/${task.taskNumber ?? task.id}`}
                                 className="flex items-center gap-2.5 w-full h-10 pl-8 pr-3 transition-colors text-left min-w-0 overflow-hidden hover:bg-muted/50"
                               >
                                 <span className="font-mono text-xs text-muted-foreground shrink-0">
@@ -1356,7 +1356,7 @@ export default function ProjectDetail({
                           return (
                             <Link
                               key={task.id}
-                              to={`/environments/${task.environmentId}/tasks/${task.id}?from=project&projectId=${project.id}`}
+                              to={`/projects/${project.slug ?? project.id}/tasks/${task.taskNumber ?? task.id}`}
                               className={cn(
                                 "flex items-center gap-2.5 w-full h-10 pl-8 pr-3 transition-colors text-left min-w-0 overflow-hidden hover:bg-muted/50",
                               )}

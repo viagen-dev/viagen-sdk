@@ -111,7 +111,7 @@ export function AppSidebar({
       setCreatingProject(false);
       setNewProjectName("");
       revalidator.revalidate();
-      navigate(`/projects/${data.project.id}`);
+      navigate(`/projects/${data.project.slug ?? data.project.id}`);
     } catch {
       toast.error("Failed to create project");
     } finally {

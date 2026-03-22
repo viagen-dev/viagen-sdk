@@ -68,12 +68,13 @@ export async function loader({
   }
 
   // Load project if linked
-  let project: { id: string; name: string; taskPrefix: string | null } | null =
+  let project: { id: string; slug: string | null; name: string; taskPrefix: string | null } | null =
     null;
   if (ws.projectId) {
     const [proj] = await db
       .select({
         id: projects.id,
+        slug: projects.slug,
         name: projects.name,
         taskPrefix: projects.taskPrefix,
       })
@@ -142,7 +143,7 @@ interface LoaderData {
     name: string;
     githubRepo: string | null;
   };
-  project: { id: string; name: string; taskPrefix: string | null } | null;
+  project: { id: string; slug: string | null; name: string; taskPrefix: string | null } | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -285,7 +286,7 @@ export default function SessionDetailPage({
       toast.success("Session stopped");
       // Navigate back
       if (from === "project" && loaderData.project) {
-        navigate(`/projects/${loaderData.project.id}?tab=sessions`);
+        navigate(`/projects/${loaderData.project.slug ?? loaderData.project.id}?tab=sessions`);
       } else {
         navigate("/sessions");
       }
@@ -351,7 +352,7 @@ export default function SessionDetailPage({
 
   const backTo =
     from === "project" && loaderData.project
-      ? `/projects/${loaderData.project.id}?tab=sessions`
+      ? `/projects/${loaderData.project.slug ?? loaderData.project.id}?tab=sessions`
       : "/sessions";
 
   const backLabel =
@@ -487,7 +488,7 @@ export default function SessionDetailPage({
               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                 {loaderData.project && (
                   <Link
-                    to={`/projects/${loaderData.project.id}?tab=sessions`}
+                    to={`/projects/${loaderData.project.slug ?? loaderData.project.id}?tab=sessions`}
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {loaderData.project.name}
@@ -539,7 +540,7 @@ export default function SessionDetailPage({
             {loaderData.project && (
               <DetailRow label="Project">
                 <Link
-                  to={`/projects/${loaderData.project.id}?tab=sessions`}
+                  to={`/projects/${loaderData.project.slug ?? loaderData.project.id}?tab=sessions`}
                   className="hover:underline underline-offset-2 text-foreground"
                 >
                   {loaderData.project.name}

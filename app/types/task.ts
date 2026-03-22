@@ -2,6 +2,7 @@ import type { Attachment } from "~/components/task-attachments";
 
 export interface Project {
   id: string;
+  slug: string | null;
   name: string;
   taskPrefix: string | null;
   githubRepo: string | null;
@@ -61,6 +62,7 @@ export interface FeedTask {
   vercelProjectId: string | null;
   vercelProjectName: string | null;
   projectId: string | null;
+  projectSlug: string | null;
   projectName: string | null;
   prReviewStatus: string | null;
   attachments?: Attachment[];

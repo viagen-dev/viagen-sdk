@@ -30,31 +30,49 @@ export async function loader({
   params: { id: string; taskId: string };
 }) {
   const { org, memberships } = await requireAuth(request);
-  const projectId = params.id;
 
   // Verify project belongs to org (supports slug or UUID)
-  const project = await findProject(org.id, projectId);
+  const project = await findProject(org.id, params.id);
 
   if (!project) {
     log.warn(
-      { projectId, orgId: org.id },
+      { projectIdOrSlug: params.id, orgId: org.id },
       "project task detail: project not found or not in org",
     );
     throw Response.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Verify task exists in this project (use resolved UUID, not the slug from params)
+  // Resolve task by taskNumber (numeric) or UUID
+  const taskParam = params.taskId;
+  const isNumeric = /^\d+$/.test(taskParam);
+
   let [task] = await db
     .select()
     .from(tasks)
-    .where(and(eq(tasks.id, params.taskId), eq(tasks.projectId, project.id)));
+    .where(
+      and(
+        isNumeric
+          ? eq(tasks.taskNumber, Number(taskParam))
+          : eq(tasks.id, taskParam),
+        eq(tasks.projectId, project.id),
+      ),
+    );
 
   if (!task) {
     log.warn(
-      { projectId, taskId: params.taskId },
+      { projectIdOrSlug: params.id, taskParam: taskParam },
       "project task detail: task not found",
     );
     throw Response.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // Canonical URL: /projects/:slug/tasks/:taskNumber
+  // Redirect if accessed by UUID or non-slug project ID
+  const canonicalSlug = project.slug ?? project.id;
+  const canonicalTaskNum = String(task.taskNumber ?? task.id);
+  if (params.id !== canonicalSlug || taskParam !== canonicalTaskNum) {
+    const url = new URL(request.url);
+    throw redirect(`/projects/${canonicalSlug}/tasks/${canonicalTaskNum}${url.search}`);
   }
 
   // Auto-complete if PR has been merged
@@ -74,7 +92,7 @@ export async function loader({
         );
         if (merged) {
           log.info(
-            { projectId, taskId: task.id, prUrl: task.prUrl },
+            { projectId: project.id, taskId: task.id, prUrl: task.prUrl },
             "project task detail: PR merged, auto-completing task",
           );
           const [updated] = await db
@@ -88,7 +106,7 @@ export async function loader({
     } catch (err) {
       log.warn(
         {
-          projectId,
+          projectId: project.id,
           taskId: task.id,
           error: err instanceof Error ? err.message : "unknown",
         },
@@ -110,7 +128,7 @@ export async function loader({
     .orderBy(projects.name);
 
   log.debug(
-    { projectId, taskId: task.id },
+    { projectId: project.id, taskId: task.id },
     "project task detail: rendering",
   );
 

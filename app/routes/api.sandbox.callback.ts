@@ -9,6 +9,7 @@ import {
   projects,
 } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
+import { nextTaskNumber } from "~/lib/next-task-number.server";
 import { sendTaskReadyEmail } from "~/lib/email.server";
 
 const VALID_TASK_TYPES = ["task", "plan"] as const;
@@ -129,12 +130,6 @@ export async function action({ request }: { request: Request }) {
         );
       }
 
-      const maxTaskNumber = Math.max(
-        0,
-        ...appTasks.map((t) => t.taskNumber ?? 0),
-      );
-      const taskNumber = maxTaskNumber + 1;
-
       // Resolve the project for this task — fall back to the org's default (Unassigned) project
       const [environment] = await db
         .select()
@@ -158,7 +153,7 @@ export async function action({ request }: { request: Request }) {
         }
       }
 
-      if (!resolvedProjectId) {
+      if (!resolvedProjectId || !environment) {
         log.error(
           { environmentId: body.projectId },
           "sandbox callback: no default project found for org — cannot create task",
@@ -168,6 +163,9 @@ export async function action({ request }: { request: Request }) {
           { status: 500 },
         );
       }
+
+      // Get next org-global task number
+      const taskNumber = await nextTaskNumber(environment.organizationId);
 
       const [task] = await db
         .insert(tasks)

@@ -5,6 +5,7 @@ import { projects, tasks } from "~/lib/db/schema";
 import { getSecret } from "~/lib/infisical.server";
 import { parsePrUrl, mergePr } from "~/lib/github.server";
 import { log } from "~/lib/logger.server";
+import { findProject } from "~/lib/project-lookup.server";
 
 export async function action({
   params,
@@ -18,17 +19,14 @@ export async function action({
   }
 
   const { user, org } = await requireAuth(request);
-  const { id: projectId, taskId } = params;
+  const { taskId } = params;
 
-  const [project] = await db
-    .select()
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.organizationId, org.id)));
-
+  const project = await findProject(org.id, params.id);
   if (!project) {
-    log.warn({ userId: user.id, projectId }, "project merge: project not found or not in org");
+    log.warn({ userId: user.id, projectIdOrSlug: params.id }, "project merge: project not found or not in org");
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
+  const projectId = project.id;
 
   const [task] = await db
     .select()

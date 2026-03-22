@@ -4,6 +4,7 @@ import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, projectAttachments } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
+import { findProject } from "~/lib/project-lookup.server";
 
 const MAX_ATTACHMENTS = 5;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -16,27 +17,21 @@ export async function loader({
   request: Request;
 }) {
   const { user, org } = await requireAuth(request);
-  const { id: projectId } = params;
 
   log.debug(
-    { userId: user.id, projectId },
+    { userId: user.id, projectIdOrSlug: params.id },
     "project attachments: listing",
   );
 
-  const [project] = await db
-    .select({ id: projects.id })
-    .from(projects)
-    .where(
-      and(eq(projects.id, projectId), eq(projects.organizationId, org.id)),
-    );
-
+  const project = await findProject(org.id, params.id);
   if (!project) {
     log.warn(
-      { userId: user.id, orgId: org.id, projectId },
+      { userId: user.id, orgId: org.id, projectIdOrSlug: params.id },
       "project attachments list: project not found or not in org",
     );
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
+  const projectId = project.id;
 
   const attachments = await db
     .select()
@@ -63,27 +58,21 @@ export async function action({
   if (request.method !== "POST" && request.method !== "DELETE") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
-  const { id: projectId } = params;
 
   log.debug(
-    { userId: user.id, orgId: org.id, projectId, method: request.method },
+    { userId: user.id, orgId: org.id, projectIdOrSlug: params.id, method: request.method },
     "project attachments: action called",
   );
 
-  const [project] = await db
-    .select({ id: projects.id })
-    .from(projects)
-    .where(
-      and(eq(projects.id, projectId), eq(projects.organizationId, org.id)),
-    );
-
+  const project = await findProject(org.id, params.id);
   if (!project) {
     log.warn(
-      { userId: user.id, orgId: org.id, projectId },
+      { userId: user.id, orgId: org.id, projectIdOrSlug: params.id },
       "project attachments action: project not found or not in org",
     );
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
+  const projectId = project.id;
 
   // ── DELETE ──────────────────────────────────────────
   if (request.method === "DELETE") {

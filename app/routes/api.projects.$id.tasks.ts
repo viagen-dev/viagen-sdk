@@ -1,9 +1,11 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { generateTaskTitle } from "~/lib/task-title.server";
 import { requireAuth } from "~/lib/session.server";
 import { db } from "~/lib/db/index.server";
 import { projects, environments, tasks, orgMembers, users } from "~/lib/db/schema";
 import { log } from "~/lib/logger.server";
+import { findProject } from "~/lib/project-lookup.server";
+import { nextTaskNumber } from "~/lib/next-task-number.server";
 
 export async function loader({
   params,
@@ -13,18 +15,15 @@ export async function loader({
   request: Request;
 }) {
   const { user, org } = await requireAuth(request);
-  const projectId = params.id;
 
-  // Verify project belongs to user's org
-  const [project] = await db
-    .select()
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.organizationId, org.id)));
+  const project = await findProject(org.id, params.id);
 
   if (!project) {
-    log.warn({ userId: user.id, projectId }, "project tasks list: project not found or not in org");
+    log.warn({ userId: user.id, projectIdOrSlug: params.id }, "project tasks list: project not found or not in org");
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
+
+  const projectId = project.id;
 
   const url = new URL(request.url);
   const statusFilter = url.searchParams.get("status");
@@ -51,6 +50,7 @@ export async function loader({
     creatorAvatarUrl: r.creatorAvatarUrl ?? null,
     environmentName: r.environmentName,
     projectName: project.name,
+    projectSlug: project.slug ?? null,
     taskPrefix: project.taskPrefix ?? null,
     githubRepo: r.githubRepo ?? null,
     vercelProjectId: r.vercelProjectId ?? null,
@@ -75,18 +75,15 @@ export async function action({
   }
 
   const { user, org } = await requireAuth(request);
-  const projectId = params.id;
 
-  // Verify project belongs to user's org
-  const [project] = await db
-    .select()
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.organizationId, org.id)));
+  const project = await findProject(org.id, params.id);
 
   if (!project) {
-    log.warn({ userId: user.id, projectId }, "project task create: project not found or not in org");
+    log.warn({ userId: user.id, projectIdOrSlug: params.id }, "project task create: project not found or not in org");
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
+
+  const projectId = project.id;
 
   // Verify membership
   const [membership] = await db
@@ -158,12 +155,8 @@ export async function action({
     resolvedEnvironmentId = envQuery[0].id;
   }
 
-  // Get next task number for this project
-  const [{ max: maxNum }] = await db
-    .select({ max: sql<number>`coalesce(max(${tasks.taskNumber}), 0)` })
-    .from(tasks)
-    .where(eq(tasks.projectId, projectId));
-  const taskNumber = (maxNum ?? 0) + 1;
+  // Get next org-global task number
+  const taskNumber = await nextTaskNumber(org.id);
 
   const [task] = await db
     .insert(tasks)

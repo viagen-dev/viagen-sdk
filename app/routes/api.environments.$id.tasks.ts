@@ -54,6 +54,7 @@ export async function loader({
       creatorName: users.name,
       creatorAvatarUrl: users.avatarUrl,
       projectName: projects.name,
+      projectSlug: projects.slug,
     })
     .from(tasks)
     .leftJoin(users, eq(tasks.createdBy, users.id))
@@ -67,6 +68,7 @@ export async function loader({
     creatorName: r.creatorName ?? null,
     creatorAvatarUrl: r.creatorAvatarUrl ?? null,
     projectName: r.projectName ?? null,
+    projectSlug: r.projectSlug ?? null,
   }));
 
   // Auto-timeout tasks that have been running for 40+ minutes without agent response

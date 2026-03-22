@@ -13,6 +13,7 @@ import { log } from "~/lib/logger.server";
 import { getSecret } from "~/lib/infisical.server";
 import { parsePrUrl, isPrMerged } from "~/lib/github.server";
 import { sendTaskTimeoutEmail } from "~/lib/email.server";
+import { nextTaskNumber } from "~/lib/next-task-number.server";
 
 // ── GET /api/tasks — List all tasks for the current org ───────────────────
 
@@ -55,6 +56,7 @@ export async function loader({ request }: { request: Request }) {
       creatorAvatarUrl: users.avatarUrl,
       environmentName: environments.name,
       projectTaskPrefix: projects.taskPrefix,
+      projectSlug: projects.slug,
       githubRepo: environments.githubRepo,
       vercelProjectId: environments.vercelProjectId,
       vercelProjectName: environments.vercelProjectName,
@@ -81,6 +83,7 @@ export async function loader({ request }: { request: Request }) {
     vercelProjectId: r.vercelProjectId,
     vercelProjectName: r.vercelProjectName,
     projectId: r.task.projectId ?? null,
+    projectSlug: r.projectSlug ?? null,
     projectName: r.projectName ?? null,
   }));
 
@@ -387,13 +390,6 @@ export async function action({ request }: { request: Request }) {
 
   // ── Create the task ──
 
-  // Get next task number for this app
-  const [{ max: maxNum }] = await db
-    .select({ max: sql<number>`coalesce(max(${tasks.taskNumber}), 0)` })
-    .from(tasks)
-    .where(eq(tasks.environmentId, environmentId));
-  const taskNumber = (maxNum ?? 0) + 1;
-
   // ── Find or create a project for this repo + Vercel combo ──
   let projectId: string;
 
@@ -436,6 +432,9 @@ export async function action({ request }: { request: Request }) {
       "team task create: auto-created project",
     );
   }
+
+  // Get next org-global task number
+  const taskNumber = await nextTaskNumber(org.id);
 
   const [task] = await db
     .insert(tasks)
