@@ -1152,7 +1152,12 @@ async function sync() {
 // ─── pull command ───────────────────────────────────────────────
 
 async function pull() {
-  const client = await requireClient();
+  const creds = await loadCredentials();
+  if (!creds) {
+    console.error("Not logged in. Run `viagen login` first.");
+    process.exit(1);
+  }
+  const client = createViagen({ baseUrl: creds.baseUrl, token: creds.token, orgId: creds.orgId });
   const cwd = process.cwd();
   const env = loadDotenv(cwd);
 
@@ -1203,10 +1208,19 @@ async function pull() {
     }
   }
 
-  // Fetch secrets from the platform
+  // Fetch secrets from the platform via raw request (bypasses SDK version constraints)
   let secrets: Record<string, string>;
   try {
-    secrets = await client.environments.pullSecrets(environmentId);
+    const res = await fetch(
+      `${creds.baseUrl}/api/environments/${environmentId}/pull`,
+      { headers: { Authorization: `Bearer ${creds.token}`, "Content-Type": "application/json" } },
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error ?? `HTTP ${res.status}`);
+    }
+    const data = await res.json() as { secrets: Record<string, string> };
+    secrets = data.secrets;
   } catch (err) {
     console.error("Failed to fetch secrets from the platform.");
     if (err instanceof Error) console.error(err.message);
