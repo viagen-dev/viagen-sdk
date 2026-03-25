@@ -1211,10 +1211,12 @@ async function pull() {
   // Fetch secrets from the platform via raw request (bypasses SDK version constraints)
   let secrets: Record<string, string>;
   try {
-    const res = await fetch(
-      `${creds.baseUrl}/api/environments/${environmentId}/pull`,
-      { headers: { Authorization: `Bearer ${creds.token}`, "Content-Type": "application/json" } },
-    );
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${creds.token}`,
+      "Content-Type": "application/json",
+    };
+    if (creds.orgId) headers["X-Organization"] = creds.orgId;
+    const res = await fetch(`${creds.baseUrl}/api/environments/${environmentId}/pull`, { headers });
     if (!res.ok) {
       const body = await res.json().catch(() => ({})) as { error?: string };
       throw new Error(body.error ?? `HTTP ${res.status}`);

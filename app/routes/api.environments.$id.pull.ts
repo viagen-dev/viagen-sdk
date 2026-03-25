@@ -27,7 +27,7 @@ export async function loader({
 
   if (!app) {
     log.warn({ environmentId: id, orgId: org.id }, "pull secrets: environment not found");
-    return Response.json({ error: "App not found" }, { status: 404 });
+    return Response.json({ error: "Environment not found" }, { status: 404 });
   }
 
   const resolved = await resolveAllSecrets(org.id, id);
