@@ -248,4 +248,55 @@ describe.skipIf(!TOKEN)('environments', () => {
       expect(original.name).toContain('sync-isolation-')
     })
   })
+
+  // ── pullSecrets ────────────────────────────────────────
+
+  describe('pullSecrets', () => {
+    let pullEnvId: string
+
+    beforeAll(async () => {
+      const result = await authed.environments.sync({
+        name: `pull-test-${Date.now()}`,
+        secrets: { PULL_TEST_KEY: 'pull-test-value', ANOTHER_KEY: 'another-value' },
+      })
+      pullEnvId = result.app.id
+    })
+
+    it('pullSecrets() returns a flat map of unmasked secrets', async () => {
+      const secrets = await authed.environments.pullSecrets(pullEnvId)
+      expect(secrets).toBeTypeOf('object')
+      expect(secrets['PULL_TEST_KEY']).toBe('pull-test-value')
+      expect(secrets['ANOTHER_KEY']).toBe('another-value')
+    })
+
+    it('pullSecrets() returns 401 without a token', async () => {
+      try {
+        await unauthed.environments.pullSecrets(pullEnvId)
+        expect.fail('Expected error')
+      } catch (err) {
+        expect(err).toBeInstanceOf(ViagenApiError)
+        expect((err as ViagenApiError).status).toBe(401)
+      }
+    })
+
+    it('pullSecrets() returns 404 for non-existent environment', async () => {
+      try {
+        await authed.environments.pullSecrets('00000000-0000-0000-0000-000000000000')
+        expect.fail('Expected error')
+      } catch (err) {
+        expect(err).toBeInstanceOf(ViagenApiError)
+        expect((err as ViagenApiError).status).toBe(404)
+      }
+    })
+
+    it('outsider cannot pull secrets from another org', async () => {
+      try {
+        await outsider.environments.pullSecrets(pullEnvId)
+        expect.fail('Expected error')
+      } catch (err) {
+        expect(err).toBeInstanceOf(ViagenApiError)
+        expect((err as ViagenApiError).status).toBe(404)
+      }
+    })
+  })
 })

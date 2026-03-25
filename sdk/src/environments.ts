@@ -101,6 +101,8 @@ export interface EnvironmentsClient {
   sync(input: SyncEnvironmentInput): Promise<SyncResult>
   /** List all secrets for an app (app + inherited org). */
   listSecrets(id: string): Promise<EnvironmentSecret[]>
+  /** Pull all secrets for an app as a flat map with unmasked values. Admin only. */
+  pullSecrets(id: string): Promise<Record<string, string>>
   /** Set an app secret. Admin only. */
   setSecret(id: string, key: string, value: string): Promise<void>
   /** Delete an app secret. Admin only. */
@@ -178,6 +180,11 @@ export function createEnvironmentsClient(_baseUrl: string, request: RequestFn): 
         ...data.environment.map((s) => ({ ...s, source: 'environment' as const })),
         ...data.org.map((s) => ({ ...s, source: 'org' as const })),
       ]
+    },
+
+    async pullSecrets(id) {
+      const data = await request<{ secrets: Record<string, string> }>(`/api/environments/${id}/pull`)
+      return data.secrets
     },
 
     async setSecret(id, key, value) {

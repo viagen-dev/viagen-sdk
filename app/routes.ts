@@ -89,6 +89,10 @@ export default [
     "routes/api.environments.$id.secrets.ts",
   ),
   route(
+    "api/environments/:id/pull",
+    "routes/api.environments.$id.pull.ts",
+  ),
+  route(
     "api/environments/:id/vercel-sync",
     "routes/api.environments.$id.vercel-sync.ts",
   ),

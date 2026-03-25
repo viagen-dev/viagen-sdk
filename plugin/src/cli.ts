@@ -1149,6 +1149,129 @@ async function sync() {
   console.log("You can now launch sandboxes from the web platform.");
 }
 
+// ─── pull command ───────────────────────────────────────────────
+
+async function pull() {
+  const client = await requireClient();
+  const cwd = process.cwd();
+  const env = loadDotenv(cwd);
+
+  console.log("viagen pull");
+  console.log("");
+
+  // Resolve environment ID
+  let environmentId: string | undefined = env["VIAGEN_ENVIRONMENT_ID"];
+  let environmentName: string | undefined;
+
+  if (environmentId) {
+    try {
+      const existing = await client.environments.get(environmentId);
+      environmentName = existing.name;
+      console.log(`Environment: ${environmentName}`);
+    } catch {
+      console.log("Previously synced environment not found. Choose an environment:");
+      console.log("");
+      environmentId = undefined;
+    }
+  }
+
+  if (!environmentId) {
+    const envList = await client.environments.list();
+
+    if (envList.length === 0) {
+      console.error("No environments found. Run `viagen sync` first to push your credentials.");
+      process.exit(1);
+    }
+
+    console.log("Your environments:");
+    console.log("");
+    for (let i = 0; i < envList.length; i++) {
+      const repo = envList[i].githubRepo ? ` (${envList[i].githubRepo})` : "";
+      console.log(`  ${i + 1}) ${envList[i].name}${repo}`);
+    }
+    console.log("");
+
+    const choice = await promptUser("Choose: ");
+    const idx = parseInt(choice, 10) - 1;
+
+    if (idx >= 0 && idx < envList.length) {
+      environmentId = envList[idx].id;
+      environmentName = envList[idx].name;
+    } else {
+      console.log("Cancelled.");
+      return;
+    }
+  }
+
+  // Fetch secrets from the platform
+  let secrets: Record<string, string>;
+  try {
+    secrets = await client.environments.pullSecrets(environmentId);
+  } catch (err) {
+    console.error("Failed to fetch secrets from the platform.");
+    if (err instanceof Error) console.error(err.message);
+    process.exit(1);
+  }
+
+  // Filter out any local-only keys that shouldn't be overwritten
+  for (const key of SYNC_DENY_KEYS) {
+    delete secrets[key];
+  }
+
+  const keys = Object.keys(secrets);
+  if (keys.length === 0) {
+    console.log("No secrets found on the platform for this environment.");
+    return;
+  }
+
+  // Categorize as new vs updated
+  const toAdd: string[] = [];
+  const toUpdate: string[] = [];
+  for (const key of keys) {
+    if (env[key] !== undefined) {
+      toUpdate.push(key);
+    } else {
+      toAdd.push(key);
+    }
+  }
+
+  console.log("");
+  if (toUpdate.length > 0) {
+    console.log(`To update (${toUpdate.length}):`);
+    for (const key of toUpdate) console.log(`  ${key}`);
+  }
+  if (toAdd.length > 0) {
+    console.log(`To add (${toAdd.length}):`);
+    for (const key of toAdd) console.log(`  ${key}`);
+  }
+  console.log("");
+
+  const answer = await promptUser("Write to .env? [y/n]: ");
+  if (answer !== "y" && answer !== "yes") {
+    console.log("Cancelled.");
+    return;
+  }
+
+  // Update existing keys, then add new ones
+  if (toUpdate.length > 0) {
+    const updates: Record<string, string> = {};
+    for (const key of toUpdate) updates[key] = secrets[key];
+    updateEnvVars(cwd, updates);
+  }
+  if (toAdd.length > 0) {
+    const additions: Record<string, string> = {};
+    for (const key of toAdd) additions[key] = secrets[key];
+    writeEnvVars(cwd, additions);
+  }
+
+  // Save environment ID if not already present
+  if (!env["VIAGEN_ENVIRONMENT_ID"] && environmentId) {
+    writeEnvVars(cwd, { VIAGEN_ENVIRONMENT_ID: environmentId });
+  }
+
+  console.log(`Pulled ${keys.length} secrets into .env.`);
+}
+
 // ─── login command ───────────────────────────────────────────────
 
 const PLATFORM_URL = process.env.VIAGEN_PLATFORM_URL || "https://app.viagen.dev";
@@ -1677,6 +1800,7 @@ function help() {
   console.log("  sandbox [-b branch] [-t min]   Deploy your project to a Vercel Sandbox");
   console.log("  sandbox stop <id>              Stop a running sandbox");
   console.log("  sync                           Push local credentials to the platform");
+  console.log("  pull                           Pull platform secrets into local .env");
   console.log("  help                           Show this help message");
   console.log("");
   console.log("Serve options:");
@@ -1772,6 +1896,8 @@ async function main() {
     await sandbox(args.slice(1));
   } else if (command === "sync") {
     await sync();
+  } else if (command === "pull") {
+    await pull();
   } else {
     help();
   }
