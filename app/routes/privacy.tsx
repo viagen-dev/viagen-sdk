@@ -165,12 +165,12 @@ export default function PrivacyPolicyPage() {
           Viagen is open-source software licensed under the MIT License. You can
           review the complete source code at{" "}
           <a
-            href="https://github.com/viagen-dev/viagen"
+            href="https://github.com/northwoods-agency/viagen"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-foreground"
           >
-            github.com/viagen-dev/viagen
+            github.com/northwoods-agency/viagen
           </a>{" "}
           to verify these privacy practices.
         </P>
@@ -180,7 +180,7 @@ export default function PrivacyPolicyPage() {
         <P>
           For questions about this privacy policy, please{" "}
           <a
-            href="https://github.com/viagen-dev/viagen/issues"
+            href="https://github.com/northwoods-agency/viagen/issues"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-foreground"

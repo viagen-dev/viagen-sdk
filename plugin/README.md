@@ -11,7 +11,7 @@ A Vite dev server plugin and CLI tool that enables you to use Claude Code in a s
 ## Quick Setup (Claude Code Plugin)
 
 ```
-/plugin marketplace add viagen-dev/viagen-claude-plugin
+/plugin marketplace add northwoods-agency/viagen-claude-plugin
 /plugin install viagen@viagen-marketplace
 ```
 

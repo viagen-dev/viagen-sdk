@@ -33,7 +33,7 @@ const TEMPLATES = [
       | string
       | React.ReactNode,
     framework: "React",
-    repo: "viagen-dev/viagen-react-router",
+    repo: "northwoods-agency/viagen-react-router",
   },
   {
     id: "bring-your-own",

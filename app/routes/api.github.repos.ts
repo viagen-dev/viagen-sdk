@@ -29,7 +29,7 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ error: 'Repository name is required' }, { status: 400 })
   }
 
-  const templateRepo = body.templateRepo?.trim() // e.g. "viagen-dev/viagen-react-router"
+  const templateRepo = body.templateRepo?.trim() // e.g. "northwoods-agency/viagen-react-router"
   const owner = body.owner?.trim() // GitHub org login, or omit for personal account
 
   log.info(
