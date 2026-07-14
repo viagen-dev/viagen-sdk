@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { SidebarProvider } from "~/lib/sidebar-context";
-import { Link, Outlet, useLocation, useNavigate } from "react-router";
+import { Link, Outlet, useLocation, useNavigate, useNavigation } from "react-router";
 import { useProjectStore } from "~/store/project-store";
 import { requireAuth } from "~/lib/session.server";
 import { listOrgSecrets } from "~/lib/infisical.server";
@@ -140,6 +140,8 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
   } = loaderData;
   const location = useLocation();
   const navigate = useNavigate();
+  const navigation = useNavigation();
+  const isNavigating = navigation.state !== "idle";
 
   const [teamOpen, setTeamOpen] = useState(false); // kept for potential future use
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -343,10 +345,24 @@ export default function AuthLayout({ loaderData }: { loaderData: LoaderData }) {
         {/* Main content area — full bleed, each page owns its layout */}
         <main
           className={cn(
-            "flex-1 min-w-0 overflow-hidden bg-background transition-[margin] duration-200",
+            "relative flex-1 min-w-0 overflow-hidden bg-background transition-[margin] duration-200",
             sidebarOpen ? "ml-[217px]" : "ml-0",
           )}
         >
+          {/* Router busy indicator — 5px strip at top of main panel */}
+          <div
+            className="absolute top-0 left-0 right-0 z-50"
+            style={{
+              height: "5px",
+              background: isNavigating
+                ? "linear-gradient(90deg, white 0%, oklch(0.88 0 0) 50%, white 100%)"
+                : "white",
+              backgroundSize: isNavigating ? "200% 100%" : undefined,
+              animation: isNavigating
+                ? "router-shimmer 1.2s linear infinite"
+                : undefined,
+            }}
+          />
           <div className="h-svh flex flex-col min-w-0 overflow-hidden">
             <Outlet />
           </div>
